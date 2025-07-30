@@ -8,15 +8,118 @@
 from django.db import models
 
 
-class Admins(models.Model):
-    username = models.CharField(max_length=255)
-    password_hash = models.TextField()
-    email = models.CharField(max_length=255)
+class AuthGroup(models.Model):
+    name = models.CharField(unique=True, max_length=150)
 
     class Meta:
         managed = False
-        db_table = 'admins'
-        verbose_name_plural = "Admins"
+        db_table = 'auth_group'
+
+
+class AuthGroupPermissions(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
+    permission = models.ForeignKey('AuthPermission', models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_group_permissions'
+        unique_together = (('group', 'permission'),)
+
+
+class AuthPermission(models.Model):
+    name = models.CharField(max_length=255)
+    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING)
+    codename = models.CharField(max_length=100)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_permission'
+        unique_together = (('content_type', 'codename'),)
+
+
+class AuthUser(models.Model):
+    password = models.CharField(max_length=128)
+    last_login = models.DateTimeField(blank=True, null=True)
+    is_superuser = models.IntegerField()
+    username = models.CharField(unique=True, max_length=150)
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    email = models.CharField(max_length=254)
+    is_staff = models.IntegerField()
+    is_active = models.IntegerField()
+    date_joined = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user'
+
+
+class AuthUserGroups(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user_groups'
+        unique_together = (('user', 'group'),)
+
+
+class AuthUserUserPermissions(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    permission = models.ForeignKey(AuthPermission, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user_user_permissions'
+        unique_together = (('user', 'permission'),)
+
+
+class DjangoAdminLog(models.Model):
+    action_time = models.DateTimeField()
+    object_id = models.TextField(blank=True, null=True)
+    object_repr = models.CharField(max_length=200)
+    action_flag = models.PositiveSmallIntegerField()
+    change_message = models.TextField()
+    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING, blank=True, null=True)
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'django_admin_log'
+
+
+class DjangoContentType(models.Model):
+    app_label = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+
+    class Meta:
+        managed = False
+        db_table = 'django_content_type'
+        unique_together = (('app_label', 'model'),)
+
+
+class DjangoMigrations(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    app = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    applied = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_migrations'
+
+
+class DjangoSession(models.Model):
+    session_key = models.CharField(primary_key=True, max_length=40)
+    session_data = models.TextField()
+    expire_date = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_session'
 
 
 class Expenses(models.Model):
@@ -24,16 +127,15 @@ class Expenses(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField()
     description = models.TextField(blank=True, null=True)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'expenses'
-        verbose_name_plural = "Expenses"
 
 
 class HistoryLog(models.Model):
-    admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     log_type = models.ForeignKey('HistoryLogTypes', models.DO_NOTHING)
     log_date = models.DateTimeField()
 
@@ -44,26 +146,24 @@ class HistoryLog(models.Model):
 
 class HistoryLogTypes(models.Model):
     category = models.CharField(max_length=100)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'history_log_types'
-        verbose_name_plural = "History Log Types"
 
 
 class ProductBatches(models.Model):
     batch_date = models.DateField()
-    product = models.ForeignKey('Products', models.DO_NOTHING)
+    product_id = models.IntegerField()
     quantity = models.IntegerField()
     manufactured_date = models.DateField()
     expiration_date = models.DateField()
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_batches'
-        verbose_name_plural = "Product Batches"
 
 
 class ProductInventory(models.Model):
@@ -81,32 +181,29 @@ class ProductRecipes(models.Model):
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
     quantity_needed = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_recipes'
-        verbose_name_plural = "Product Recipes"
 
 
 class ProductTypes(models.Model):
     name = models.CharField(max_length=255)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_types'
-        verbose_name_plural = "Product Types"
 
 
 class ProductVariants(models.Model):
     name = models.CharField(max_length=255)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_variants'
-        verbose_name_plural = "Product Variants"
 
 
 class Products(models.Model):
@@ -117,12 +214,11 @@ class Products(models.Model):
     unit_price = models.ForeignKey('UnitPrices', models.DO_NOTHING)
     srp_price = models.ForeignKey('SrpPrices', models.DO_NOTHING)
     description = models.TextField(blank=True, null=True)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'products'
-        verbose_name_plural = "Products"
 
 
 class RawMaterialBatches(models.Model):
@@ -131,12 +227,11 @@ class RawMaterialBatches(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     received_date = models.DateField()
     expiration_date = models.DateField(blank=True, null=True)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'raw_material_batches'
-        verbose_name_plural = "Raw Material Batches"
 
 
 class RawMaterialInventory(models.Model):
@@ -155,12 +250,11 @@ class RawMaterials(models.Model):
     unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     expiration_data = models.DateField(blank=True, null=True)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'raw_materials'
-        verbose_name_plural = "Raw Materials"
 
 
 class Sales(models.Model):
@@ -168,42 +262,38 @@ class Sales(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField()
     description = models.TextField(blank=True, null=True)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'sales'
-        verbose_name_plural = "Sales"
 
 
 class SizeUnits(models.Model):
     unit_name = models.CharField(max_length=45)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'size_units'
-        verbose_name_plural = "Size Units"
 
 
 class Sizes(models.Model):
     size_label = models.CharField(max_length=255)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'sizes'
-        verbose_name_plural = "Sizes"
 
 
 class SrpPrices(models.Model):
     srp_price = models.DecimalField(max_digits=10, decimal_places=2)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'srp_prices'
-        verbose_name_plural = "SRP Prices"
 
 
 class StockChanges(models.Model):
@@ -212,19 +302,17 @@ class StockChanges(models.Model):
     quantity_change = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.TextField()
     date = models.DateTimeField()
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'stock_changes'
-        verbose_name_plural = "Stock Changes"
 
 
 class UnitPrices(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-    created_by_admin = models.ForeignKey(Admins, models.DO_NOTHING)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'unit_prices'
-        verbose_name_plural = "Unit Prices"
