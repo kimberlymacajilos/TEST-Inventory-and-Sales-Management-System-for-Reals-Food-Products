@@ -79,7 +79,7 @@ DATABASES = {
         'NAME': 'reals_db_dump',
         'USER': 'root',
         'PASSWORD': 'admin',
-        'HOST': 'localhost',
+        'HOST': '192.168.1.182',
         'PORT': '3306',
     }
 }
