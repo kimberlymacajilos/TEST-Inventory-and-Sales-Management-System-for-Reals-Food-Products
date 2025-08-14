@@ -1,8 +1,7 @@
 from django.contrib import admin
-from .models import Admins, Expenses, HistoryLog, HistoryLogTypes, ProductBatches, ProductInventory, ProductRecipes, ProductTypes, ProductVariants, Products, RawMaterialBatches, RawMaterialInventory, RawMaterials, Sales, SizeUnits, Sizes, SrpPrices, UnitPrices, StockChanges
+from .models import Expenses, HistoryLog, HistoryLogTypes, ProductBatches, ProductInventory, ProductRecipes, ProductTypes, ProductVariants, Products, RawMaterialBatches, RawMaterialInventory, RawMaterials, Sales, SizeUnits, Sizes, SrpPrices, UnitPrices, StockChanges
 # Register your models here.
 
-admin.site.register(Admins)
 admin.site.register(Expenses)
 admin.site.register(HistoryLog)
 admin.site.register(HistoryLogTypes)
