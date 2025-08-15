@@ -196,6 +196,9 @@ class ProductTypes(models.Model):
         managed = False
         db_table = 'product_types'
 
+    def __str__(self):
+        return self.name
+
 
 class ProductVariants(models.Model):
     name = models.CharField(max_length=255)
@@ -204,6 +207,9 @@ class ProductVariants(models.Model):
     class Meta:
         managed = False
         db_table = 'product_variants'
+
+    def __str__(self):
+        return self.name 
 
 
 class Products(models.Model):
@@ -256,6 +262,9 @@ class RawMaterials(models.Model):
         managed = False
         db_table = 'raw_materials'
 
+    def __str__(self):
+        return self.name
+
 
 class Sales(models.Model):
     category = models.CharField(max_length=255)
@@ -277,6 +286,8 @@ class SizeUnits(models.Model):
         managed = False
         db_table = 'size_units'
 
+    def __str__(self):
+        return self.unit_name
 
 class Sizes(models.Model):
     size_label = models.CharField(max_length=255)
@@ -286,6 +297,9 @@ class Sizes(models.Model):
         managed = False
         db_table = 'sizes'
 
+    def __str__(self):
+        return self.size_label
+
 
 class SrpPrices(models.Model):
     srp_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -294,6 +308,9 @@ class SrpPrices(models.Model):
     class Meta:
         managed = False
         db_table = 'srp_prices'
+
+    def __str__(self):
+        return f"{self.srp_price:.2f}"
 
 
 class StockChanges(models.Model):
@@ -316,3 +333,6 @@ class UnitPrices(models.Model):
     class Meta:
         managed = False
         db_table = 'unit_prices'
+
+    def __str__(self):
+        return f"{self.unit_price:.2f}"

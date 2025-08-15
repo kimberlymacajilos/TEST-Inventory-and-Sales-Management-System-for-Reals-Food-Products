@@ -1,13 +1,16 @@
 {% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Home</h4>
+        <h4 class="page-title">Products</h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">List of Products</div>
                         <div class="card-category">Page Subtitle</div>
+                        <div class="pull-right">
+                            <a href="{% url 'product-add' %}" class="btn btn-success btn-rounded">Add Product</a>
+                        </div>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped mt-3">
@@ -20,6 +23,7 @@
                                     <th scope="col">Unit Price</th>
                                     <th scope="col">SRP Price</th>
                                     <th scope="col">Description</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -32,6 +36,9 @@
                                     <td>{{ object.unit_price.unit_price }}</td>
                                     <td>{{ object.srp_price.srp_price }}</td>
                                     <td>{{ object.description }}</td>
+                                    <td>
+                                        <a href="{% url 'product-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
+                                        <a href="{% url 'product-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
                                 </tr>
                                 {% endfor %}
                             </tbody>
