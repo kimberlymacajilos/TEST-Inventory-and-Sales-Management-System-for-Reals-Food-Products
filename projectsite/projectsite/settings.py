@@ -78,8 +78,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'reals_db_dump',
         'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
+        'PASSWORD': 'admin',
+        'HOST': '192.168.1.182',
         'PORT': '3306',
     }
 }
