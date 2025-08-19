@@ -16,7 +16,25 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from realsproj.views import HomePageView, ProductsList, ProductCreateView, ProductsUpdateView, ProductsDeleteView
+from realsproj.views import RawMaterialsList, RawMaterialsCreateView, RawMaterialsUpdateView, RawMaterialsDeleteView
+from realsproj.views import HistoryLogList
+from realsproj import views as a
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
+    path('', a.HomePageView.as_view(), name='home'),
+
+    path('products/', a.ProductsList.as_view(), name='products'),
+    path('products/add', a.ProductCreateView.as_view(), name='product-add'),
+    path('products/<pk>', a.ProductsUpdateView.as_view(), name='product-edit'),
+    path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
+
+    path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
+    path('rawmaterials/add', a.RawMaterialsCreateView.as_view(), name='rawmaterials-add'),
+    path('rawmaterials/<pk>', a.RawMaterialsUpdateView.as_view(), name='rawmaterials-edit'),
+    path('rawmaterials/<pk>/delete', a.RawMaterialsDeleteView.as_view(), name='rawmaterials-delete'),
+
+    path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
 ]
