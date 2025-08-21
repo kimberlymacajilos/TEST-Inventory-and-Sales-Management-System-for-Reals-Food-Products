@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from realsproj.views import HomePageView, ProductsList, ProductCreateView, ProductsUpdateView, ProductsDeleteView
 from realsproj.views import RawMaterialsList, RawMaterialsCreateView, RawMaterialsUpdateView, RawMaterialsDeleteView
-from realsproj.views import HistoryLogList
+from realsproj.views import HistoryLogList, SalesList
 from realsproj import views as a
 
 urlpatterns = [
@@ -37,4 +37,15 @@ urlpatterns = [
     path('rawmaterials/<pk>/delete', a.RawMaterialsDeleteView.as_view(), name='rawmaterials-delete'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
+
+    path('sales/', a.SalesList.as_view(), name='sales'),
+    path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
+    path('sales/<pk>', a.SalesUpdateView.as_view(), name='sales-edit'),
+    path('sales/<pk>/delete', a.SalesDeleteView.as_view(), name='sales-delete'),
+
+    path('expenses/', a.ExpensesList.as_view(), name='expenses'),
+    path('expenses/add', a.ExpensesCreateView.as_view(), name='expenses-add'),
+    path('expenses/<pk>', a.ExpensesUpdateView.as_view(), name='expenses-edit'),
+    path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
+
 ]

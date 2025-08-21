@@ -1,6 +1,6 @@
 from django.forms import ModelForm
 from django import forms
-from .models import Products, RawMaterials, HistoryLog
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales
 
 class ProductsForm(ModelForm):
     class Meta:
@@ -15,4 +15,14 @@ class RawMaterialsForm(ModelForm):
 class HistoryLogForm(ModelForm):
     class Meta:
         model = HistoryLog
+        fields = "__all__"
+
+class SalesForm(ModelForm):
+    class Meta:
+        model = Sales
+        fields = "__all__"
+
+class ExpensesForm(ModelForm):
+    class Meta:
+        model = Expenses
         fields = "__all__"

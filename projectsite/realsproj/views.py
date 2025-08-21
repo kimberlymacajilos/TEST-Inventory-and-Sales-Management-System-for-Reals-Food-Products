@@ -2,8 +2,8 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm
-from realsproj.models import Products, RawMaterials, HistoryLog
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses
 
 class HomePageView(ListView):
     model = Products
@@ -64,5 +64,49 @@ class HistoryLogList(ListView):
 
     def get_queryset(self):
         return HistoryLog.objects.all().order_by('-id')  # or '-log_date'
+    
+class SalesList(ListView):
+    model = Sales
+    context_object_name = 'sales'
+    template_name = "sales_list.html"
+    paginate_by = 10
 
-# Create your views here.
+class SalesCreateView(CreateView):
+    model = Sales
+    form_class = SalesForm
+    template_name = 'sales_add.html'
+    success_url = reverse_lazy('sales')
+
+class SalesUpdateView(UpdateView):
+    model = Sales
+    form_class = SalesForm
+    template_name = 'sales_edit.html'
+    success_url = reverse_lazy('sales')
+
+class SalesDeleteView(DeleteView):
+    model = Sales
+    template_name = 'sales_delete.html'
+    success_url = reverse_lazy('sales')
+
+class ExpensesList(ListView):
+    model = Expenses
+    context_object_name = 'expenses'
+    template_name = "expenses_list.html"
+    paginate_by = 10
+
+class ExpensesCreateView(CreateView):
+    model = Expenses
+    form_class = ExpensesForm
+    template_name = 'expenses_add.html'
+    success_url = reverse_lazy('expenses')
+
+class ExpensesUpdateView(UpdateView):
+    model = Expenses
+    form_class = ExpensesForm
+    template_name = 'expenses_edit.html'
+    success_url = reverse_lazy('expenses')
+
+class ExpensesDeleteView(DeleteView):
+    model = Expenses
+    template_name = 'expenses_delete.html'
+    success_url = reverse_lazy('expenses')
