@@ -2,8 +2,8 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches
 
 class HomePageView(ListView):
     model = Products
@@ -110,3 +110,29 @@ class ExpensesDeleteView(DeleteView):
     model = Expenses
     template_name = 'expenses_delete.html'
     success_url = reverse_lazy('expenses')
+
+class ProductBatchList(ListView):
+    model = ProductBatches
+    context_object_name = 'product_batch'
+    template_name = "prodbatch_list.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return ProductBatches.objects.all().order_by('-id')
+    
+class ProductBatchCreateView(CreateView):
+    model = ProductBatches
+    form_class = ProductBatchForm
+    template_name = 'prodbatch_add.html'
+    success_url = reverse_lazy('product-batch')
+
+class ProductBatchUpdateView(UpdateView):
+    model = ProductBatches
+    form_class = ProductBatchForm
+    template_name = 'prodbatch_edit.html'
+    success_url = reverse_lazy('product-batch')
+
+class ProductBatchDeleteView(DeleteView):
+    model = ProductBatches
+    template_name = 'prodbatch_delete.html'
+    success_url = reverse_lazy('product-batch')

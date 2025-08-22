@@ -1,38 +1,40 @@
 {% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Sales</h4>
+        <h4 class="page-title">Products</h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">List of Sales</div>
+                        <div class="card-title">List of Product Batches</div>
                         <div class="card-category">Page Subtitle</div>
                         <div class="pull-right">
-                            <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
+                            <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">Add Product Batch</a>
                         </div>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped mt-3">
                             <thead>
                                 <tr>
-                                    <th scope="col">Category</th>
-                                    <th scope="col">Amount</th>
-                                    <th scope="col">Date</th>
-                                    <th scope="col">Description</th>
+                                    <th scope="col">Batch Date</th>
+                                    <th scope="col">Product</th>
+                                    <th scope="col">Quantity</th>
+                                    <th scope="col">Manufactured Date</th>
+                                    <th scope="col">Expiration Date</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for object in object_list %}
                                 <tr>
-                                    <td>{{ object.category.name}}</td>
-                                    <td>{{ object.amount }}</td>
-                                    <td>{{ object.date }}</td>
-                                    <td>{{ object.description }}</td>
+                                    <td>{{ object.batch_date }}</td>
+                                    <td>{{ object.product }}</td>
+                                    <td>{{ object.quantity }}</td>
+                                    <td>{{ object.manufactured_date }}</td>
+                                    <td>{{ object.expiration_date }}</td>
                                     <td>
-                                        <a href="{% url 'sales-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
-                                        <a href="{% url 'sales-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                        <a href="{% url 'product-batch-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
+                                        <a href="{% url 'product-batch-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
                                     </td>
                                 </tr>
                                 {% endfor %}

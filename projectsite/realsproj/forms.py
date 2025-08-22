@@ -1,6 +1,6 @@
 from django.forms import ModelForm
 from django import forms
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches
 
 class ProductsForm(ModelForm):
     class Meta:
@@ -26,3 +26,13 @@ class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
         fields = "__all__"
+
+class ProductBatchForm(ModelForm):
+    class Meta:
+        model = ProductBatches
+        fields = "__all__"
+        widgets = {
+            'batch_date': forms.DateInput(attrs={'type': 'date'}),
+            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
+            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+        }

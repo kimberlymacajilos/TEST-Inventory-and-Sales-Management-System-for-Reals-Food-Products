@@ -158,7 +158,7 @@ class HistoryLogTypes(models.Model):
 
 class ProductBatches(models.Model):
     batch_date = models.DateField()
-    product_id = models.IntegerField()
+    product = models.ForeignKey('Products', models.DO_NOTHING, db_column='product_id')  
     quantity = models.IntegerField()
     manufactured_date = models.DateField()
     expiration_date = models.DateField()
@@ -229,6 +229,8 @@ class Products(models.Model):
         managed = False
         db_table = 'products'
 
+    def __str__(self):
+        return f"{self.product_type.name} - {self.variant.name} ({self.size.size_label} {self.size_unit.unit_name})"
 
 class RawMaterialBatches(models.Model):
     batch_date = models.DateField()
