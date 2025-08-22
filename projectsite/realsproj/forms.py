@@ -1,6 +1,6 @@
 from django.forms import ModelForm
 from django import forms
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory
 
 class ProductsForm(ModelForm):
     class Meta:
@@ -35,4 +35,13 @@ class ProductBatchForm(ModelForm):
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+class ProductInventoryForm(ModelForm):
+    class Meta:
+        model = ProductInventory
+        fields = ['product', 'total_stock', 'restock_threshold']
+        widgets = {
+            'total_stock': forms.NumberInput(attrs={'min': 0}),
+            'restock_threshold': forms.NumberInput(attrs={'min': 0}),
         }

@@ -16,9 +16,6 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from realsproj.views import HomePageView, ProductsList, ProductCreateView, ProductsUpdateView, ProductsDeleteView
-from realsproj.views import RawMaterialsList, RawMaterialsCreateView, RawMaterialsUpdateView, RawMaterialsDeleteView
-from realsproj.views import HistoryLogList, SalesList
 from realsproj import views as a
 
 urlpatterns = [
@@ -52,4 +49,9 @@ urlpatterns = [
     path('prodbatch/add', a.ProductBatchCreateView.as_view(), name='product-batch-add'),
     path('prodbatch/<pk>', a.ProductBatchUpdateView.as_view(), name='product-batch-edit'),
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
+
+    path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
+    path('product-inventory/add', a.ProductInventoryCreateView.as_view(), name='product-inventory-add'),
+    path('product-inventory/<pk>', a.ProductInventoryUpdateView.as_view(), name='product-inventory-edit'),
+    path('product-inventory/<pk>/delete', a.ProductInventoryDeleteView.as_view(), name='product-inventory-delete'),
 ]

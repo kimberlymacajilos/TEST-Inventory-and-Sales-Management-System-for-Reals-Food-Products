@@ -1,23 +1,18 @@
 {% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Product Batches</h4>
+        <h4 class="page-title">Product Inventory</h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">Delete Product Batch</div>
+                        <div class="card-title">Edit Product Stock</div>
                         <div class="card-category">Page Subtitle</div>
                     </div>
 
                     <div class="col-md-6">
                     <div class="card-body">
                         <form action="" method="post" novalidate>
-                            <p>
-                            Are you sure you want to delete the batch of 
-                            "{{ object.product.product_type.name }} - {{ object.product.variant.name }} - {{ object.product.size.size_label }} {{ object.product.size_unit.unit_name }}"
-                            manufactured on {{ object.manufactured_date }} (Exp: {{ object.expiration_date }}, Qty: {{ object.quantity }})?
-                            </p>
                             {% csrf_token %} {% include 'includes/form.html' %}
 
                             <div class="form-group">

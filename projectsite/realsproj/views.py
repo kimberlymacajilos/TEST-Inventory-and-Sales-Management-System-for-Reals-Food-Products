@@ -2,8 +2,8 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory
 
 class HomePageView(ListView):
     model = Products
@@ -136,3 +136,26 @@ class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
     template_name = 'prodbatch_delete.html'
     success_url = reverse_lazy('product-batch')
+
+class ProductInventoryList(ListView):
+    model = ProductInventory
+    context_object_name = 'product_inventory'
+    template_name = "prodinvent_list.html"
+    paginate_by = 10
+
+class ProductInventoryCreateView(CreateView):
+    model = ProductInventory
+    form_class = ProductInventoryForm
+    template_name = 'prodinvent_add.html'
+    success_url = reverse_lazy('product-inventory')
+
+class ProductInventoryUpdateView(UpdateView):
+    model = ProductInventory
+    form_class = ProductInventoryForm
+    template_name = 'prodinvent_edit.html'
+    success_url = reverse_lazy('product-inventory')
+
+class ProductInventoryDeleteView(DeleteView):
+    model = ProductInventory
+    template_name = 'prodinvent_delete.html'
+    success_url = reverse_lazy('product-inventory')
