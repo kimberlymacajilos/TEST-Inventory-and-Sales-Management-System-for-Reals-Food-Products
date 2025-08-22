@@ -2,8 +2,8 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
 
 class HomePageView(ListView):
     model = Products
@@ -159,3 +159,55 @@ class ProductInventoryDeleteView(DeleteView):
     model = ProductInventory
     template_name = 'prodinvent_delete.html'
     success_url = reverse_lazy('product-inventory')
+
+class RawMaterialBatchList(ListView):
+    model = RawMaterialBatches
+    context_object_name = 'rawmatbatch'
+    template_name = "rawmatbatch_list.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterialBatches.objects.all().order_by('-id')
+    
+class RawMaterialBatchCreateView(CreateView):
+    model = RawMaterialBatches
+    form_class = RawMaterialBatchForm
+    template_name = 'rawmatbatch_add.html'
+    success_url = reverse_lazy('rawmatbatch')
+
+class RawMaterialBatchUpdateView(UpdateView):
+    model = RawMaterialBatches
+    form_class = RawMaterialBatchForm
+    template_name = 'rawmatbatch_edit.html'
+    success_url = reverse_lazy('rawmatbatch')
+
+class RawMaterialBatchDeleteView(DeleteView):
+    model = RawMaterialBatches
+    template_name = 'rawmatbatch_delete.html'
+    success_url = reverse_lazy('rawmatbatch')
+
+class RawMaterialInventoryList(ListView):
+    model = RawMaterialInventory
+    context_object_name = 'rawmatinvent'
+    template_name = "rawmatinvent_list.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterialInventory.objects.all().order_by('-material__name')
+    
+class RawMaterialInventoryCreateView(CreateView):
+    model = RawMaterialInventory
+    form_class = RawMaterialInventoryForm
+    template_name = 'rawmatinvent_add.html'
+    success_url = reverse_lazy('rawmat-inventory')
+
+class RawMaterialInventoryUpdateView(UpdateView):
+    model = RawMaterialInventory
+    form_class = RawMaterialInventoryForm
+    template_name = 'rawmatinvent_edit.html'
+    success_url = reverse_lazy('rawmat-inventory')
+
+class RawMaterialInventoryDeleteView(DeleteView):
+    model = RawMaterialInventory
+    template_name = 'rawmatinvent_delete.html'
+    success_url = reverse_lazy('rawmat-inventory')

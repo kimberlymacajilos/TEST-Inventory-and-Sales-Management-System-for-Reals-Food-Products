@@ -1,0 +1,50 @@
+{% extends 'base.html' %} {% load static %} {% block content %}
+<div class="content">
+    <div class="container-fluid">
+        <h4 class="page-title">Raw Material</h4>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">List of Raw Matrtial Batches</div>
+                        <div class="card-category">Page Subtitle</div>
+                        <div class="pull-right">
+                            <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped mt-3">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Batch Date</th>
+                                    <th scope="col">Material</th>
+                                    <th scope="col">Quantity</th>
+                                    <th scope="col">Input Date</th>
+                                    <th scope="col">Expiration Date</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for object in object_list %}
+                                <tr>
+                                    <td>{{ object.batch_date }}</td>
+                                    <td>{{ object.material }}</td>
+                                    <td>{{ object.quantity }}</td>
+                                    <td>{{ object.received_date }}</td>
+                                    <td>{{ object.expiration_date }}</td>
+                                    <td>
+                                        <a href="{% url 'rawmaterial-batch-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
+                                        <a href="{% url 'rawmaterial-batch-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% include 'includes/pagination.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
