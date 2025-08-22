@@ -77,12 +77,12 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'reals_db_dump',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'Reals_db_123',
+        'HOST': 'db.gwbiaejdlmyucxnvtkrd.supabase.co',
+        'PORT': '5432',
     }
 }
 
