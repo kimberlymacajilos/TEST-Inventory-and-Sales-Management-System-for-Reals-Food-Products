@@ -146,6 +146,9 @@ class HistoryLog(models.Model):
         managed = False
         db_table = 'history_log'
 
+    def __str__(self):
+        return self.log_type.category
+
 
 class HistoryLogTypes(models.Model):
     category = models.CharField(max_length=100)
@@ -155,13 +158,16 @@ class HistoryLogTypes(models.Model):
         managed = False
         db_table = 'history_log_types'
 
+    def __str__(self):
+        return self.category
+
 
 class ProductBatches(models.Model):
     batch_date = models.DateField()
     product = models.ForeignKey('Products', models.DO_NOTHING, db_column='product_id')  
     quantity = models.IntegerField()
     manufactured_date = models.DateField()
-    expiration_date = models.DateField()
+    expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
@@ -177,6 +183,7 @@ class ProductInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'product_inventory'
+        ordering = ['product']
 
 
 class ProductRecipes(models.Model):
@@ -244,6 +251,8 @@ class RawMaterialBatches(models.Model):
         managed = False
         db_table = 'raw_material_batches'
 
+    def __str__(self):
+        return self.material.name
 
 class RawMaterialInventory(models.Model):
     material = models.OneToOneField('RawMaterials', models.DO_NOTHING, primary_key=True)
@@ -253,6 +262,10 @@ class RawMaterialInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'raw_material_inventory'
+        ordering = ['material']
+
+    def __str__(self):
+        return self.material
 
 
 class RawMaterials(models.Model):
@@ -260,7 +273,7 @@ class RawMaterials(models.Model):
     size = models.ForeignKey('Sizes', models.DO_NOTHING)
     unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
-    expiration_data = models.DateField(blank=True, null=True)
+    expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
