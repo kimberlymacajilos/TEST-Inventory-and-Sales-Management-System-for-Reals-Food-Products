@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
 
 class ProductsForm(ModelForm):
     class Meta:
@@ -75,3 +75,33 @@ class RawMaterialInventoryForm(ModelForm):
             'total_stock': forms.NumberInput(attrs={'min': 0}),
             'reorder_threshold': forms.NumberInput(attrs={'min': 0}),
         }
+
+class ProductTypesForm(ModelForm):
+    class Meta:
+        model = ProductTypes
+        fields = "__all__"
+
+class ProductVariantsForm(ModelForm):
+    class Meta:
+        model = ProductVariants
+        fields = "__all__"
+
+class SizesForm(ModelForm):
+    class Meta:
+        model = Sizes
+        fields = "__all__"
+
+class SizeUnitsForm(ModelForm):
+    class Meta:
+        model = SizeUnits
+        fields = "__all__"
+
+class UnitPricesForm(ModelForm):
+    class Meta:
+        model = UnitPrices
+        fields = "__all__"
+
+class SrpPricesForm(ModelForm):
+    class Meta:
+        model = SrpPrices
+        fields = "__all__"

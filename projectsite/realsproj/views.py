@@ -2,8 +2,8 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
 
 class HomePageView(ListView):
     model = Products
@@ -211,3 +211,40 @@ class RawMaterialInventoryDeleteView(DeleteView):
     model = RawMaterialInventory
     template_name = 'rawmatinvent_delete.html'
     success_url = reverse_lazy('rawmat-inventory')
+
+class ProductTypeCreateView(CreateView):
+    model = ProductTypes
+    form_class = ProductTypesForm
+    template_name = "prodtype_add.html"
+    success_url = reverse_lazy("product-add")
+
+class ProductVariantCreateView(CreateView):
+    model = ProductVariants
+    form_class = ProductVariantsForm
+    template_name = "prodvar_add.html"
+    success_url = reverse_lazy("product-add")
+
+class SizesCreateView(CreateView):
+    model = Sizes
+    form_class = SizesForm
+    template_name = "sizes_add.html"
+    success_url = reverse_lazy("product-add")
+
+class SizeUnitsCreateView(CreateView):
+    model = SizeUnits
+    form_class = SizeUnitsForm
+    template_name = "sizeunits_add.html"
+    success_url = reverse_lazy("product-add")
+
+class UnitPricesCreateView(CreateView):
+    model = UnitPrices
+    form_class = UnitPricesForm
+    template_name = "unitprices_add.html"
+    success_url = reverse_lazy("product-add")
+
+class SrpPricesCreateView(CreateView):
+    model = SrpPrices
+    form_class = SrpPricesForm
+    template_name = "srpprices_add.html"
+    success_url = reverse_lazy("product-add")
+

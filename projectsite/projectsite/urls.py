@@ -64,4 +64,11 @@ urlpatterns = [
     path('rawmatinvent/add', a.RawMaterialInventoryCreateView.as_view(), name='rawmaterial-inventory-add'),
     path('rawmatinvent/<pk>', a.RawMaterialInventoryUpdateView.as_view(), name='rawmaterial-inventory-edit'), 
     path('rawmatinvent/<pk>/delete', a.RawMaterialInventoryDeleteView.as_view(), name='rawmaterial-inventory-delete'),
+
+    path('producttypes/add', a.ProductTypeCreateView.as_view(), name='product-types-add'),
+    path('productvariants/add', a.ProductVariantCreateView.as_view(), name='product-variants-add'),
+    path('sizes/add', a.SizesCreateView.as_view(), name='sizes-add'),
+    path('sizeunits/add', a.SizeUnitsCreateView.as_view(), name='size-units-add'),
+    path('unirprices/add', a.UnitPricesCreateView.as_view(), name='unit-prices-add'),
+    path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
 ]
