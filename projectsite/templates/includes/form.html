@@ -10,15 +10,38 @@
 
 {% for field in form %}
 <div class="field item form-group">
-        <label>{{ field.label_tag }}</label>
-    <div class="form-group">
+    <label>{{ field.label_tag }}</label>
+    <div class="form-group d-flex">
         {% render_field field class="form-control" %}
+
+        {# Add inline + Add buttons for foreign keys #}
+        {% if field.name == "product_type" %}
+            <a href="{% url 'product-types-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
+
+        {% if field.name == "variant" %}
+            <a href="{% url 'product-variants-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
+
+        {% if field.name == "size" %}
+            <a href="{% url 'sizes-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
+
+        {% if field.name == "size_unit" %}
+            <a href="{% url 'size-units-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
+
+        {% if field.name == "unit_price" %}
+            <a href="{% url 'unit-prices-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
+
+        {% if field.name == "srp_price" %}
+            <a href="{% url 'srp-prices-add' %}?next={% url 'product-add' %}" class="btn btn-success btn-sm ml-2">+ Add</a>
+        {% endif %}
     </div>
 
     {% for error in field.errors %}
-        <div class="invalid-feedback">
-            {{ error }}
-        </div>
+        <div class="invalid-feedback">{{ error }}</div>
     {% endfor %}
 </div>
 {% endfor %}

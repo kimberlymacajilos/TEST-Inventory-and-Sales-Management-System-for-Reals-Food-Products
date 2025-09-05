@@ -1,6 +1,7 @@
 from django.forms import ModelForm
 from django import forms
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
+from datetime import timedelta
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
 
 class ProductsForm(ModelForm):
     class Meta:
@@ -37,6 +38,16 @@ class ProductBatchForm(ModelForm):
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        manufactured_date = cleaned_data.get("manufactured_date")
+        expiration_date = cleaned_data.get("expiration_date")
+
+        if manufactured_date and not expiration_date:
+            cleaned_data["expiration_date"] = manufactured_date + timedelta(days=365)
+
+        return cleaned_data
+
 class ProductInventoryForm(ModelForm):
     class Meta:
         model = ProductInventory
@@ -49,7 +60,7 @@ class ProductInventoryForm(ModelForm):
 class RawMaterialBatchForm(ModelForm):
     class Meta:
         model = RawMaterialBatches
-        fields = ['batch_date', 'material', 'quantity', 'received_date', 'expiration_date']
+        fields = "__all__"
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'received_date': forms.DateInput(attrs={'type': 'date'}),
@@ -64,3 +75,33 @@ class RawMaterialInventoryForm(ModelForm):
             'total_stock': forms.NumberInput(attrs={'min': 0}),
             'reorder_threshold': forms.NumberInput(attrs={'min': 0}),
         }
+
+class ProductTypesForm(ModelForm):
+    class Meta:
+        model = ProductTypes
+        fields = "__all__"
+
+class ProductVariantsForm(ModelForm):
+    class Meta:
+        model = ProductVariants
+        fields = "__all__"
+
+class SizesForm(ModelForm):
+    class Meta:
+        model = Sizes
+        fields = "__all__"
+
+class SizeUnitsForm(ModelForm):
+    class Meta:
+        model = SizeUnits
+        fields = "__all__"
+
+class UnitPricesForm(ModelForm):
+    class Meta:
+        model = UnitPrices
+        fields = "__all__"
+
+class SrpPricesForm(ModelForm):
+    class Meta:
+        model = SrpPrices
+        fields = "__all__"
