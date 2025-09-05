@@ -2,14 +2,9 @@ from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
-<<<<<<< HEAD
 from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm
 from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
 from django.db.models import Q
-=======
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
->>>>>>> fa83b91e0a315a54462b1ddb2372222b04aa893c
 
 class HomePageView(ListView):
     model = Products
