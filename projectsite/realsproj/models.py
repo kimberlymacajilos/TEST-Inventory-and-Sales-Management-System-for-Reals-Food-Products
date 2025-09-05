@@ -224,6 +224,7 @@ class Products(models.Model):
     srp_price = models.ForeignKey('SrpPrices', models.DO_NOTHING)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    description = models.TextField(blank=True, null=True, db_index=True)
 
     class Meta:
         managed = False

@@ -4,6 +4,7 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm
 from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory
+from django.db.models import Q
 
 class HomePageView(ListView):
     model = Products
@@ -15,6 +16,27 @@ class ProductsList(ListView):
     context_object_name = 'products'
     template_name = "prod_list.html"
     paginate_by = 10
+    
+
+    def get_queryset(self):
+        # Preload related FKs for performance
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(description__icontains=query) |
+                Q(product_type__name__icontains=query) |
+                Q(variant__name__icontains=query)   # assuming ProductVariants also has "name"
+            )
+
+        return queryset
+
+
 
 class ProductCreateView(CreateView):
     model = Products

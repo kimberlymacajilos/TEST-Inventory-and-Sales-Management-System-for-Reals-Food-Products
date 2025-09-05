@@ -2,6 +2,18 @@
 <div class="content">
     <div class="container-fluid">
         <h4 class="page-title">Products</h4>
+            <form method="get">
+                <input type="text" name="q" placeholder="Search products..." value="{{ request.GET.q }}">
+                <button type="submit">Search</button>
+            </form>
+
+            <ul>
+                {% for product in products %}
+                {% empty %}
+                    <li>No products found.</li>
+                {% endfor %}
+            </ul>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
