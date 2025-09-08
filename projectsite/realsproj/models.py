@@ -41,21 +41,18 @@ class AuthPermission(models.Model):
 class AuthUser(models.Model):
     password = models.CharField(max_length=128)
     last_login = models.DateTimeField(blank=True, null=True)
-    is_superuser = models.IntegerField()
+    is_superuser = models.BooleanField()
     username = models.CharField(unique=True, max_length=150)
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.CharField(max_length=254)
-    is_staff = models.IntegerField()
-    is_active = models.IntegerField()
+    is_staff = models.BooleanField()
+    is_active = models.BooleanField()
     date_joined = models.DateTimeField()
 
     class Meta:
         managed = False
         db_table = 'auth_user'
-    
-    def __str__(self):
-        return self.username
 
 
 class AuthUserGroups(models.Model):
@@ -84,7 +81,7 @@ class DjangoAdminLog(models.Model):
     action_time = models.DateTimeField()
     object_id = models.TextField(blank=True, null=True)
     object_repr = models.CharField(max_length=200)
-    action_flag = models.PositiveSmallIntegerField()
+    action_flag = models.SmallIntegerField()
     change_message = models.TextField()
     content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING, blank=True, null=True)
     user = models.ForeignKey(AuthUser, models.DO_NOTHING)
@@ -126,6 +123,7 @@ class DjangoSession(models.Model):
 
 
 class Expenses(models.Model):
+    id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField()
@@ -138,6 +136,7 @@ class Expenses(models.Model):
 
 
 class HistoryLog(models.Model):
+    id = models.BigAutoField(primary_key=True)
     admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     log_type = models.ForeignKey('HistoryLogTypes', models.DO_NOTHING)
     log_date = models.DateTimeField()
@@ -146,11 +145,9 @@ class HistoryLog(models.Model):
         managed = False
         db_table = 'history_log'
 
-    def __str__(self):
-        return self.log_type.category
-
 
 class HistoryLogTypes(models.Model):
+    id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=100)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -158,16 +155,28 @@ class HistoryLogTypes(models.Model):
         managed = False
         db_table = 'history_log_types'
 
-    def __str__(self):
-        return self.category
+
+class Notifications(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    item_type = models.CharField(max_length=12)
+    item = models.ForeignKey('RawMaterials', models.DO_NOTHING)
+    notification_type = models.CharField(max_length=20)
+    notification_timestamp = models.DateTimeField()
+    is_read = models.BooleanField()
+    created_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'notifications'
 
 
 class ProductBatches(models.Model):
+    id = models.BigAutoField(primary_key=True)
     batch_date = models.DateField()
-    product = models.ForeignKey('Products', models.DO_NOTHING, db_column='product_id')  
+    product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
     manufactured_date = models.DateField()
-    expiration_date = models.DateField(blank=True, null=True)
+    expiration_date = models.DateField()
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
@@ -183,10 +192,10 @@ class ProductInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'product_inventory'
-        ordering = ['product']
 
 
 class ProductRecipes(models.Model):
+    id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey('Products', models.DO_NOTHING)
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
     quantity_needed = models.DecimalField(max_digits=10, decimal_places=2)
@@ -199,6 +208,7 @@ class ProductRecipes(models.Model):
 
 
 class ProductTypes(models.Model):
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -206,11 +216,9 @@ class ProductTypes(models.Model):
         managed = False
         db_table = 'product_types'
 
-    def __str__(self):
-        return self.name
-
 
 class ProductVariants(models.Model):
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -218,11 +226,9 @@ class ProductVariants(models.Model):
         managed = False
         db_table = 'product_variants'
 
-    def __str__(self):
-        return self.name 
-
 
 class Products(models.Model):
+    id = models.BigAutoField(primary_key=True)
     product_type = models.ForeignKey(ProductTypes, models.DO_NOTHING)
     variant = models.ForeignKey(ProductVariants, models.DO_NOTHING)
     size = models.ForeignKey('Sizes', models.DO_NOTHING)
@@ -236,10 +242,9 @@ class Products(models.Model):
         managed = False
         db_table = 'products'
 
-    def __str__(self):
-        return f"{self.product_type.name} - {self.variant.name} ({self.size.size_label} {self.size_unit.unit_name})"
 
 class RawMaterialBatches(models.Model):
+    id = models.BigAutoField(primary_key=True)
     batch_date = models.DateField()
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
@@ -251,8 +256,6 @@ class RawMaterialBatches(models.Model):
         managed = False
         db_table = 'raw_material_batches'
 
-    def __str__(self):
-        return self.material.name
 
 class RawMaterialInventory(models.Model):
     material = models.OneToOneField('RawMaterials', models.DO_NOTHING, primary_key=True)
@@ -262,29 +265,24 @@ class RawMaterialInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'raw_material_inventory'
-        ordering = ['material']
-
-    def __str__(self):
-        return self.material
 
 
 class RawMaterials(models.Model):
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=45)
     size = models.ForeignKey('Sizes', models.DO_NOTHING)
     unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
-    expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    expiration_date = models.DateField(blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'raw_materials'
 
-    def __str__(self):
-        return self.name
-
 
 class Sales(models.Model):
+    id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateTimeField()
@@ -297,6 +295,7 @@ class Sales(models.Model):
 
 
 class SizeUnits(models.Model):
+    id = models.BigAutoField(primary_key=True)
     unit_name = models.CharField(max_length=45)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -304,10 +303,9 @@ class SizeUnits(models.Model):
         managed = False
         db_table = 'size_units'
 
-    def __str__(self):
-        return self.unit_name
 
 class Sizes(models.Model):
+    id = models.BigAutoField(primary_key=True)
     size_label = models.CharField(max_length=255)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -315,11 +313,9 @@ class Sizes(models.Model):
         managed = False
         db_table = 'sizes'
 
-    def __str__(self):
-        return self.size_label
-
 
 class SrpPrices(models.Model):
+    id = models.BigAutoField(primary_key=True)
     srp_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -327,13 +323,11 @@ class SrpPrices(models.Model):
         managed = False
         db_table = 'srp_prices'
 
-    def __str__(self):
-        return f"{self.srp_price:.2f}"
-
 
 class StockChanges(models.Model):
+    id = models.BigAutoField(primary_key=True)
     item_type = models.CharField(max_length=12)
-    item_id = models.IntegerField()
+    item_id = models.BigIntegerField()
     quantity_change = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.TextField()
     date = models.DateTimeField()
@@ -345,6 +339,7 @@ class StockChanges(models.Model):
 
 
 class UnitPrices(models.Model):
+    id = models.BigAutoField(primary_key=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -352,5 +347,16 @@ class UnitPrices(models.Model):
         managed = False
         db_table = 'unit_prices'
 
-    def __str__(self):
-        return f"{self.unit_price:.2f}"
+
+class Withdrawals(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    item_type = models.CharField(max_length=12)
+    item = models.ForeignKey(Products, models.DO_NOTHING)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.CharField(max_length=20)
+    date = models.DateTimeField()
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'withdrawals'
