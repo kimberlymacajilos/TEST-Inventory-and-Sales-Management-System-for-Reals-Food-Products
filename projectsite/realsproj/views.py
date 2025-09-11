@@ -9,6 +9,8 @@ from django.views.decorators.http import require_GET
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 from django.urls import reverse_lazy
 from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm, WithdrawForm
@@ -20,6 +22,8 @@ class CreatedByAdminMixin:
             if not form.instance.pk:
                 form.instance.created_by_admin = self.request.user
         return super().form_valid(form)
+
+@method_decorator(login_required, name='dispatch')
 
 class HomePageView(ListView):
     model = Products

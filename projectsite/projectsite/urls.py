@@ -17,11 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from realsproj import views as a
+from django.contrib.auth import views as auth_views
+from django.urls import path, re_path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
+    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    re_path(r'^logout/$', auth_views.LogoutView.as_view(), name='logout'),
 
     path('products/', a.ProductsList.as_view(), name='products'),
     path('products/add', a.ProductCreateView.as_view(), name='product-add'),
