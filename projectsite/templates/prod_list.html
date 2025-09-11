@@ -51,7 +51,6 @@
                                     <th scope="col">SRP Price</th>
                                     <th scope="col">Date Created</th>
                                     <th scope="col">Description</th>
-                                    <th scope="col">Date Added</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -66,7 +65,6 @@
                                     <td>{{ object.srp_price.srp_price }}</td>
                                     <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                     <td>{{ object.description }}</td>
-                                    <td>{{ object.created_at|date:"Y-m-d" }}</td>
                                     <td>
                                         <a href="{% url 'product-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
                                         <a href="{% url 'product-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
