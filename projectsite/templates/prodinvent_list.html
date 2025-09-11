@@ -7,12 +7,25 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
+                    <!-- Filter controls -->
                     <div class="card-header">
                         <div class="card-title">List of Product Stock</div>
-                        <div class="card-category">Page Subtitle</div>
+                        <div class="card-category">Filter Inventory</div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <input type="text" id="searchInput" class="form-control" placeholder="Search product...">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="number" id="minStock" class="form-control" placeholder="Min Stock">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="number" id="maxStock" class="form-control" placeholder="Max Stock">
+                            </div>
+                        </div>
                     </div>
+
                     <div class="card-body">
-                        <table class="table table-striped mt-3">
+                        <table class="table table-striped mt-3" id="inventoryTable">
                             <thead>
                                 <tr>
                                     <th scope="col">Product</th>
@@ -27,6 +40,10 @@
                                     <td>{{ object.total_stock }}</td>
                                     <td>{{ object.restock_threshold }}</td>
                                 </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No inventory found.</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -37,4 +54,33 @@
         </div>
     </div>
 </div>
+
+<script>
+function filterInventoryTable() {
+    var search = document.getElementById("searchInput").value.toLowerCase();
+    var minStock = parseFloat(document.getElementById("minStock").value) || 0;
+    var maxStock = parseFloat(document.getElementById("maxStock").value) || Infinity;
+
+    var rows = document.querySelectorAll("#inventoryTable tbody tr");
+
+    rows.forEach(function(row) {
+        var product = row.cells[0].textContent.toLowerCase();
+        var stock = parseFloat(row.cells[1].textContent) || 0;
+
+        var matchesSearch = product.includes(search);
+        var matchesStock = stock >= minStock && stock <= maxStock;
+
+        if (matchesSearch && matchesStock) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+
+// Attach listeners
+document.getElementById("searchInput").addEventListener("keyup", filterInventoryTable);
+document.getElementById("minStock").addEventListener("input", filterInventoryTable);
+document.getElementById("maxStock").addEventListener("input", filterInventoryTable);
+</script>
 {% endblock %}

@@ -1,4 +1,6 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
 <div class="content">
     <div class="container-fluid">
         <h4 class="page-title">Raw Materials</h4>
@@ -13,33 +15,44 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped mt-3">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Name</th>
-                                    <th scope="col">Size</th>
-                                    <th scope="col">Unit</th>
-                                    <th scope="col">Price Per Unit</th>
-                                    <th scope="col">Expiration Date</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for object in object_list %}
-                                <tr>
-                                    <td>{{ object.name }}</td>
-                                    <td>{{ object.size }}</td>
-                                    <td>{{ object.unit }}</td>
-                                    <td>{{ object.price_per_unit }}</td>
-                                    <td>{{ object.expiration_date }}</td>
-                                    <td>
-                                        <a href="{% url 'rawmaterials-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
-                                        <a href="{% url 'rawmaterials-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                        <!-- Search bar (inside table container like product list) -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <input type="text" id="searchInput" class="form-control" placeholder="Search raw materials...">
+                            </div>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Size</th>
+                                        <th scope="col">Unit</th>
+                                        <th scope="col">Price Per Unit</th>
+                                        <th scope="col">Expiration Date</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rawMaterialsTable">
+                                    {% for object in object_list %}
+                                    <tr>
+                                        <td>{{ object.name }}</td>
+                                        <td>{{ object.size }}</td>
+                                        <td>{{ object.unit }}</td>
+                                        <td>{{ object.price_per_unit }}</td>
+                                        <td>{{ object.expiration_date }}</td>
+                                        <td>
+                                            <a href="{% url 'rawmaterials-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
+                                            <a href="{% url 'rawmaterials-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
                         {% include 'includes/pagination.html' %}
                     </div>
                 </div>
@@ -47,4 +60,15 @@
         </div>
     </div>
 </div>
+
+<!-- Search Script -->
+<script>
+    document.getElementById("searchInput").addEventListener("keyup", function() {
+        var value = this.value.toLowerCase();
+        var rows = document.querySelectorAll("#rawMaterialsTable tr");
+        rows.forEach(function(row) {
+            row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
+        });
+    });
+</script>
 {% endblock %}
