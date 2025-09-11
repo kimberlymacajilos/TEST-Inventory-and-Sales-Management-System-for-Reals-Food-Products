@@ -51,19 +51,13 @@ urlpatterns = [
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
-    path('product-inventory/add', a.ProductInventoryCreateView.as_view(), name='product-inventory-add'),
-    path('product-inventory/<pk>', a.ProductInventoryUpdateView.as_view(), name='product-inventory-edit'),
-    path('product-inventory/<pk>/delete', a.ProductInventoryDeleteView.as_view(), name='product-inventory-delete'),
 
     path('rawmatbatch/', a.RawMaterialBatchList.as_view(), name='rawmaterial-batch'),
     path('rawmatbatch/add', a.RawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
     path('rawmatbatch/<pk>', a.RawMaterialBatchUpdateView.as_view(), name='rawmaterial-batch-edit'),
     path('rawmatbatch/<pk>/delete', a.RawMaterialBatchDeleteView.as_view(), name='rawmaterial-batch-delete'),
 
-    path('rawmatinvent/', a.RawMaterialInventoryList.as_view(), name='rawmaterial-inventory'),
-    path('rawmatinvent/add', a.RawMaterialInventoryCreateView.as_view(), name='rawmaterial-inventory-add'),
-    path('rawmatinvent/<pk>', a.RawMaterialInventoryUpdateView.as_view(), name='rawmaterial-inventory-edit'), 
-    path('rawmatinvent/<pk>/delete', a.RawMaterialInventoryDeleteView.as_view(), name='rawmaterial-inventory-delete'),
+    path('rawmaterial-inventory/', a.RawMaterialInventoryList.as_view(), name='rawmaterial-inventory'),
 
     path('producttypes/add', a.ProductTypeCreateView.as_view(), name='product-types-add'),
     path('productvariants/add', a.ProductVariantCreateView.as_view(), name='product-variants-add'),
@@ -71,4 +65,9 @@ urlpatterns = [
     path('sizeunits/add', a.SizeUnitsCreateView.as_view(), name='size-units-add'),
     path('unirprices/add', a.UnitPricesCreateView.as_view(), name='unit-prices-add'),
     path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
+
+    path('product-withdraw/<int:product_id>/', a.ProductWithdrawView.as_view(), name='product-withdraw'),
+    path('rawmat-withdraw/<int:material_id>/', a.RawMaterialWithdrawView.as_view(), name='rawmat-withdraw'),
+
+    path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
 ]

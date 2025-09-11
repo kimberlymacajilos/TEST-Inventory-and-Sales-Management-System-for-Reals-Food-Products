@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="content">
+    <div class="container-fluid">
+        <h4 class="page-title">Withdraw Product Stock</h4>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Withdraw Product</div>
+                        <div class="card-category">Enter quantity and reason for withdrawal</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card-body">
+                            <form action="" method="post" novalidate>
+                                {% csrf_token %}
+
+                                <!-- Product Display (no dropdown) -->
+                                <p><strong>Product:</strong> {{ product.product_type.name }} - {{ product.variant.name }} - {{ product.size.size_label }} {{ product.size_unit.unit_name }}</p>
+                                <input type="hidden" name="product_id" value="{{ product.id }}">
+
+                                <!-- Quantity -->
+                                <div class="form-group mt-2">
+                                    <label for="quantity">Quantity to Withdraw</label>
+                                    <input type="number" name="quantity" id="quantity" step="0.01" class="form-control" required>
+                                </div>
+
+                                <!-- Reason -->
+                                <div class="form-group mt-2">
+                                    <label for="reason">Reason</label>
+                                    <input type="text" name="reason" id="reason" class="form-control" required>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="form-group mt-3">
+                                    <div class="col-md-12 col-sm-3">
+                                        <button type="submit" class="btn btn-warning btn-rounded">Withdraw</button>
+                                    </div>
+                                </div>
+
+                                <!-- Messages -->
+                                {% if messages %}
+                                    <div class="mt-3">
+                                        {% for message in messages %}
+                                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

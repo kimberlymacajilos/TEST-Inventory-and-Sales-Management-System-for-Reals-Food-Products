@@ -105,3 +105,6 @@ class SrpPricesForm(ModelForm):
     class Meta:
         model = SrpPrices
         fields = "__all__"
+
+class WithdrawForm(forms.Form):
+    quantity = forms.IntegerField(min_value=1, label='Quantity to Withdraw')

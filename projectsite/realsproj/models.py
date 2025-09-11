@@ -6,6 +6,7 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class AuthGroup(models.Model):
@@ -53,6 +54,9 @@ class AuthUser(models.Model):
     class Meta:
         managed = False
         db_table = 'auth_user'
+
+    def __str__(self):
+        return self.username
 
 
 class AuthUserGroups(models.Model):
@@ -134,6 +138,9 @@ class Expenses(models.Model):
         managed = False
         db_table = 'expenses'
 
+    def __str__(self):
+        return f"{self.category} - ₱{self.amount} on {self.date.strftime('%Y-%m-%d')}"
+
 
 class HistoryLog(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -155,15 +162,21 @@ class HistoryLogTypes(models.Model):
         managed = False
         db_table = 'history_log_types'
 
+    def __str__(self):
+        return self.category
+
 
 class Notifications(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    item_type = models.CharField(max_length=12)
-    item = models.ForeignKey('RawMaterials', models.DO_NOTHING)
+    ITEM_TYPE_CHOICES = [
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
+    ]
+    item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
+    item_id = models.BigIntegerField()  # no FK, just store ID
     notification_type = models.CharField(max_length=20)
     notification_timestamp = models.DateTimeField()
-    is_read = models.BooleanField()
-    created_at = models.DateTimeField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         managed = False
@@ -216,6 +229,9 @@ class ProductTypes(models.Model):
         managed = False
         db_table = 'product_types'
 
+    def __str__(self):
+        return self.name
+
 
 class ProductVariants(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -226,6 +242,8 @@ class ProductVariants(models.Model):
         managed = False
         db_table = 'product_variants'
 
+    def __str__(self):
+        return self.name
 
 class Products(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -242,6 +260,8 @@ class Products(models.Model):
         managed = False
         db_table = 'products'
 
+    def __str__(self):
+        return f"{self.product_type.name} - {self.variant.name} ({self.size.size_label} {self.size_unit.unit_name})"
 
 class RawMaterialBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -280,6 +300,8 @@ class RawMaterials(models.Model):
         managed = False
         db_table = 'raw_materials'
 
+    def __str__(self):
+        return f"{self.name} ({self.size} {self.unit}) - ₱{self.price_per_unit}"
 
 class Sales(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -293,6 +315,9 @@ class Sales(models.Model):
         managed = False
         db_table = 'sales'
 
+    def __str__(self):
+        return f"{self.category} - ₱{self.amount} on {self.date.strftime('%Y-%m-%d')}"
+
 
 class SizeUnits(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -302,6 +327,9 @@ class SizeUnits(models.Model):
     class Meta:
         managed = False
         db_table = 'size_units'
+
+    def __str__(self):
+        return self.unit_name
 
 
 class Sizes(models.Model):
@@ -313,6 +341,9 @@ class Sizes(models.Model):
         managed = False
         db_table = 'sizes'
 
+    def __str__(self):
+        return self.size_label
+
 
 class SrpPrices(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -322,6 +353,9 @@ class SrpPrices(models.Model):
     class Meta:
         managed = False
         db_table = 'srp_prices'
+
+    def __str__(self):
+        return f"₱{self.srp_price}"
 
 
 class StockChanges(models.Model):
@@ -347,16 +381,32 @@ class UnitPrices(models.Model):
         managed = False
         db_table = 'unit_prices'
 
+    def __str__(self):
+        return f"₱{self.unit_price}"
 
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
-    item_type = models.CharField(max_length=12)
-    item = models.ForeignKey(Products, models.DO_NOTHING)
+    ITEM_TYPE_CHOICES = [
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
+    ]
+    item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
+    item_id = models.BigIntegerField()
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    reason = models.CharField(max_length=20)
-    date = models.DateTimeField()
-    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    REASON_CHOICES = [
+        ('SOLD', 'Sold'),
+        ('EXPIRED', 'Expired'),
+        ('DAMAGED', 'Damaged'),
+        ('RETURNED', 'Returned'),
+        ('OTHERS', 'Others'),
+    ]
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    date = models.DateTimeField(auto_now_add=True) 
+    created_by_admin = models.ForeignKey(User, on_delete=models.DO_NOTHING, db_column="created_by_admin_id")
 
     class Meta:
         managed = False
         db_table = 'withdrawals'
+
+    def __str__(self):
+        return f"{self.item_type} {self.item_id} - {self.quantity}"

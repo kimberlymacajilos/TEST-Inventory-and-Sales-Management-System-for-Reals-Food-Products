@@ -1,9 +1,22 @@
 from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.contrib import messages
+from django.utils import timezone
+from django.views import View
+from django.shortcuts import get_object_or_404
+from django.shortcuts import redirect
+from decimal import Decimal
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm, WithdrawForm
+from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
+
+class CreatedByAdminMixin:
+    def form_valid(self, form):
+        if self.request.user.is_authenticated:
+            if not form.instance.pk:
+                form.instance.created_by_admin = self.request.user
+        return super().form_valid(form)
 
 class HomePageView(ListView):
     model = Products
@@ -248,3 +261,98 @@ class SrpPricesCreateView(CreateView):
     template_name = "srpprices_add.html"
     success_url = reverse_lazy("product-add")
 
+class ProductWithdrawView(View):
+    def get(self, request, product_id):
+        product = get_object_or_404(Products, id=product_id)
+        return render(request, 'withdraw_prod.html', {'product': product})
+
+    def post(self, request, product_id):
+        product = get_object_or_404(Products, id=product_id)
+        inventory = get_object_or_404(ProductInventory, product_id=product.id)
+
+        quantity_input = request.POST.get('quantity')
+        reason = request.POST.get('reason')
+
+        try:
+            quantity = Decimal(quantity_input)
+
+            if quantity <= 0:
+                messages.error(request, "Quantity must be greater than zero.")
+            elif quantity > inventory.total_stock:
+                messages.error(request, "Not enough stock to withdraw.")
+            else:
+                inventory.total_stock -= quantity
+                inventory.save() 
+                
+                Withdrawals.objects.create(
+                    item_id=product.id,
+                    item_type='PRODUCT',
+                    quantity=quantity,
+                    reason=reason,
+                    date=timezone.now(),
+                    created_by_admin=request.user
+                )
+
+                messages.success(
+                    request,
+                    f"{quantity} units of {product.variant.name} withdrawn successfully."
+                )
+                return redirect('product-inventory') 
+
+        except Exception:
+            messages.error(request, "Invalid quantity. Please enter a valid number.")
+
+        return render(request, 'withdraw_prod.html', {'product': product})
+
+
+class RawMaterialWithdrawView(View):
+    def get(self, request, material_id):
+        material = get_object_or_404(RawMaterials, id=material_id)
+        return render(request, 'withdraw_rawmat.html', {'material': material})
+
+    def post(self, request, material_id):
+        material = get_object_or_404(RawMaterials, id=material_id)
+        inventory = get_object_or_404(RawMaterialInventory, material_id=material.id)
+
+        quantity_input = request.POST.get('quantity')
+        reason = request.POST.get('reason')
+
+        try:
+            quantity = Decimal(quantity_input)
+
+            if quantity <= 0:
+                messages.error(request, "Quantity must be greater than zero.")
+            elif quantity > inventory.total_stock:
+                messages.error(request, "Not enough stock to withdraw.")
+            else:
+                inventory.total_stock -= quantity
+                inventory.save() 
+
+                Withdrawals.objects.create(
+                    item_id=material.id,
+                    item_type='RAW_MATERIAL',
+                    quantity=quantity,
+                    reason=reason,
+                    date=timezone.now(),
+                    created_by_admin=request.user
+                )
+
+                messages.success(
+                    request,
+                    f"{quantity} units of {material.name} withdrawn successfully."
+                )
+                return redirect('rawmaterial-inventory') 
+        except Exception:
+            messages.error(request, "Invalid quantity. Please enter a valid number.")
+
+        return render(request, 'withdraw_rawmat.html', {'material': material})
+
+class WithdrawSuccessView(ListView):
+    model = Withdrawals
+    context_object_name = 'withdrawals'
+    template_name = "withdrawn.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Withdrawals.objects.all().order_by('-date')
+    

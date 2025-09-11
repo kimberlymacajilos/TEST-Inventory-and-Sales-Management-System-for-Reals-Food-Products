@@ -8,9 +8,6 @@
                     <div class="card-header">
                         <div class="card-title">List of Raw Matrtial Stock</div>
                         <div class="card-category">Page Subtitle</div>
-                        <div class="pull-right">
-                            <a href="{% url 'rawmaterial-inventory-add' %}" class="btn btn-success btn-rounded">Add Raw Material Stock</a>
-                        </div>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped mt-3">
@@ -29,8 +26,7 @@
                                     <td>{{ object.total_stock }}</td>
                                     <td>{{ object.reorder_threshold }}</td>
                                     <td>
-                                        <a href="{% url 'rawmaterial-inventory-edit' object.material_id %}" class="btn btn-primary btn-sm">Edit</a>
-                                        <a href="{% url 'rawmaterial-inventory-delete' object.material_id %}" class="btn btn-danger btn-sm">Delete</a>
+                                        <a href="{% url 'rawmat-withdraw' object.material.id %}" class="btn btn-warning btn-sm">Withdraw</a>
                                     </td>
                                 </tr>
                                 {% endfor %}
