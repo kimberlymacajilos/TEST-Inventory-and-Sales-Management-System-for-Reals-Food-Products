@@ -22,6 +22,7 @@
                                     <th scope="col">Size Unit</th>
                                     <th scope="col">Unit Price</th>
                                     <th scope="col">SRP Price</th>
+                                    <th scope="col">Date Created</th>
                                     <th scope="col">Description</th>
                                     <th scope="col">Actions</th>
                                 </tr>
@@ -35,6 +36,7 @@
                                     <td>{{ object.size_unit.unit_name }}</td>
                                     <td>{{ object.unit_price.unit_price }}</td>
                                     <td>{{ object.srp_price.srp_price }}</td>
+                                    <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                     <td>{{ object.description }}</td>
                                     <td>
                                         <a href="{% url 'product-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>

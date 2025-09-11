@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
+from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
 from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm, WithdrawForm
