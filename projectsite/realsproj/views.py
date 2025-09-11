@@ -14,15 +14,10 @@ from django.contrib.auth.decorators import login_required
 from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm, WithdrawForm
+from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
 from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
-
-class CreatedByAdminMixin:
-    def form_valid(self, form):
-        if self.request.user.is_authenticated:
-            if not form.instance.pk:
-                form.instance.created_by_admin = self.request.user
-        return super().form_valid(form)
+from django.db.models import Q
+from decimal import Decimal, InvalidOperation
 
 @method_decorator(login_required, name='dispatch')
 
@@ -36,6 +31,27 @@ class ProductsList(ListView):
     context_object_name = 'products'
     template_name = "prod_list.html"
     paginate_by = 10
+    
+
+    def get_queryset(self):
+        # Preload related FKs for performance
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(description__icontains=query) |
+                Q(product_type__name__icontains=query) |
+                Q(variant__name__icontains=query)   # assuming ProductVariants also has "name"
+            )
+
+        return queryset
+
+
 
 class ProductCreateView(CreateView):
     model = Products

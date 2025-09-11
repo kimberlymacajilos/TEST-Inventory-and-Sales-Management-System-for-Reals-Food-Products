@@ -1,19 +1,38 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Products</h4>
+        <h4 class="page-title">Product Batches</h4>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
+                    <!-- Filter controls -->
                     <div class="card-header">
                         <div class="card-title">List of Product Batches</div>
-                        <div class="card-category">Page Subtitle</div>
-                        <div class="pull-right">
+                        <div class="card-category">Filter Batches</div>
+                        <div class="row mt-3">
+                            <div class="col-md-3">
+                                <input type="text" id="searchInput" class="form-control" placeholder="Search product/batch...">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" id="minQty" class="form-control" placeholder="Min Quantity">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" id="maxQty" class="form-control" placeholder="Max Quantity">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="dateFilter" class="form-control">
+                            </div>
+                        </div>
+                        <div class="pull-right mt-3">
                             <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">Add Product Batch</a>
                         </div>
                     </div>
+
                     <div class="card-body">
-                        <table class="table table-striped mt-3">
+                        <table class="table table-striped mt-3" id="batchTable">
                             <thead>
                                 <tr>
                                     <th scope="col">Batch Date</th>
@@ -27,15 +46,19 @@
                             <tbody>
                                 {% for object in object_list %}
                                 <tr>
-                                    <td>{{ object.batch_date }}</td>
+                                    <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                                     <td>{{ object.product }}</td>
                                     <td>{{ object.quantity }}</td>
-                                    <td>{{ object.manufactured_date }}</td>
-                                    <td>{{ object.expiration_date }}</td>
+                                    <td>{{ object.manufactured_date|date:"Y-m-d" }}</td>
+                                    <td>{{ object.expiration_date|date:"Y-m-d" }}</td>
                                     <td>
                                         <a href="{% url 'product-batch-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
                                         <a href="{% url 'product-batch-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
                                     </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No product batches found.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -47,4 +70,48 @@
         </div>
     </div>
 </div>
+
+<script>
+function filterBatchTable() {
+    var search = document.getElementById("searchInput").value.toLowerCase();
+    var minQty = parseFloat(document.getElementById("minQty").value) || 0;
+    var maxQty = parseFloat(document.getElementById("maxQty").value) || Infinity;
+    var dateInput = document.getElementById("dateFilter").value;
+
+    var rows = document.querySelectorAll("#batchTable tbody tr");
+
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        var qty = parseFloat(row.cells[2].textContent) || 0;
+        var batchDate = row.cells[0].textContent; // YYYY-MM-DD
+
+        // --- DATE FILTER LOGIC ---
+        var matchesDate = true;
+        if (dateInput) {
+            if (dateInput.length === 4) {
+                matchesDate = batchDate.startsWith(dateInput);
+            } else if (dateInput.length === 7) {
+                matchesDate = batchDate.startsWith(dateInput);
+            } else {
+                matchesDate = batchDate === dateInput;
+            }
+        }
+
+        var matchesSearch = text.includes(search);
+        var matchesQty = qty >= minQty && qty <= maxQty;
+
+        if (matchesSearch && matchesQty && matchesDate) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+
+// Attach listeners
+document.getElementById("searchInput").addEventListener("keyup", filterBatchTable);
+document.getElementById("minQty").addEventListener("input", filterBatchTable);
+document.getElementById("maxQty").addEventListener("input", filterBatchTable);
+document.getElementById("dateFilter").addEventListener("change", filterBatchTable);
+</script>
 {% endblock %}
