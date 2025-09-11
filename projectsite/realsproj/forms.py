@@ -105,3 +105,22 @@ class SrpPricesForm(ModelForm):
     class Meta:
         model = SrpPrices
         fields = "__all__"
+
+class WithdrawForm(forms.Form):
+    quantity = forms.IntegerField(min_value=1, label='Quantity to Withdraw')
+
+class UnifiedWithdrawForm(forms.Form):
+    ITEM_TYPE_CHOICES = [
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
+    ]
+
+    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
+    item = forms.ChoiceField(choices=[], required=True)
+    quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
+    reason = forms.CharField(max_length=255, required=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
