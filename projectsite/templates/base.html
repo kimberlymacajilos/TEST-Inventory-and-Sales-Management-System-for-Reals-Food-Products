@@ -2,13 +2,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-    <title>{% block title %}Real's Food Product{% endblock %}</title>
-	<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
-	<link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i">
-    <link rel="stylesheet" href="{% static 'css/ready.css' %}">
-    <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>{% block title %}Real's Food Product{% endblock %}</title>
+  <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
+
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i">
+  <link rel="stylesheet" href="{% static 'css/ready.css' %}">
+  <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
+
+  {% block vendor_css %}{% endblock vendor_css %}
 </head>
 <body>
 	<div class="wrapper">
@@ -160,7 +165,7 @@
 					</div>
 					<ul class="nav">
                     <li class="nav-item">
-                        <a href="index.html">
+                        <a href="{% url 'home' %}">
                             <i class="la la-dashboard"></i>
                             <p>Dashboard</p>
                         </a>
@@ -284,4 +289,8 @@
 <script src="{% static 'js/plugin/jquery-mapael/maps/world_countries.min.js' %}"></script>
 <script src="{% static 'js/plugin/chart-circle/circles.min.js' %}"></script>
 <script src="{% static 'js/plugin/jquery-scrollbar/jquery.scrollbar.min.js' %}"></script>
+
+
+{% block vendor_js %}{% endblock vendor_js %}
+{% block page_js %}{% endblock page_js %}
 </html>

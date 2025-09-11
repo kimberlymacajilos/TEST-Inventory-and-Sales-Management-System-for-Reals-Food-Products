@@ -21,13 +21,57 @@ from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, Sale
 from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
 from django.db.models import Q
 from decimal import Decimal, InvalidOperation
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
+from django.shortcuts import render
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
+import calendar
+
 
 @method_decorator(login_required, name='dispatch')
 
-class HomePageView(ListView):
-    model = Products
-    context_object_name = 'home'
+class HomePageView(LoginRequiredMixin, TemplateView):
     template_name = "home.html"
+
+def sales_vs_expenses(request):
+    sales_data = (
+        Sales.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    expenses_data = (
+        Expenses.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    months = sorted(
+        set([s['month'].strftime("%Y-%m") for s in sales_data] +
+            [e['month'].strftime("%Y-%m") for e in expenses_data])
+    )
+
+    sales_totals = []
+    expenses_totals = []
+
+    for m in months:
+        sales_totals.append(
+            next((float(s['total']) for s in sales_data if s['month'].strftime("%Y-%m") == m), 0)
+        )
+        expenses_totals.append(
+            next((float(e['total']) for e in expenses_data if e['month'].strftime("%Y-%m") == m), 0)
+        )
+
+    return JsonResponse({
+        "months": months,
+        "sales": sales_totals,
+        "expenses": expenses_totals,
+    })
 
 class ProductsList(ListView):
     model = Products
