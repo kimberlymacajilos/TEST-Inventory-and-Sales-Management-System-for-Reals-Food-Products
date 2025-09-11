@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Withdraw Item</h4>
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="item_type">Item Type</label>
+            <select name="item_type" id="item_type" class="form-control" required>
+              <option value="">-- Select Type --</option>
+              <option value="PRODUCT">Product</option>
+              <option value="RAW_MATERIAL">Raw Material</option>
+            </select>
+          </div>
+
+          <div class="form-group mt-2">
+            <label for="item_id">Select Item</label>
+            <select name="item_id" id="item_id" class="form-control" required>
+              <option value="">-- Select Item --</option>
+              {% for product in products %}
+              <option value="{{ product.id }}" data-type="PRODUCT">
+                {{ product.product_type.name }} - {{ product.variant.name }} - {{ product.size.size_label }} {{ product.size_unit.unit_name }}
+              </option>
+              {% endfor %}
+              {% for material in rawmaterials %}
+              <option value="{{ material.id }}" data-type="RAW_MATERIAL">
+                {{ material.name }} ({{ material.unit.unit_name }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mt-2">
+            <label>Current Stock</label>
+            <p id="current_stock" class="font-weight-bold text-primary">Select an item</p>
+          </div>
+
+          <div class="form-group mt-2">
+            <label for="quantity">Quantity</label>
+            <input type="number" name="quantity" id="quantity" step="0.01" class="form-control" required>
+          </div>
+
+        <div class="form-group mt-2">
+            <label for="reason">Reason</label>
+            <select name="reason" id="reason" class="form-control" required>
+                <option value="">-- Select Reason --</option>
+                <option value="SOLD">Sold</option>
+                <option value="EXPIRED">Expired</option>
+                <option value="DAMAGED">Damaged</option>
+                <option value="RETURNED">Returned</option>
+                <option value="OTHERS">Others</option>
+            </select>
+        </div>
+
+          <div class="form-group mt-3">
+            <button type="submit" class="btn btn-warning btn-rounded">Withdraw</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const itemSelect = document.getElementById("item_id");
+  const itemTypeSelect = document.getElementById("item_type");
+  const stockDisplay = document.getElementById("current_stock");
+
+  function updateOptions() {
+    const type = itemTypeSelect.value;
+    [...itemSelect.options].forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = (opt.dataset.type !== type);
+    });
+    itemSelect.value = "";
+    stockDisplay.textContent = "Select an item";
+  }
+
+  async function fetchStock(itemId, type) {
+    if (!itemId) return;
+    const response = await fetch(`/api/get-stock/?type=${type}&id=${itemId}`);
+    const data = await response.json();
+    stockDisplay.textContent = data.stock ?? "N/A";
+  }
+
+  itemTypeSelect.addEventListener("change", updateOptions);
+  itemSelect.addEventListener("change", () => {
+    fetchStock(itemSelect.value, itemTypeSelect.value);
+  });
+});
+</script>
+{% endblock %}

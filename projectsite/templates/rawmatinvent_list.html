@@ -16,7 +16,6 @@
                                     <th scope="col">Material</th>
                                     <th scope="col">Current Stock</th>
                                     <th scope="col">Restock Threshold</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -25,9 +24,6 @@
                                     <td>{{ object.material }}</td>
                                     <td>{{ object.total_stock }}</td>
                                     <td>{{ object.reorder_threshold }}</td>
-                                    <td>
-                                        <a href="{% url 'rawmat-withdraw' object.material.id %}" class="btn btn-warning btn-sm">Withdraw</a>
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

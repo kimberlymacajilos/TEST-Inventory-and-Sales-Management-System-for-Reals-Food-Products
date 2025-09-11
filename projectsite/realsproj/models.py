@@ -172,7 +172,7 @@ class Notifications(models.Model):
         ('RAW_MATERIAL', 'Raw Material'),
     ]
     item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
-    item_id = models.BigIntegerField()  # no FK, just store ID
+    item_id = models.BigIntegerField()
     notification_type = models.CharField(max_length=20)
     notification_timestamp = models.DateTimeField()
     is_read = models.BooleanField(default=False)

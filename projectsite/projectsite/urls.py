@@ -66,8 +66,8 @@ urlpatterns = [
     path('unirprices/add', a.UnitPricesCreateView.as_view(), name='unit-prices-add'),
     path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
 
-    path('product-withdraw/<int:product_id>/', a.ProductWithdrawView.as_view(), name='product-withdraw'),
-    path('rawmat-withdraw/<int:material_id>/', a.RawMaterialWithdrawView.as_view(), name='rawmat-withdraw'),
-
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
+    path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
+    path("api/get-stock/", a.get_stock, name="get-stock"),
+    
 ]

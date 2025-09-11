@@ -4,6 +4,9 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.utils import timezone
 from django.views import View
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from decimal import Decimal
@@ -76,7 +79,7 @@ class HistoryLogList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return HistoryLog.objects.all().order_by('-id')  # or '-log_date'
+        return HistoryLog.objects.all().order_by('-id')
     
 class SalesList(ListView):
     model = Sales
@@ -261,91 +264,6 @@ class SrpPricesCreateView(CreateView):
     template_name = "srpprices_add.html"
     success_url = reverse_lazy("product-add")
 
-class ProductWithdrawView(View):
-    def get(self, request, product_id):
-        product = get_object_or_404(Products, id=product_id)
-        return render(request, 'withdraw_prod.html', {'product': product})
-
-    def post(self, request, product_id):
-        product = get_object_or_404(Products, id=product_id)
-        inventory = get_object_or_404(ProductInventory, product_id=product.id)
-
-        quantity_input = request.POST.get('quantity')
-        reason = request.POST.get('reason')
-
-        try:
-            quantity = Decimal(quantity_input)
-
-            if quantity <= 0:
-                messages.error(request, "Quantity must be greater than zero.")
-            elif quantity > inventory.total_stock:
-                messages.error(request, "Not enough stock to withdraw.")
-            else:
-                inventory.total_stock -= quantity
-                inventory.save() 
-                
-                Withdrawals.objects.create(
-                    item_id=product.id,
-                    item_type='PRODUCT',
-                    quantity=quantity,
-                    reason=reason,
-                    date=timezone.now(),
-                    created_by_admin=request.user
-                )
-
-                messages.success(
-                    request,
-                    f"{quantity} units of {product.variant.name} withdrawn successfully."
-                )
-                return redirect('product-inventory') 
-
-        except Exception:
-            messages.error(request, "Invalid quantity. Please enter a valid number.")
-
-        return render(request, 'withdraw_prod.html', {'product': product})
-
-
-class RawMaterialWithdrawView(View):
-    def get(self, request, material_id):
-        material = get_object_or_404(RawMaterials, id=material_id)
-        return render(request, 'withdraw_rawmat.html', {'material': material})
-
-    def post(self, request, material_id):
-        material = get_object_or_404(RawMaterials, id=material_id)
-        inventory = get_object_or_404(RawMaterialInventory, material_id=material.id)
-
-        quantity_input = request.POST.get('quantity')
-        reason = request.POST.get('reason')
-
-        try:
-            quantity = Decimal(quantity_input)
-
-            if quantity <= 0:
-                messages.error(request, "Quantity must be greater than zero.")
-            elif quantity > inventory.total_stock:
-                messages.error(request, "Not enough stock to withdraw.")
-            else:
-                inventory.total_stock -= quantity
-                inventory.save() 
-
-                Withdrawals.objects.create(
-                    item_id=material.id,
-                    item_type='RAW_MATERIAL',
-                    quantity=quantity,
-                    reason=reason,
-                    date=timezone.now(),
-                    created_by_admin=request.user
-                )
-
-                messages.success(
-                    request,
-                    f"{quantity} units of {material.name} withdrawn successfully."
-                )
-                return redirect('rawmaterial-inventory') 
-        except Exception:
-            messages.error(request, "Invalid quantity. Please enter a valid number.")
-
-        return render(request, 'withdraw_rawmat.html', {'material': material})
 
 class WithdrawSuccessView(ListView):
     model = Withdrawals
@@ -356,3 +274,78 @@ class WithdrawSuccessView(ListView):
     def get_queryset(self):
         return Withdrawals.objects.all().order_by('-date')
     
+
+class WithdrawItemView(View):
+    template_name = "withdraw_item.html" 
+
+    def get(self, request):
+        products = Products.objects.all()
+        rawmaterials = RawMaterials.objects.all()
+        return render(request, self.template_name, {
+            "products": products,
+            "rawmaterials": rawmaterials
+        })
+
+    def post(self, request):
+        item_type = request.POST.get("item_type")
+        item_id = request.POST.get("item_id")
+        reason = request.POST.get("reason")
+        quantity_input = request.POST.get("quantity")
+
+        try:
+            quantity = Decimal(quantity_input)
+        except (InvalidOperation, TypeError):
+            messages.error(request, "Invalid quantity format.")
+            return redirect("withdraw-item")
+
+        if item_type == "PRODUCT":
+            model = Products
+            inventory_model = ProductInventory
+            field_name = "product_id"
+        elif item_type == "RAW_MATERIAL":
+            model = RawMaterials
+            inventory_model = RawMaterialInventory
+            field_name = "material_id"
+        else:
+            messages.error(request, "Invalid item type selected.")
+            return redirect("withdraw-item")
+
+        item = get_object_or_404(model, id=item_id)
+
+        with transaction.atomic():
+            inventory = get_object_or_404(inventory_model, **{field_name: item.id})
+
+            if quantity <= 0:
+                messages.error(request, "Quantity must be greater than zero.")
+            elif quantity > inventory.total_stock:
+                messages.error(request, "Not enough stock to withdraw.")
+            else:
+                inventory.total_stock -= quantity
+                inventory.save()
+
+                Withdrawals.objects.create(
+                    item_id=item.id,
+                    item_type=item_type,
+                    quantity=quantity,
+                    reason=reason,
+                    date=timezone.now(),
+                    created_by_admin=request.user,
+                )
+                messages.success(request, f"{quantity} withdrawn from {item} successfully.")
+                return redirect("withdrawals")
+
+        return redirect("withdraw-item")
+    
+@require_GET
+def get_stock(request):
+    item_type = request.GET.get("type")
+    item_id = request.GET.get("id")
+
+    if item_type == "PRODUCT":
+        inventory = ProductInventory.objects.filter(product_id=item_id).first()
+    elif item_type == "RAW_MATERIAL":
+        inventory = RawMaterialInventory.objects.filter(material_id=item_id).first()
+    else:
+        return JsonResponse({"stock": None})
+
+    return JsonResponse({"stock": inventory.total_stock if inventory else 0})
