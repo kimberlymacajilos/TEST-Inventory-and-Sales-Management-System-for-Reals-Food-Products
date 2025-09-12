@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, Withdrawals
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -135,3 +135,9 @@ class UnifiedWithdrawForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
+
+
+class NotificationsForm(forms.Form):
+    class Meta:
+        model = Notifications
+        fields = "__all__"

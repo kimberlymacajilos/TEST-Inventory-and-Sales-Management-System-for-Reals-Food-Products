@@ -170,8 +170,8 @@ class HistoryLogTypes(models.Model):
 
 class Notifications(models.Model):
     ITEM_TYPE_CHOICES = [
-        ('PRODUCT', 'Product'),
-        ('RAW_MATERIAL', 'Raw Material'),
+        ('product', 'Product'),
+        ('raw_material', 'Raw Material'),
     ]
     item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
     item_id = models.BigIntegerField()
