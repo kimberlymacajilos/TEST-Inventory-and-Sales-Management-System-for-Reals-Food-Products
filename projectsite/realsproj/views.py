@@ -147,7 +147,17 @@ class HistoryLogList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return HistoryLog.objects.all().order_by('-id')
+        queryset = super().get_queryset().select_related("admin", "log_type").order_by("-log_date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(admin__username__icontains=query) |
+                Q(log_type__category__icontains=query) |   # adjust if field is different
+                Q(log_date__icontains=query)
+            )
+
+        return queryset
     
 class SalesList(ListView):
     model = Sales
@@ -177,6 +187,21 @@ class ExpensesList(ListView):
     context_object_name = 'expenses'
     template_name = "expenses_list.html"
     paginate_by = 10
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
 
 class ExpensesCreateView(CreateView):
     model = Expenses
@@ -201,16 +226,21 @@ class ProductBatchList(ListView):
     template_name = "prodbatch_list.html"
     paginate_by = 10
 
+
     def get_queryset(self):
-        queryset = ProductBatches.objects.all().order_by('-id')
-        query = self.request.GET.get('q')
+        queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
 
         if query:
             queryset = queryset.filter(
-                Q(product__name__icontains=query) |   # product name (adjust field if diff)
-                Q(batch_number__icontains=query) |    # batch number
-                Q(date__icontains=query)              # date field
+                Q(product__description__icontains=query) |   # product description from Products
+                Q(batch_date__icontains=query) |             # batch_date
+                Q(manufactured_date__icontains=query) |      # manufactured_date
+                Q(expiration_date__icontains=query) |        # expiration_date
+                Q(quantity__icontains=query) |               # quantity
+                Q(created_by_admin__username__icontains=query)  # admin username
             )
+
         return queryset
     
 class ProductBatchCreateView(CreateView):
@@ -235,18 +265,19 @@ class ProductInventoryList(ListView):
     context_object_name = 'product_inventory'
     template_name = "prodinvent_list.html"
     paginate_by = 10
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related("product")
 
         query = self.request.GET.get("q", "").strip()
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |
-                Q(product__product_type__name__icontains=query) |
-                Q(product__variant__name__icontains=query)
+                Q(product__description__icontains=query) |  # comes from Products
+                Q(total_stock__icontains=query) |           # comes from ProductInventory
+                Q(restock_threshold__icontains=query)       # comes from ProductInventory
             )
 
-        return queryset
+        return queryset.order_by("-product_id")
 
 
 class ProductInventoryCreateView(CreateView):
@@ -273,7 +304,26 @@ class RawMaterialBatchList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return RawMaterialBatches.objects.all().order_by('-id')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("material", "created_by_admin")  # preload FKs for performance
+            .order_by("-id")
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(material__name__icontains=query) |        # material name
+                Q(material__size__name__icontains=query) | # size (from Sizes)
+                Q(material__unit__name__icontains=query) | # unit (from SizeUnits)
+                Q(batch_date__icontains=query) |           # batch date
+                Q(received_date__icontains=query) |        # received date
+                Q(expiration_date__icontains=query) |      # expiration date
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
     
 class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
@@ -299,7 +349,24 @@ class RawMaterialInventoryList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return RawMaterialInventory.objects.all().order_by('-material__name')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("material", "material__size", "material__unit", "material__created_by_admin")
+            .order_by("material__id")   # since `RawMaterialInventory` primary key = material
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(material__name__icontains=query) |
+                Q(material__size__name__icontains=query) |
+                Q(material__unit__name__icontains=query) |
+                Q(material__price_per_unit__icontains=query) |
+                Q(material__created_by_admin__username__icontains=query)
+            )
+
+        return queryset
     
 class RawMaterialInventoryCreateView(CreateView):
     model = RawMaterialInventory
