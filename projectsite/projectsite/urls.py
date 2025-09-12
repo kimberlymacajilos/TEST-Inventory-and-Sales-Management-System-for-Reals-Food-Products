@@ -93,5 +93,7 @@ urlpatterns = [
     
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
+    path('notifications/', a.NotificationsList.as_view(), name='notifications'),
+
 
 ]

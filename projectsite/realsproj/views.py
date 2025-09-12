@@ -33,7 +33,8 @@ from realsproj.forms import (
     SizesForm,
     SizeUnitsForm,
     UnitPricesForm,
-    SrpPricesForm,
+    SrpPricesForm, 
+    NotificationsForm,
     BulkProductBatchForm
 )
 
@@ -54,6 +55,7 @@ from realsproj.models import (
     UnitPrices,
     SrpPrices,
     Withdrawals,
+    Notifications,
     AuthUser,
 )
 
@@ -366,18 +368,18 @@ class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_add.html'
-    success_url = reverse_lazy('rawmatbatch')
+    success_url = reverse_lazy('rawmaterial-batch')  
 
 class RawMaterialBatchUpdateView(UpdateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
-    success_url = reverse_lazy('rawmatbatch')
-
+    success_url = reverse_lazy('rawmaterial-batch') 
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
     template_name = 'rawmatbatch_delete.html'
-    success_url = reverse_lazy('rawmatbatch')
+    success_url = reverse_lazy('rawmaterial-batch')
+
 
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
@@ -565,6 +567,18 @@ def login_view(request):
     else:
         form = AuthenticationForm()
     return render(request, "login.html", {"form": form})
+
+
+class NotificationsList(ListView):
+    model = Notifications
+    context_object_name = 'notifications'
+    template_name = "notification.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Notifications.objects.order_by('-created_at')
+
+
 
 class BulkProductBatchCreateView(LoginRequiredMixin, View):
     template_name = "prodbatch_add.html"
