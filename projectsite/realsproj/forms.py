@@ -135,3 +135,22 @@ class UnifiedWithdrawForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
+
+class BulkProductBatchForm(forms.Form):
+    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.products = []
+        for product in Products.objects.all():
+            field_name = f'product_{product.id}_qty'
+            self.fields[field_name] = forms.DecimalField(
+                required=False,
+                min_value=0,
+                label=str(product),
+                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+            )
+            # store for easy access in template
+            self.products.append({"qty_field": self[field_name], "label": str(product)})
