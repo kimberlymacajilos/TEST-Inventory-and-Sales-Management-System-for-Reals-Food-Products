@@ -66,8 +66,13 @@
                                     <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                     <td>{{ object.description }}</td>
                                     <td>
-                                        <a href="{% url 'product-edit' object.id %}" class="btn btn-primary btn-sm">Edit</a>
-                                        <a href="{% url 'product-delete' object.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                        <a href="{% url 'product-edit' object.id %}" style="color: blue;" title="Edit">
+                                            <i class="la la-edit la-lg"></i>
+                                        </a>
+                                        &nbsp;&nbsp;
+                                        <a href="{% url 'product-delete' object.id %}" style="color: red;" title="Delete">
+                                            <i class="la la-trash la-lg"></i>
+                                        </a>
                                     </td>
                                 </tr>
                                 {% empty %}

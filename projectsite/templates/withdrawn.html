@@ -8,7 +8,7 @@
     <div class="row">
       <div class="col-md-12">
         <div class="card">
-          <!-- Header: title + filters + add button -->
+
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of Withdrawals</div>
@@ -16,7 +16,7 @@
             </div>
 
             <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Item Type filter (values come from displayed label) -->
+
               <select id="itemTypeFilter" class="form-control" style="width:160px;">
                 <option value="">All Types</option>
                 {% for obj in object_list %}
@@ -24,7 +24,6 @@
                 {% endfor %}
               </select>
 
-              <!-- Reason filter -->
               <select id="reasonFilter" class="form-control" style="width:160px;">
                 <option value="">All Reasons</option>
                 {% for obj in object_list %}
@@ -32,13 +31,9 @@
                 {% endfor %}
               </select>
 
-              <!-- Date filter (supports YYYY, YYYY-MM, MM, or full YYYY-MM-DD) -->
               <input id="dateFilter" class="form-control" style="width:180px;" placeholder="Date (YYYY / YYYY-MM / MM / YYYY-MM-DD)" />
-
-              <!-- Free text search (item id, withdrawn by, etc.) -->
               <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search item id / user..." />
 
-              <!-- Add button -->
               <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
             </div>
           </div>
