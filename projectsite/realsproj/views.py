@@ -150,7 +150,16 @@ class ProductBatchList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return ProductBatches.objects.all().order_by('-id')
+        queryset = ProductBatches.objects.all().order_by('-id')
+        query = self.request.GET.get('q')
+
+        if query:
+            queryset = queryset.filter(
+                Q(product__name__icontains=query) |   # product name (adjust field if diff)
+                Q(batch_number__icontains=query) |    # batch number
+                Q(date__icontains=query)              # date field
+            )
+        return queryset
     
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
@@ -174,6 +183,19 @@ class ProductInventoryList(ListView):
     context_object_name = 'product_inventory'
     template_name = "prodinvent_list.html"
     paginate_by = 10
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("product")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(product__description__icontains=query) |
+                Q(product__product_type__name__icontains=query) |
+                Q(product__variant__name__icontains=query)
+            )
+
+        return queryset
+
 
 class ProductInventoryCreateView(CreateView):
     model = ProductInventory
