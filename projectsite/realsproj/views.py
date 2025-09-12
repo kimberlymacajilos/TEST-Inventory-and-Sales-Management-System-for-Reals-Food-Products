@@ -9,17 +9,69 @@ from django.views.decorators.http import require_GET
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
+from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
+from django.shortcuts import render, redirect
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import login, authenticate
 from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
 from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
 from django.db.models import Q
 from decimal import Decimal, InvalidOperation
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
+from django.shortcuts import render
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
+import calendar
 
-class HomePageView(ListView):
-    model = Products
-    context_object_name = 'home'
+
+@method_decorator(login_required, name='dispatch')
+
+class HomePageView(LoginRequiredMixin, TemplateView):
     template_name = "home.html"
+
+def sales_vs_expenses(request):
+    sales_data = (
+        Sales.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    expenses_data = (
+        Expenses.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    months = sorted(
+        set([s['month'].strftime("%Y-%m") for s in sales_data] +
+            [e['month'].strftime("%Y-%m") for e in expenses_data])
+    )
+
+    sales_totals = []
+    expenses_totals = []
+
+    for m in months:
+        sales_totals.append(
+            next((float(s['total']) for s in sales_data if s['month'].strftime("%Y-%m") == m), 0)
+        )
+        expenses_totals.append(
+            next((float(e['total']) for e in expenses_data if e['month'].strftime("%Y-%m") == m), 0)
+        )
+
+    return JsonResponse({
+        "months": months,
+        "sales": sales_totals,
+        "expenses": expenses_totals,
+    })
 
 class ProductsList(ListView):
     model = Products
@@ -387,3 +439,25 @@ def get_stock(request):
         return JsonResponse({"stock": None})
 
     return JsonResponse({"stock": inventory.total_stock if inventory else 0})
+
+def signup_view(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect("home")  # redirect after signup
+    else:
+        form = UserCreationForm()
+    return render(request, "signup.html", {"form": form})
+
+def login_view(request):
+    if request.method == "POST":
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect("home")  # redirect after login
+    else:
+        form = AuthenticationForm()
+    return render(request, "login.html", {"form": form})

@@ -1,18 +1,47 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
-<div class="content">
-    <div class="container-fluid">
-        <h4 class="page-title">Home</h4>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Page Title</div>
-                        <div class="card-category">Page Subtitle</div>
-                    </div>
-                    <div class="card-body">Hello, World</div>
-                </div>
-            </div>
-        </div>
-    </div>
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Dashboard{% endblock title %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
+{% endblock vendor_js %}
+
+{% block content %}
+<div class="mb-4">
+  <h4 class="fw-bold py-3 mb-4">
+    <span class="text-muted fw-light">Dashboard /</span> Sales vs Expenses
+  </h4>
 </div>
-{% endblock %}
+
+<div class="row gy-6">
+  <!-- Sales vs Expenses Chart -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Monthly Sales vs Expenses</h5>
+      </div>
+      <div class="card-body">
+        <div id="salesExpensesChart" style="height: 300px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="months-data" type="application/json">{{ months|safe }}</script>
+<script id="sales-data" type="application/json">{{ sales|safe }}</script>
+<script id="expenses-data" type="application/json">{{ expenses|safe }}</script>
+
+{% endblock content %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script src="{% static 'js/dashboards-analytics.js' %}"></script>
+{% endblock page_js %}
+

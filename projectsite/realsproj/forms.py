@@ -3,10 +3,21 @@ from django import forms
 from datetime import timedelta
 from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
 
-class ProductsForm(ModelForm):
+class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
-        fields = "__all__"
+        fields = '__all__'
+        widgets = {
+            'date_created': forms.DateTimeInput(
+                attrs={'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M'
+            ),
+        }
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if self.instance and self.instance.pk:
+                self.fields['date_created'].initial = self.instance.date_created.strftime('%Y-%m-%dT%H:%M')
 
 class RawMaterialsForm(ModelForm):
     class Meta:

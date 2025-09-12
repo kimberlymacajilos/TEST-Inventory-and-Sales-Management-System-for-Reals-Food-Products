@@ -17,11 +17,16 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from realsproj import views as a
+from django.contrib.auth import views as auth_views
+from django.urls import path, re_path
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
+    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    re_path(r'^logout/$', auth_views.LogoutView.as_view(), name='logout'),
 
     path('products/', a.ProductsList.as_view(), name='products'),
     path('products/add', a.ProductCreateView.as_view(), name='product-add'),
@@ -69,5 +74,24 @@ urlpatterns = [
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
     path("api/get-stock/", a.get_stock, name="get-stock"),
+
+    path("login/", a.login_view, name="login"),
+    path("signup/", a.signup_view, name="signup"),
+
+    path('password_reset/', 
+         auth_views.PasswordResetView.as_view(template_name="password_reset.html"), 
+         name='password_reset'),
+    path('password_reset/done/', 
+         auth_views.PasswordResetDoneView.as_view(template_name="password_reset_done.html"), 
+         name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', 
+         auth_views.PasswordResetConfirmView.as_view(template_name="password_reset_confirm.html"), 
+         name='password_reset_confirm'),
+    path('reset/done/', 
+         auth_views.PasswordResetCompleteView.as_view(template_name="password_reset_complete.html"), 
+         name='password_reset_complete'),
     
+    path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
+
+
 ]

@@ -7,6 +7,8 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 
 
 class AuthGroup(models.Model):
@@ -253,9 +255,9 @@ class Products(models.Model):
     size_unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     unit_price = models.ForeignKey('UnitPrices', models.DO_NOTHING)
     srp_price = models.ForeignKey('SrpPrices', models.DO_NOTHING)
+    date_created = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    description = models.TextField(blank=True, null=True, db_index=True)
 
     class Meta:
         managed = False
