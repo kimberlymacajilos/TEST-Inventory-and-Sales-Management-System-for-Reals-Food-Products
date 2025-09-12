@@ -17,8 +17,43 @@ from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
+from realsproj.forms import (
+    ProductsForm,
+    RawMaterialsForm,
+    HistoryLogForm,
+    SalesForm,
+    ExpensesForm,
+    ProductBatchForm,
+    ProductInventoryForm,
+    RawMaterialBatchForm,
+    RawMaterialInventoryForm,
+    ProductTypesForm,
+    ProductVariantsForm,
+    SizesForm,
+    SizeUnitsForm,
+    UnitPricesForm,
+    SrpPricesForm
+)
+
+from realsproj.models import (
+    Products,
+    RawMaterials,
+    HistoryLog,
+    Sales,
+    Expenses,
+    ProductBatches,
+    ProductInventory,
+    RawMaterialBatches,
+    RawMaterialInventory,
+    ProductTypes,
+    ProductVariants,
+    Sizes,
+    SizeUnits,
+    UnitPrices,
+    SrpPrices,
+    Withdrawals
+)
+
 from django.db.models import Q
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -26,7 +61,6 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
-import calendar
 
 
 @method_decorator(login_required, name='dispatch')
