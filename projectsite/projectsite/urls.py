@@ -51,7 +51,7 @@ urlpatterns = [
     path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
 
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch'),
-    path('prodbatch/add', a.ProductBatchCreateView.as_view(), name='product-batch-add'),
+    path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
     path('prodbatch/<pk>', a.ProductBatchUpdateView.as_view(), name='product-batch-edit'),
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
 
