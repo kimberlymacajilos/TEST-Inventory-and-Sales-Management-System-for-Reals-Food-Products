@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, Withdrawals
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -160,3 +160,8 @@ class BulkProductBatchForm(forms.Form):
             )
             # store for easy access in template
             self.products.append({"qty_field": self[field_name], "label": str(product)})
+
+class StockChangeForm(forms.Form):
+    class Meta:
+        model = StockChanges
+        fields = "__all__"

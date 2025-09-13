@@ -35,7 +35,8 @@ from realsproj.forms import (
     UnitPricesForm,
     SrpPricesForm, 
     NotificationsForm,
-    BulkProductBatchForm
+    BulkProductBatchForm,
+    StockChangeForm
 )
 
 from realsproj.models import (
@@ -57,6 +58,7 @@ from realsproj.models import (
     Withdrawals,
     Notifications,
     AuthUser,
+    StockChanges
 )
 
 from django.db.models import Q
@@ -619,3 +621,25 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
             for p in Products.objects.all()
         ]
         return render(request, self.template_name, {'form': form, 'products': products})
+    
+class StockChangesList(ListView):
+    model = StockChanges
+    context_object_name = 'stock_changes'
+    template_name = "stock_change.html"
+    ordering = ['-date']
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(item_type__icontains=query) |
+                Q(item_id__icontains=query) |
+                Q(category__icontains=query) |
+                Q(quantity_change__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
