@@ -85,7 +85,6 @@ DATABASES = {
         'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
         'PORT': '5432',
     }
-
 }
 
 # Password validation

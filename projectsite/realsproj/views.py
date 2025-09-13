@@ -17,6 +17,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate
+from django.contrib.auth import get_user_model
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -34,6 +35,7 @@ from realsproj.forms import (
     UnitPricesForm,
     SrpPricesForm, 
     NotificationsForm,
+    BulkProductBatchForm
 )
 
 from realsproj.models import (
@@ -54,6 +56,7 @@ from realsproj.models import (
     SrpPrices,
     Withdrawals,
     Notifications,
+    AuthUser,
 )
 
 from django.db.models import Q
@@ -575,3 +578,44 @@ class NotificationsList(ListView):
     def get_queryset(self):
         return Notifications.objects.order_by('-created_at')
 
+
+
+class BulkProductBatchCreateView(LoginRequiredMixin, View):
+    template_name = "prodbatch_add.html"
+
+    def get(self, request):
+        form = BulkProductBatchForm()
+        products = [
+            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
+            for p in Products.objects.all()
+        ]
+        return render(request, self.template_name, {'form': form, 'products': products})
+
+    def post(self, request):
+        form = BulkProductBatchForm(request.POST)
+        if form.is_valid():
+            batch_date = form.cleaned_data['batch_date']
+            manufactured_date = form.cleaned_data['manufactured_date']
+            expiration_date = form.cleaned_data['expiration_date']
+
+            from realsproj.models import AuthUser
+            auth_user = AuthUser.objects.get(id=request.user.id)
+
+            for product in Products.objects.all():
+                qty = form.cleaned_data.get(f'product_{product.id}_qty')
+                if qty:
+                    ProductBatches.objects.create(
+                        product=product,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        manufactured_date=manufactured_date,
+                        expiration_date=expiration_date,
+                        created_by_admin=auth_user 
+                    )
+            return redirect('product-batch')
+
+        products = [
+            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
+            for p in Products.objects.all()
+        ]
+        return render(request, self.template_name, {'form': form, 'products': products})
