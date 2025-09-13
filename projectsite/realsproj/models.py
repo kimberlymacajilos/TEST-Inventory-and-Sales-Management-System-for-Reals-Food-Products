@@ -184,6 +184,39 @@ class Notifications(models.Model):
         managed = False
         db_table = 'notifications'
 
+    @property
+    def formatted_message(self):
+        notif_type = self.notification_type.lower()
+
+        if self.item_type.lower() == "product":
+            try:
+                product = Products.objects.get(pk=self.item_id)
+                product_name = str(product)
+            except Products.DoesNotExist:
+                product_name = "Unknown Product"
+
+            if notif_type in ["out_of_stock"]:
+                return f"{product_name} is out of stock"
+            elif notif_type in ["stock_alert", "low_stock"]:
+                return f"{product_name} is low in stock"
+
+        elif self.item_type.lower() == "raw_material":
+            try:
+                material = RawMaterials.objects.get(pk=self.item_id)
+                material_name = str(material)
+            except RawMaterials.DoesNotExist:
+                material_name = "Unknown Raw Material"
+
+            if notif_type in ["out_of_stock"]:
+                return f"{material_name} is out of stock"
+            elif notif_type in ["stock_alert", "low_stock"]:
+                return f"{material_name} is low in stock"
+
+        if notif_type == "expiration_alert":
+            return f"{self.item_type.capitalize()} (ID {self.item_id}) is nearing expiration"
+
+        return f"{self.notification_type} ({self.item_type})"
+
 
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)

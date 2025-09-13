@@ -3,19 +3,18 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Raw Material Inventory</h4>
+    <h4 class="page-title">Notifications</h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
-          <!-- Header: title + search -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-              <div class="card-title">List of Raw Material Stock</div>
-              <div class="card-category">Page Subtitle</div>
+              <div class="card-title">List of Notifications</div>
+              <div class="card-category">Latest product and raw material alerts</div>
             </div>
 
             <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <input id="searchInput" class="form-control" style="width:260px;" placeholder="Search raw material stock..." />
+              <input id="searchInput" class="form-control" style="width:260px;" placeholder="Search notifications..." />
             </div>
           </div>
 
@@ -24,19 +23,19 @@
               <table class="table table-striped" id="inventoryTable">
                 <thead>
                   <tr>
-                    <th scope="col">Item Type</th>
-                    <th scope="col">Item</th>
-                    <th scope="col">Notification Type</th>
+                    <th scope="col">Message</th>
                     <th scope="col">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryTableBody">
                   {% for object in object_list %}
                   <tr>
-                    <td>{{ object.item_type }}</td>
-                    <td>{{ object.item }}</td>
-                    <td>{{ object.notification_type }}</td>
-                    <td>{{ object.created_at }}</td>
+                    <td>{{ object.formatted_message }}</td>
+                    <td>{{ object.notification_timestamp|date:"M d, Y, h:i a" }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center">No notifications available</td>
                   </tr>
                   {% endfor %}
                 </tbody>
