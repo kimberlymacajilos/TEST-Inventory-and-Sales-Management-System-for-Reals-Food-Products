@@ -80,10 +80,10 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
+        'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'Reals_db_123',
-        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }
