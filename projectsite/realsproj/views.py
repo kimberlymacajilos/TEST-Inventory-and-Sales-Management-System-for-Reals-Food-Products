@@ -474,7 +474,7 @@ class WithdrawSuccessView(ListView):
     
 
 class WithdrawItemView(View):
-    template_name = "withdraw_item.html" 
+    template_name = "withdraw_item.html"
 
     def get(self, request):
         products = Products.objects.all()
@@ -485,17 +485,20 @@ class WithdrawItemView(View):
         })
 
     def post(self, request):
-        item_type = request.POST.get("item_type")
+        # Convert form input to uppercase to match DB constraints
+        item_type = request.POST.get("item_type", "").strip().upper()
         item_id = request.POST.get("item_id")
-        reason = request.POST.get("reason")
+        reason = request.POST.get("reason", "").strip().upper()
         quantity_input = request.POST.get("quantity")
 
+        # Validate quantity
         try:
             quantity = Decimal(quantity_input)
         except (InvalidOperation, TypeError):
             messages.error(request, "Invalid quantity format.")
             return redirect("withdraw-item")
 
+        # Determine models based on item_type
         if item_type == "PRODUCT":
             model = Products
             inventory_model = ProductInventory
@@ -508,6 +511,7 @@ class WithdrawItemView(View):
             messages.error(request, "Invalid item type selected.")
             return redirect("withdraw-item")
 
+        # Fetch item
         item = get_object_or_404(model, id=item_id)
 
         with transaction.atomic():
@@ -515,24 +519,30 @@ class WithdrawItemView(View):
 
             if quantity <= 0:
                 messages.error(request, "Quantity must be greater than zero.")
+                return redirect("withdraw-item")
             elif quantity > inventory.total_stock:
                 messages.error(request, "Not enough stock to withdraw.")
-            else:
-                inventory.total_stock -= quantity
-                inventory.save()
+                return redirect("withdraw-item")
 
-                Withdrawals.objects.create(
-                    item_id=item.id,
-                    item_type=item_type,
-                    quantity=quantity,
-                    reason=reason,
-                    date=timezone.now(),
-                    created_by_admin=request.user,
-                )
-                messages.success(request, f"{quantity} withdrawn from {item} successfully.")
-                return redirect("withdrawals")
+            # Deduct stock
+            inventory.total_stock -= quantity
+            inventory.save()
+
+            # Record withdrawal with uppercase item_type and reason
+            Withdrawals.objects.create(
+                item_id=item.id,
+                item_type=item_type,
+                quantity=quantity,
+                reason=reason,
+                date=timezone.now(),
+                created_by_admin=request.user,
+            )
+
+            messages.success(request, f"{quantity} withdrawn from {item} successfully.")
+            return redirect("withdrawals")
 
         return redirect("withdraw-item")
+    
     
 @require_GET
 def get_stock(request):

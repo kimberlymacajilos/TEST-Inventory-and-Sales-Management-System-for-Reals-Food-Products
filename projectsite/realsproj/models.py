@@ -170,8 +170,8 @@ class HistoryLogTypes(models.Model):
 
 class Notifications(models.Model):
     ITEM_TYPE_CHOICES = [
-        ('product', 'Product'),
-        ('raw_material', 'Raw Material'),
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
     ]
     item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
     item_id = models.BigIntegerField()
@@ -186,34 +186,31 @@ class Notifications(models.Model):
 
     @property
     def formatted_message(self):
-        notif_type = self.notification_type.lower()
+        notif_type = self.notification_type.upper()
 
-        if self.item_type.lower() == "product":
+        if self.item_type.upper() == "PRODUCT":
             try:
                 product = Products.objects.get(pk=self.item_id)
                 product_name = str(product)
             except Products.DoesNotExist:
                 product_name = "Unknown Product"
 
-            if notif_type in ["out_of_stock"]:
+            if notif_type in ["OUT_OF_STOCK"]:
                 return f"{product_name} is out of stock"
-            elif notif_type in ["stock_alert", "low_stock"]:
+            elif notif_type in ["LOW_STOCK"]:
                 return f"{product_name} is low in stock"
 
-        elif self.item_type.lower() == "raw_material":
+        elif self.item_type.upper() == "RAW_MATERIAL":
             try:
                 material = RawMaterials.objects.get(pk=self.item_id)
                 material_name = str(material)
             except RawMaterials.DoesNotExist:
                 material_name = "Unknown Raw Material"
 
-            if notif_type in ["out_of_stock"]:
+            if notif_type in ["OUT_OF_STOCK"]:
                 return f"{material_name} is out of stock"
-            elif notif_type in ["stock_alert", "low_stock"]:
+            elif notif_type in ["LOW_STOCK"]:
                 return f"{material_name} is low in stock"
-
-        if notif_type == "expiration_alert":
-            return f"{self.item_type.capitalize()} (ID {self.item_id}) is nearing expiration"
 
         return f"{self.notification_type} ({self.item_type})"
 
@@ -437,7 +434,7 @@ class Withdrawals(models.Model):
         ('OTHERS', 'Others'),
     ]
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
-    date = models.DateTimeField(auto_now_add=True) 
+    date = models.DateTimeField(auto_now_add=True)
     created_by_admin = models.ForeignKey(User, on_delete=models.DO_NOTHING, db_column="created_by_admin_id")
 
     class Meta:
