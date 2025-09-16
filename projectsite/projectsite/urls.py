@@ -95,6 +95,4 @@ urlpatterns = [
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
     
-    path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
-
 ]
