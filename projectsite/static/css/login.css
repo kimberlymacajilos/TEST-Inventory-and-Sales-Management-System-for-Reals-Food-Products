@@ -50,7 +50,6 @@ body {
 /* Right side */
 .login-right {
   flex: 1;
-  padding: 50px 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
