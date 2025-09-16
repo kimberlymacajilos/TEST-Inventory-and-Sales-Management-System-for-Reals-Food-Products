@@ -161,15 +161,7 @@ class BulkProductBatchForm(forms.Form):
                 widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
             )
             # store for easy access in template
-<<<<<<< HEAD
             self.products.append({"qty_field": self[field_name], "label": str(product)})
-=======
-            self.products.append({"qty_field": self[field_name], "label": str(product)})
-
-class StockChangeForm(forms.Form):
-    class Meta:
-        model = StockChanges
-        fields = "__all__"
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -177,4 +169,3 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username", "email", "password1", "password2")
->>>>>>> a22f426ade1045770abfad550aa15797e038ad96
