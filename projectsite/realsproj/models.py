@@ -443,3 +443,22 @@ class Withdrawals(models.Model):
 
     def __str__(self):
         return f"{self.item_type} {self.item_id} - {self.quantity}"
+
+    def get_item_display(self):
+        if self.item_type == "PRODUCT":
+            from .models import Products  
+            try:
+                product = Products.objects.get(id=self.item_id)
+                return str(product) 
+            except Products.DoesNotExist:
+                return f"Unknown Product (ID {self.item_id})"
+
+        elif self.item_type == "RAW_MATERIAL":
+            from .models import RawMaterials
+            try:
+                material = RawMaterials.objects.get(id=self.item_id)
+                return str(material) 
+            except RawMaterials.DoesNotExist:
+                return f"Unknown Material (ID {self.item_id})"
+
+        return f"Unknown Item (ID {self.item_id})"
