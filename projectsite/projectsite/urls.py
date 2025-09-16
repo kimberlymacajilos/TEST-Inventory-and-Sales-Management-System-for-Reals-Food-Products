@@ -90,9 +90,18 @@ urlpatterns = [
     path('reset/done/', 
          auth_views.PasswordResetCompleteView.as_view(template_name="password_reset_complete.html"), 
          name='password_reset_complete'),
+
     
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
     
+<<<<<<< HEAD
+=======
+    path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
+
+    path("register/", a.register, name="register"),
+
+
+>>>>>>> a22f426ade1045770abfad550aa15797e038ad96
 ]

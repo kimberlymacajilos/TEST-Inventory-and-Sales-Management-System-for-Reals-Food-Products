@@ -2,6 +2,8 @@ from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
 from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -159,4 +161,20 @@ class BulkProductBatchForm(forms.Form):
                 widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
             )
             # store for easy access in template
+<<<<<<< HEAD
             self.products.append({"qty_field": self[field_name], "label": str(product)})
+=======
+            self.products.append({"qty_field": self[field_name], "label": str(product)})
+
+class StockChangeForm(forms.Form):
+    class Meta:
+        model = StockChanges
+        fields = "__all__"
+
+class CustomUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2")
+>>>>>>> a22f426ade1045770abfad550aa15797e038ad96
