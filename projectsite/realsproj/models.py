@@ -9,6 +9,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from decimal import Decimal
+from django.db.models import Sum
 
 
 class AuthGroup(models.Model):
@@ -257,6 +259,11 @@ class ProductInventory(models.Model):
         db_table = 'product_inventory'
 
 
+    @classmethod
+    def get_total_stocks(cls):
+        return cls.objects.aggregate(total=Sum("total_stock"))["total"] or 0
+
+
 class ProductRecipes(models.Model):
     id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey('Products', models.DO_NOTHING)
@@ -480,3 +487,13 @@ class Withdrawals(models.Model):
                 return f"Unknown Material (ID {self.item_id})"
 
         return f"Unknown Item (ID {self.item_id})"
+    
+    def compute_revenue(self):
+        if self.item_type == "PRODUCT" and self.reason == "SOLD":
+            from .models import Products
+            try:
+                product = Products.objects.get(id=self.item_id)
+                return Decimal(self.quantity) * product.srp_price.srp_price
+            except Products.DoesNotExist:
+                return Decimal(0)
+        return Decimal(0)
