@@ -62,15 +62,16 @@
                             <li>
                                 <div class="notif-center">
                                     {% for notif in notifications|slice:":5" %}
-                                        <a href="#" class="{% if not notif.is_read %}font-weight-bold{% endif %}">
-                                            <div class="notif-icon notif-warning">
-                                                <i class="la la-exclamation-circle"></i>
-                                            </div>
-                                            <div class="notif-content">
-                                                <span class="block">{{ notif.formatted_message }}</span>
-                                                <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                            </div>
-                                        </a>
+                                    <a href="{% url 'notification_read' notif.id %}" 
+                                    class="{% if not notif.is_read %}font-weight-bold{% endif %}">
+                                        <div class="notif-icon notif-warning">
+                                            <i class="la la-exclamation-circle"></i>
+                                        </div>
+                                        <div class="notif-content">
+                                            <span class="block">{{ notif.formatted_message }}</span>
+                                            <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
+                                        </div>
+                                    </a>
                                     {% empty %}
                                         <div class="text-center p-2">No new notifications</div>
                                     {% endfor %}

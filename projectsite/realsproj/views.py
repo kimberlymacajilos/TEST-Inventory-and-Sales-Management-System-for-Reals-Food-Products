@@ -590,6 +590,9 @@ class NotificationsList(ListView):
     def get_queryset(self):
         return Notifications.objects.order_by('-created_at')
 
+    def get(self, request, *args, **kwargs):
+        Notifications.objects.filter(is_read=False).update(is_read=True)
+        return super().get(request, *args, **kwargs)
 
 
 class BulkProductBatchCreateView(LoginRequiredMixin, View):
@@ -672,3 +675,10 @@ def best_sellers_api(request):
             data.append(others)
 
     return JsonResponse({"labels": labels, "data": data})
+
+
+def mark_notification_read(request, pk):
+    notif = get_object_or_404(Notifications, pk=pk)
+    notif.is_read = True
+    notif.save()
+    return redirect('notifications')
