@@ -477,71 +477,85 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
-        products = Products.objects.all()
-        rawmaterials = RawMaterials.objects.all()
+        products = Products.objects.all().select_related(
+            "product_type", "variant", "size", "size_unit", "productinventory"
+        )
+        rawmaterials = RawMaterials.objects.all().select_related(
+            "unit", "rawmaterialinventory"
+        )
+
         return render(request, self.template_name, {
             "products": products,
             "rawmaterials": rawmaterials
         })
 
     def post(self, request):
-        # Convert form input to uppercase to match DB constraints
-        item_type = request.POST.get("item_type", "").strip().upper()
-        item_id = request.POST.get("item_id")
-        reason = request.POST.get("reason", "").strip().upper()
-        quantity_input = request.POST.get("quantity")
+        item_type = request.POST.get("item_type", "").upper()
+        reason = request.POST.get("reason", "").upper()
 
-        # Validate quantity
-        try:
-            quantity = Decimal(quantity_input)
-        except (InvalidOperation, TypeError):
-            messages.error(request, "Invalid quantity format.")
+        if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
+            messages.error(request, "Invalid item type.")
             return redirect("withdraw-item")
 
-        # Determine models based on item_type
         if item_type == "PRODUCT":
             model = Products
-            inventory_model = ProductInventory
-            field_name = "product_id"
-        elif item_type == "RAW_MATERIAL":
-            model = RawMaterials
-            inventory_model = RawMaterialInventory
-            field_name = "material_id"
+            prefix = "product_"
         else:
-            messages.error(request, "Invalid item type selected.")
-            return redirect("withdraw-item")
+            model = RawMaterials
+            prefix = "material_"
 
-        # Fetch item
-        item = get_object_or_404(model, id=item_id)
+        withdrawals_made = 0
+        errors = []
 
         with transaction.atomic():
-            inventory = get_object_or_404(inventory_model, **{field_name: item.id})
+            for key, value in request.POST.items():
+                if key.startswith(prefix) and value.strip():
+                    try:
+                        qty = Decimal(value)
+                    except (InvalidOperation, TypeError):
+                        continue
 
-            if quantity <= 0:
-                messages.error(request, "Quantity must be greater than zero.")
-                return redirect("withdraw-item")
-            elif quantity > inventory.total_stock:
-                messages.error(request, "Not enough stock to withdraw.")
-                return redirect("withdraw-item")
+                    if qty <= 0:
+                        continue
 
-            # Deduct stock
-            inventory.total_stock -= quantity
-            inventory.save()
+                    item_id = key.replace(prefix, "")
+                    item = get_object_or_404(model, id=item_id)
 
-            # Record withdrawal with uppercase item_type and reason
-            Withdrawals.objects.create(
-                item_id=item.id,
-                item_type=item_type,
-                quantity=quantity,
-                reason=reason,
-                date=timezone.now(),
-                created_by_admin=request.user,
-            )
+                    if item_type == "PRODUCT":
+                        inventory = getattr(item, "productinventory", None)
+                    else:
+                        inventory = getattr(item, "rawmaterialinventory", None)
 
-            messages.success(request, f"{quantity} withdrawn from {item} successfully.")
-            return redirect("withdrawals")
+                    if not inventory:
+                        errors.append(f"No inventory record found for {item}")
+                        continue
 
-        return redirect("withdraw-item")
+                    if qty > inventory.total_stock:
+                        errors.append(f"Not enough stock for {item}")
+                        continue
+
+                    inventory.total_stock -= qty
+                    inventory.save()
+
+                    Withdrawals.objects.create(
+                        item_id=item.id,
+                        item_type=item_type,
+                        quantity=qty,
+                        reason=reason,
+                        date=timezone.now(),
+                        created_by_admin=request.user,
+                    )
+                    withdrawals_made += 1
+
+        if withdrawals_made:
+            messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+
+        return redirect("withdrawals")
+
+
     
     
 @require_GET
@@ -674,3 +688,7 @@ def mark_notification_read(request, pk):
     notif.is_read = True
     notif.save()
     return redirect('notifications')
+
+@login_required
+def profile_view(request):
+    return render(request, "profile.html")
