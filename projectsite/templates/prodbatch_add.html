@@ -1,31 +1,56 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
 <div class="content">
-    <div class="container-fluid">
-        <h4 class="page-title">Product Batches</h4>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Add New Product Batch</div>
-                        <div class="card-category">Page Subtitle</div>
-                    </div>
+  <div class="container-fluid">
+    <h4 class="page-title">Bulk Add Product Batches</h4>
 
-                    <div class="col-md-6">
-                    <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            {% csrf_token %} {% include 'includes/form.html' %}
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
 
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                    </div>
-                </div>
+          <!-- Batch Details -->
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label>Batch Date</label>
+              {{ form.batch_date }}
             </div>
-        </div>
+            <div class="form-group col-md-4">
+              <label>Manufactured Date</label>
+              {{ form.manufactured_date }}
+            </div>
+            <div class="form-group col-md-4">
+              <label>Expiration Date</label>
+              {{ form.expiration_date }}
+            </div>
+          </div>
+
+          <hr>
+          <h5>Input Quantities for Products</h5>
+
+          <table class="table table-bordered table-striped">
+            <thead class="thead-light">
+              <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td>{{ p.label }}</td>
+                <td>{{ p.qty_field }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <button type="submit" class="btn btn-success btn-rounded">Save Batches</button>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

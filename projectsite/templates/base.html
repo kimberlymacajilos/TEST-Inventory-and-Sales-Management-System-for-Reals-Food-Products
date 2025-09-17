@@ -10,254 +10,180 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i">
   <link rel="stylesheet" href="{% static 'css/ready.css' %}">
   <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
-	<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">  {# ✅ custom overrides #}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
 
   {% block vendor_css %}{% endblock vendor_css %}
 </head>
 <body>
-	<div class="wrapper">
-		<div class="main-header">
-			<div class="logo-header">
-				<a href="index.html" class="logo">
-					Real's Food Products
-				</a>
-				<button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse" data-target="collapse" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">
-					<span class="navbar-toggler-icon"></span>
-				</button>
-				<button class="topbar-toggler more"><i class="la la-ellipsis-v"></i></button>
-			</div>
-			<nav class="navbar navbar-header navbar-expand-lg">
-				<div class="container-fluid">
-					<ul class="navbar-nav topbar-nav ml-md-auto align-items-center">
-						<li class="nav-item dropdown hidden-caret">
-							<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								<i class="la la-envelope"></i>
-							</a>
-							<div class="dropdown-menu" aria-labelledby="navbarDropdown">
-								<a class="dropdown-item" href="#">Action</a>
-								<a class="dropdown-item" href="#">Another action</a>
-								<div class="dropdown-divider"></div>
-								<a class="dropdown-item" href="#">Something else here</a>
-							</div>    ''
-						</li>
-						<li class="nav-item dropdown hidden-caret">
-							<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
-							data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								<i class="la la-bell"></i>
-								{% if unread_count > 0 %}
-									<span class="notification">{{ unread_count }}</span>
-								{% endif %}
-							</a>
+<div class="wrapper">
+    <!-- Main Header -->
+    <div class="main-header">
+        <div class="logo-header">
+            <a href="{% url 'home' %}" class="logo">Real's Food Products</a>
+            <button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse" data-target="collapse" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <button class="topbar-toggler more"><i class="la la-ellipsis-v"></i></button>
+        </div>
+        <nav class="navbar navbar-header navbar-expand-lg">
+            <div class="container-fluid">
+                <ul class="navbar-nav topbar-nav ml-md-auto align-items-center">
 
-							<ul class="dropdown-menu notif-box" aria-labelledby="navbarDropdown">
-								<li>
-									<div class="dropdown-title">You have {{ unread_count }} new notification{{ unread_count|pluralize }}</div>
-								</li>
-								<li>
-									<div class="notif-center">
-										{% for notif in notifications %}
-											<a href="#">
-												<div class="notif-icon notif-warning">
-													<i class="la la-exclamation-circle"></i>
-												</div>
-												<div class="notif-content">
-													<span class="block">
-														{{ notif.notification_type }} ({{ notif.item_type }})
-													</span>
-													<span class="time">
-														{{ notif.notification_timestamp|date:"M d, Y H:i" }}
-													</span>
-												</div>
-											</a>
-										{% empty %}
-											<div class="text-center p-2">No new notifications</div>
-										{% endfor %}
-									</div>
-								</li>
-							</ul>
-						</li>
+                    <!-- Messages Dropdown (Optional) -->
+                    <li class="nav-item dropdown hidden-caret">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="la la-envelope"></i>
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                            <a class="dropdown-item" href="#">Action</a>
+                            <a class="dropdown-item" href="#">Another action</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#">Something else here</a>
+                        </div>
+                    </li>
 
-						<li class="nav-item dropdown">
-							<a class="dropdown-toggle profile-pic" data-toggle="dropdown" href="#" aria-expanded="false"> <img src="{% static 'img/reals.jpg' %}" alt="user-img" width="36" class="img-circle"><span >Admin1</span></span> </a>
-							<ul class="dropdown-menu dropdown-user">
-								<li>
-									<div class="user-box">
-										<div class="u-img"><img src="{% static 'img/reals.jpg' %}" alt="user"></div>
-										<div class="u-text">
-											<h4>Admin 1</h4>
-											<p class="text-muted">hello@themekita.com</p><a href="profile.html" class="btn btn-rounded btn-danger btn-sm">View Profile</a></div>
-										</div>
-									</li>
-									<div class="dropdown-divider"></div>
-									<a class="dropdown-item" href="#"><i class="ti-user"></i> My Profile</a>
-									<a class="dropdown-item" href="#"></i> My Balance</a>
-									<a class="dropdown-item" href="#"><i class="ti-email"></i> Inbox</a>
-									<div class="dropdown-divider"></div>
-									<a class="dropdown-item" href="#"><i class="ti-settings"></i> Account Setting</a>
-									<div class="dropdown-divider"></div>
-									<form method="post" action="{% url 'logout' %}">
-										{% csrf_token %}  
-										<button class="dropdown-item" class="fa fa-power-off" type="submit">Logout</button>
-									</form>			
-								</ul>
-								<!-- /.dropdown-user -->
-							</li>
-						</ul>
-					</div>
-				</nav>
-			</div>
-			<div class="sidebar">
-				<div class="scrollbar-inner sidebar-wrapper">
-					<div class="user">
-						<div class="photo">
-							<img src="{% static 'img/reals.jpg' %}">
-						</div>
-						<div class="info">
-							<a class="" data-toggle="collapse" href="#collapseExample" aria-expanded="true">
-								<span>
-									Admin 1
-									<span class="user-level">Administrator</span>
-									<span class="caret"></span>
-								</span>
-							</a>
-							<div class="clearfix"></div>
+                    <!-- Notifications Dropdown -->
+                    <li class="nav-item dropdown hidden-caret">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="la la-bell"></i>
+                            {% if unread_count > 0 %}
+                                <span class="notification">{{ unread_count }}</span>
+                            {% endif %}
+                        </a>
 
-							<div class="collapse in" id="collapseExample" aria-expanded="true">
-								<ul class="nav">
-									<li>
-										<a href="#profile">
-											<span class="link-collapse">My Profile</span>
-										</a>
-									</li>
-									<li>
-										<a href="#edit">
-											<span class="link-collapse">Edit Profile</span>
-										</a>
-									</li>
-									<li>
-										<a href="#settings">
-											<span class="link-collapse">Settings</span>
-										</a>
-									</li>
-								</ul>
-							</div>
-						</div>
-					</div>
-					<ul class="nav">
-                    <li class="nav-item">
-                        <a href="{% url 'home' %}">
-                            <i class="la la-dashboard"></i>
-                            <p>Dashboard</p>
-                        </a>
+                        <ul class="dropdown-menu notif-box" aria-labelledby="navbarDropdown">
+                            <li>
+                                <div class="dropdown-title">
+                                    You have {{ unread_count }} new notification{{ unread_count|pluralize }}
+                                </div>
+                            </li>
+                            <li>
+                                <div class="notif-center">
+                                    {% for notif in notifications|slice:":5" %}
+                                        <a href="#" class="{% if not notif.is_read %}unread{% else %}read{% endif %}">
+                                            <div class="notif-icon {{ notif.css_class }}">
+                                                <i class="{{ notif.icon_class }}"></i>
+                                            </div>
+                                            <div class="notif-content">
+                                                <span class="block">{{ notif.formatted_message }}</span>
+                                                <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
+                                            </div>
+                                        </a>
+                                    {% empty %}
+                                        <div class="text-center p-2">No new notifications</div>
+                                    {% endfor %}
+                                </div>
+                            </li>
+                            <li class="dropdown-footer text-center">
+                                <a href="{% url 'notifications' %}">View All Notifications</a>
+                            </li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-						<a data-toggle="collapse" href="#productsMenu" aria-expanded="false">
-							<i class="la la-archive"></i>
-							<p>Products</p>
-							<span class="caret"></span>
-						</a>
-						<div class="collapse" id="productsMenu">
-							<ul class="nav nav-collapse">
-								<li>
-									<a href="{% url 'products' %}">
-										<span class="sub-item">Product List</span>
-									</a>
-								</li>
-								<li>
-									<a href="{% url 'product-batch' %}">
-										<span class="sub-item">Product Batch</span>
-									</a>
-								</li>
-								<li>
-									<a href="{% url 'product-inventory' %}">
-										<span class="sub-item">Product Inventory</span>
-									</a>
-								</li>
-							</ul>
-						</div>
-					</li>
-					<li class="nav-item">
-						<a data-toggle="collapse" href="#rawmatMenu" aria-expanded="false">
-							<i class="la la-cubes"></i>
-							<p>Raw Materials</p>
-							<span class="caret"></span>
-						</a>
-						<div class="collapse" id="rawmatMenu">
-							<ul class="nav nav-collapse">
-								<li>
-									<a href="{% url 'rawmaterials' %}">
-										<span class="sub-item">Raw Materials List</span>
-									</a>
-								</li>
-								<li>
-									<a href="{% url 'rawmaterial-batch' %}">
-										<span class="sub-item">Raw Material Batch</span>
-									</a>
-								</li>
-								<li>
-									<a href="{% url 'rawmaterial-inventory' %}">
-										<span class="sub-item">Raw Material Inventory</span>
-									</a>
-								</li>
-							</ul>
-						</div>
-					</li>
-                    <li class="nav-item">
-                        <a href="{% url 'expenses' %}">
-                            <i class="la la-dollar"></i>
-                            <p>Expenses</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'sales' %}">
-                            <i class="la la-line-chart"></i>
-                            <p>Sales</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'historylog' %}">
-                            <i class="la la-history"></i>
-                            <p>History Log</p>
-                        </a>
-                    </li>
-					<li class="nav-item">
-                        <a href="{% url 'withdrawals' %}">
-                            <i class="la la-trash"></i>
-                            <p>Withdrawn Items</p>
-                        </a>
-                    </li>
-				</div>
-			</div>
-			<div class="main-panel">
-                    {% block content %}
-                    {% endblock %}
-			</div>
-		</div>
-	</div>
-	<!-- Modal -->
-	<div class="modal fade" id="modalUpdate" tabindex="-1" role="dialog" aria-labelledby="modalUpdatePro" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered" role="document">
-			<div class="modal-content">
-				<div class="modal-header bg-primary">
-					<h6 class="modal-title"><i class="la la-frown-o"></i> Under Development</h6>
-					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-						<span aria-hidden="true">&times;</span>
-					</button>
-				</div>
-				<div class="modal-body text-center">									
-					<p>Currently the pro version of the <b>Ready Dashboard</b> Bootstrap is in progress development</p>
-					<p>
-					<b>We'll let you know when it's done</b></p>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-				</div>
-			</div>
-		</div>
-	</div>
-</body>
 
+                    <!-- User Profile Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="dropdown-toggle profile-pic" data-toggle="dropdown" href="#" aria-expanded="false">
+                            <img src="{% static 'img/reals.jpg' %}" alt="user-img" width="36" class="img-circle">
+                            <span>Admin1</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-user">
+                            <li>
+                                <div class="user-box">
+                                    <div class="u-img"><img src="{% static 'img/reals.jpg' %}" alt="user"></div>
+                                    <div class="u-text">
+                                        <h4>Admin 1</h4>
+                                        <p class="text-muted">hello@themekita.com</p>
+                                        <a href="profile.html" class="btn btn-rounded btn-danger btn-sm">View Profile</a>
+                                    </div>
+                                </div>
+                            </li>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#"><i class="ti-user"></i> My Profile</a>
+                            <a class="dropdown-item" href="#"><i class="ti-email"></i> Inbox</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#"><i class="ti-settings"></i> Account Setting</a>
+                            <div class="dropdown-divider"></div>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button class="dropdown-item" type="submit"><i class="fa fa-power-off"></i> Logout</button>
+                            </form>
+                        </ul>
+                    </li>
+
+                </ul>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="scrollbar-inner sidebar-wrapper">
+            <div class="user">
+                <div class="photo">
+                    <img src="{% static 'img/reals.jpg' %}">
+                </div>
+                <div class="info">
+                    <a data-toggle="collapse" href="#collapseExample" aria-expanded="true">
+                        <span>
+                            Admin 1
+                            <span class="user-level">Administrator</span>
+                            <span class="caret"></span>
+                        </span>
+                    </a>
+                    <div class="collapse in" id="collapseExample" aria-expanded="true">
+                        <ul class="nav">
+                            <li><a href="#profile"><span class="link-collapse">My Profile</span></a></li>
+                            <li><a href="#edit"><span class="link-collapse">Edit Profile</span></a></li>
+                            <li><a href="#settings"><span class="link-collapse">Settings</span></a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <ul class="nav">
+                <li class="nav-item"><a href="{% url 'home' %}"><i class="la la-dashboard"></i><p>Dashboard</p></a></li>
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#productsMenu" aria-expanded="false">
+                        <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="productsMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="{% url 'products' %}"><span class="sub-item">Product List</span></a></li>
+                            <li><a href="{% url 'product-batch' %}"><span class="sub-item">Product Batch</span></a></li>
+                            <li><a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#rawmatMenu" aria-expanded="false">
+                        <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="rawmatMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="{% url 'rawmaterials' %}"><span class="sub-item">Raw Materials List</span></a></li>
+                            <li><a href="{% url 'rawmaterial-batch' %}"><span class="sub-item">Raw Material Batch</span></a></li>
+                            <li><a href="{% url 'rawmaterial-inventory' %}"><span class="sub-item">Raw Material Inventory</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="nav-item"><a href="{% url 'expenses' %}"><i class="la la-dollar"></i><p>Expenses</p></a></li>
+                <li class="nav-item"><a href="{% url 'sales' %}"><i class="la la-line-chart"></i><p>Sales</p></a></li>
+                <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
+                <li class="nav-item"><a href="{% url 'withdrawals' %}"><i class="la la-trash"></i><p>Withdrawn Items</p></a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Main Panel -->
+    <div class="main-panel">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="{% static 'js/core/jquery.3.2.1.min.js' %}"></script>
 <script src="{% static 'js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js' %}"></script>
 <script src="{% static 'js/core/popper.min.js' %}"></script>
@@ -271,7 +197,7 @@
 <script src="{% static 'js/plugin/chart-circle/circles.min.js' %}"></script>
 <script src="{% static 'js/plugin/jquery-scrollbar/jquery.scrollbar.min.js' %}"></script>
 
-
 {% block vendor_js %}{% endblock vendor_js %}
 {% block page_js %}{% endblock page_js %}
+</body>
 </html>

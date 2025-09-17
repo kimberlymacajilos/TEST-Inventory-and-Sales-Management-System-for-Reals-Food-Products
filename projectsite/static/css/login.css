@@ -1,9 +1,11 @@
+/* GLOBAL */
 body {
   margin: 0;
   font-family: 'Nunito', sans-serif;
   background: #f4f4f4;
 }
 
+/* CONTAINER */
 .login-container {
   display: flex;
   height: 100vh;
@@ -15,7 +17,7 @@ body {
   box-shadow: 0 5px 25px rgba(0,0,0,0.1);
 }
 
-/* Left side */
+/* LEFT SIDE */
 .login-left {
   flex: 1;
   background: linear-gradient(135deg, #BBD8A3, #F0F1C5);
@@ -47,10 +49,9 @@ body {
   color: #fff;
 }
 
-/* Right side */
+/* RIGHT SIDE */
 .login-right {
   flex: 1;
-  padding: 50px 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -78,44 +79,24 @@ body {
   font-size: 0.95rem;
 }
 
-.options{
+/* OPTIONS: remember me + forgot password */
+.options {
   display: flex;
   justify-content: space-between;
-  align-items: center;   /* vertically centers checkbox + text */
+  align-items: center;
   font-size: 14px;
   gap: 10px;
 }
 
-/* the left group: checkbox + text */
-.options .remember{
+.options .remember {
   display: flex;
-  align-items: center;   /* keeps checkbox and text on same baseline */
-  gap: 8px;              /* spacing between box and text */
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
-/* make the native checkbox a predictable size and remove weird margins */
-.options .remember input[type="checkbox"]{
-  height: 2px;
-  margin: 0;             /* remove default margin that pushes it up */
-  vertical-align: middle;
-  -webkit-appearance: checkbox;
-  appearance: checkbox;
-  /* modern browsers — lets the checkbox match your theme color */
-  accent-color: #FFB300;
-}
-
-/* style the right link */
-.options .forgot-link{
-  text-decoration: none;
-  color: #FFB300;
-}
-.options .forgot-link:hover{
-  text-decoration: underline;
-}
-
-/* hide default and build a custom box */
-.options .remember input[type="checkbox"]{
+/* custom checkbox */
+.options .remember input[type="checkbox"] {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
@@ -128,13 +109,12 @@ body {
   box-shadow: inset 0 1px 0 rgba(0,0,0,0.03);
 }
 
-/* checked state: yellow fill and white check mark */
-.options .remember input[type="checkbox"]:checked{
+.options .remember input[type="checkbox"]:checked {
   background: linear-gradient(180deg, #FFB300, #FF8F00);
   border-color: transparent;
 }
 
-.options .remember input[type="checkbox"]:checked::after{
+.options .remember input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 5px;
@@ -146,7 +126,16 @@ body {
   transform: rotate(45deg);
 }
 
+/* forgot link */
+.options .forgot-link {
+  text-decoration: none;
+  color: #FFB300;
+}
+.options .forgot-link:hover {
+  text-decoration: underline;
+}
 
+/* BUTTON */
 button {
   width: 100%;
   padding: 12px;
@@ -163,6 +152,7 @@ button:hover {
   background: #FF8F00;
 }
 
+/* SIGNUP TEXT */
 .signup-text {
   text-align: center;
   margin-top: 15px;
@@ -175,7 +165,7 @@ button:hover {
   text-decoration: none;
 }
 
-/* Footer right */
+/* FOOTER RIGHT */
 .footer-right {
   text-align: center;
   margin-top: 30px;
@@ -191,3 +181,66 @@ button:hover {
 .footer-right a:hover {
   color: #FF8F00;
 }
+
+/* PASSWORD RESET + ERROR STYLES */
+.errorlist {
+  color: red;
+  font-size: 0.9rem;
+  margin: 5px 0 10px;
+  list-style: none;
+  padding: 0;
+}
+
+.alert {
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #842029;
+  border: 1px solid #f5c2c7;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border: 1px solid #badbcc;
+}
+
+/* RESPONSIVENESS */
+@media (max-width: 1024px) {
+  .login-container {
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+    height: auto;
+  }
+  .login-left, .login-right {
+    width: 100%;
+    padding: 30px 20px;
+  }
+  .brand-logo {
+    width: 200px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-wrapper {
+    max-width: 90%;
+  }
+  .form-wrapper h2 {
+    font-size: 1.5rem;
+  }
+  button {
+    font-size: 0.9rem;
+    padding: 10px;
+  }
+}
+/* END OF CSS FILE */

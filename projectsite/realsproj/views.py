@@ -17,8 +17,50 @@ from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate
-from realsproj.forms import ProductsForm, RawMaterialsForm, HistoryLogForm, SalesForm, ExpensesForm, ProductBatchForm, ProductInventoryForm, RawMaterialBatchForm, RawMaterialInventoryForm, ProductTypesForm, ProductVariantsForm, SizesForm, SizeUnitsForm, UnitPricesForm, SrpPricesForm
-from realsproj.models import Products, RawMaterials, HistoryLog, Sales, Expenses, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Withdrawals
+from django.contrib.auth import get_user_model
+from .forms import CustomUserCreationForm
+from django.utils import timezone
+from realsproj.forms import (
+    ProductsForm,
+    RawMaterialsForm,
+    HistoryLogForm,
+    SalesForm,
+    ExpensesForm,
+    ProductBatchForm,
+    ProductInventoryForm,
+    RawMaterialBatchForm,
+    RawMaterialInventoryForm,
+    ProductTypesForm,
+    ProductVariantsForm,
+    SizesForm,
+    SizeUnitsForm,
+    UnitPricesForm,
+    SrpPricesForm, 
+    NotificationsForm,
+    BulkProductBatchForm,
+)
+
+from realsproj.models import (
+    Products,
+    RawMaterials,
+    HistoryLog,
+    Sales,
+    Expenses,
+    ProductBatches,
+    ProductInventory,
+    RawMaterialBatches,
+    RawMaterialInventory,
+    ProductTypes,
+    ProductVariants,
+    Sizes,
+    SizeUnits,
+    UnitPrices,
+    SrpPrices,
+    Withdrawals,
+    Notifications,
+    AuthUser,
+)
+
 from django.db.models import Q
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -26,8 +68,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
-import calendar
-
+from .forms import CustomUserCreationForm
 
 @method_decorator(login_required, name='dispatch')
 
@@ -329,18 +370,18 @@ class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_add.html'
-    success_url = reverse_lazy('rawmatbatch')
+    success_url = reverse_lazy('rawmaterial-batch')  
 
 class RawMaterialBatchUpdateView(UpdateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
-    success_url = reverse_lazy('rawmatbatch')
-
+    success_url = reverse_lazy('rawmaterial-batch') 
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
     template_name = 'rawmatbatch_delete.html'
-    success_url = reverse_lazy('rawmatbatch')
+    success_url = reverse_lazy('rawmaterial-batch')
+
 
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
@@ -433,7 +474,7 @@ class WithdrawSuccessView(ListView):
     
 
 class WithdrawItemView(View):
-    template_name = "withdraw_item.html" 
+    template_name = "withdraw_item.html"
 
     def get(self, request):
         products = Products.objects.all()
@@ -444,17 +485,20 @@ class WithdrawItemView(View):
         })
 
     def post(self, request):
-        item_type = request.POST.get("item_type")
+        # Convert form input to uppercase to match DB constraints
+        item_type = request.POST.get("item_type", "").strip().upper()
         item_id = request.POST.get("item_id")
-        reason = request.POST.get("reason")
+        reason = request.POST.get("reason", "").strip().upper()
         quantity_input = request.POST.get("quantity")
 
+        # Validate quantity
         try:
             quantity = Decimal(quantity_input)
         except (InvalidOperation, TypeError):
             messages.error(request, "Invalid quantity format.")
             return redirect("withdraw-item")
 
+        # Determine models based on item_type
         if item_type == "PRODUCT":
             model = Products
             inventory_model = ProductInventory
@@ -467,6 +511,7 @@ class WithdrawItemView(View):
             messages.error(request, "Invalid item type selected.")
             return redirect("withdraw-item")
 
+        # Fetch item
         item = get_object_or_404(model, id=item_id)
 
         with transaction.atomic():
@@ -474,24 +519,30 @@ class WithdrawItemView(View):
 
             if quantity <= 0:
                 messages.error(request, "Quantity must be greater than zero.")
+                return redirect("withdraw-item")
             elif quantity > inventory.total_stock:
                 messages.error(request, "Not enough stock to withdraw.")
-            else:
-                inventory.total_stock -= quantity
-                inventory.save()
+                return redirect("withdraw-item")
 
-                Withdrawals.objects.create(
-                    item_id=item.id,
-                    item_type=item_type,
-                    quantity=quantity,
-                    reason=reason,
-                    date=timezone.now(),
-                    created_by_admin=request.user,
-                )
-                messages.success(request, f"{quantity} withdrawn from {item} successfully.")
-                return redirect("withdrawals")
+            # Deduct stock
+            inventory.total_stock -= quantity
+            inventory.save()
+
+            # Record withdrawal with uppercase item_type and reason
+            Withdrawals.objects.create(
+                item_id=item.id,
+                item_type=item_type,
+                quantity=quantity,
+                reason=reason,
+                date=timezone.now(),
+                created_by_admin=request.user,
+            )
+
+            messages.success(request, f"{quantity} withdrawn from {item} successfully.")
+            return redirect("withdrawals")
 
         return redirect("withdraw-item")
+    
     
 @require_GET
 def get_stock(request):
@@ -528,3 +579,106 @@ def login_view(request):
     else:
         form = AuthenticationForm()
     return render(request, "login.html", {"form": form})
+
+
+class NotificationsList(ListView):
+    model = Notifications
+    context_object_name = 'notifications'
+    template_name = "notification.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Notifications.objects.order_by('-created_at')
+
+    def get(self, request, *args, **kwargs):
+        Notifications.objects.filter(is_read=False).update(is_read=True)
+        return super().get(request, *args, **kwargs)
+
+
+class BulkProductBatchCreateView(LoginRequiredMixin, View):
+    template_name = "prodbatch_add.html"
+
+    def get(self, request):
+        form = BulkProductBatchForm()
+        products = [
+            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
+            for p in Products.objects.all()
+        ]
+        return render(request, self.template_name, {'form': form, 'products': products})
+
+    def post(self, request):
+        form = BulkProductBatchForm(request.POST)
+        if form.is_valid():
+            batch_date = form.cleaned_data['batch_date']
+            manufactured_date = form.cleaned_data['manufactured_date']
+            expiration_date = form.cleaned_data['expiration_date']
+
+            from realsproj.models import AuthUser
+            auth_user = AuthUser.objects.get(id=request.user.id)
+
+            for product in Products.objects.all():
+                qty = form.cleaned_data.get(f'product_{product.id}_qty')
+                if qty:
+                    ProductBatches.objects.create(
+                        product=product,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        manufactured_date=manufactured_date,
+                        expiration_date=expiration_date,
+                        created_by_admin=auth_user 
+                    )
+            return redirect('product-batch')
+
+        products = [
+            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
+            for p in Products.objects.all()
+        ]
+        return render(request, self.template_name, {'form': form, 'products': products})
+
+def register(request):
+    if request.method == "POST":
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("login")  # or redirect to dashboard
+    else:
+        form = CustomUserCreationForm()
+    return render(request, "registration/register.html", {"form": form})
+
+
+def best_sellers_api(request):
+    TOP_N = 5
+    qs = (
+        Withdrawals.objects
+        .filter(item_type="PRODUCT", reason="SOLD")
+        .values("item_id")
+        .annotate(total_sold=Sum("quantity"))
+        .order_by("-total_sold")
+    )
+
+    sold_list = list(qs)
+    product_ids = [item["item_id"] for item in sold_list]
+    products = Products.objects.in_bulk(product_ids)
+
+    labels, data = [], []
+    for item in sold_list[:TOP_N]:
+        prod = products.get(item["item_id"])
+        labels.append(str(prod) if prod else f"Unknown {item['item_id']}")
+        data.append(float(item["total_sold"]))
+
+    if len(sold_list) > TOP_N:
+        total_top = sum(data)
+        total_all = sum(float(i["total_sold"]) for i in sold_list)
+        others = round(total_all - total_top, 2)
+        if others > 0:
+            labels.append("Others")
+            data.append(others)
+
+    return JsonResponse({"labels": labels, "data": data})
+
+
+def mark_notification_read(request, pk):
+    notif = get_object_or_404(Notifications, pk=pk)
+    notif.is_read = True
+    notif.save()
+    return redirect('notifications')

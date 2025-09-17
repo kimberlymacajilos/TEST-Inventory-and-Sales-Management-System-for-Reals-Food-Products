@@ -1,7 +1,9 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -135,3 +137,35 @@ class UnifiedWithdrawForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
+
+
+class NotificationsForm(forms.Form):
+    class Meta:
+        model = Notifications
+        fields = "__all__"
+
+class BulkProductBatchForm(forms.Form):
+    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.products = []
+        for product in Products.objects.all():
+            field_name = f'product_{product.id}_qty'
+            self.fields[field_name] = forms.DecimalField(
+                required=False,
+                min_value=0,
+                label=str(product),
+                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+            )
+            # store for easy access in template
+            self.products.append({"qty_field": self[field_name], "label": str(product)})
+
+class CustomUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2")

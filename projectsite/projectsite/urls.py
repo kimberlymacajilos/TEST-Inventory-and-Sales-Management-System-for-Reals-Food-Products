@@ -51,7 +51,7 @@ urlpatterns = [
     path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
 
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch'),
-    path('prodbatch/add', a.ProductBatchCreateView.as_view(), name='product-batch-add'),
+    path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
     path('prodbatch/<pk>', a.ProductBatchUpdateView.as_view(), name='product-batch-edit'),
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
 
@@ -82,16 +82,22 @@ urlpatterns = [
          auth_views.PasswordResetView.as_view(template_name="password_reset.html"), 
          name='password_reset'),
     path('password_reset/done/', 
-         auth_views.PasswordResetDoneView.as_view(template_name="password_reset_done.html"), 
+         auth_views.PasswordResetDoneView.as_view(), 
          name='password_reset_done'),
     path('reset/<uidb64>/<token>/', 
-         auth_views.PasswordResetConfirmView.as_view(template_name="password_reset_confirm.html"), 
+         auth_views.PasswordResetConfirmView.as_view(), 
          name='password_reset_confirm'),
     path('reset/done/', 
-         auth_views.PasswordResetCompleteView.as_view(template_name="password_reset_complete.html"), 
+         auth_views.PasswordResetCompleteView.as_view(), 
          name='password_reset_complete'),
     
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
+    path('notifications/', a.NotificationsList.as_view(), name='notifications'),
+    
+    path("register/", a.register, name="register"),
 
+    path("api/best-sellers/", a.best_sellers_api, name="best_sellers_api"),
+
+    path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 ]
