@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i">
   <link rel="stylesheet" href="{% static 'css/ready.css' %}">
   <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">  {# ✅ custom overrides #}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
   <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
 
@@ -62,16 +63,15 @@
                             <li>
                                 <div class="notif-center">
                                     {% for notif in notifications|slice:":5" %}
-                                    <a href="{% url 'notification_read' notif.id %}" 
-                                    class="{% if not notif.is_read %}font-weight-bold{% endif %}">
-                                        <div class="notif-icon notif-warning">
-                                            <i class="la la-exclamation-circle"></i>
-                                        </div>
-                                        <div class="notif-content">
-                                            <span class="block">{{ notif.formatted_message }}</span>
-                                            <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                        </div>
-                                    </a>
+                                        <a href="#" class="{% if not notif.is_read %}unread{% else %}read{% endif %}">
+                                            <div class="notif-icon {{ notif.css_class }}">
+                                                <i class="{{ notif.icon_class }}"></i>
+                                            </div>
+                                            <div class="notif-content">
+                                                <span class="block">{{ notif.formatted_message }}</span>
+                                                <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
+                                            </div>
+                                        </a>
                                     {% empty %}
                                         <div class="text-center p-2">No new notifications</div>
                                     {% endfor %}
