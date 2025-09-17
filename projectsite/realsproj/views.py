@@ -134,7 +134,7 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(description__icontains=query) |
                 Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)   # assuming ProductVariants also has "name"
+                Q(variant__name__icontains=query)  
             )
 
         return queryset
@@ -661,18 +661,10 @@ def best_sellers_api(request):
     products = Products.objects.in_bulk(product_ids)
 
     labels, data = [], []
-    for item in sold_list[:TOP_N]:
+    for item in sold_list[:TOP_N]: 
         prod = products.get(item["item_id"])
         labels.append(str(prod) if prod else f"Unknown {item['item_id']}")
         data.append(float(item["total_sold"]))
-
-    if len(sold_list) > TOP_N:
-        total_top = sum(data)
-        total_all = sum(float(i["total_sold"]) for i in sold_list)
-        others = round(total_all - total_top, 2)
-        if others > 0:
-            labels.append("Others")
-            data.append(others)
 
     return JsonResponse({"labels": labels, "data": data})
 

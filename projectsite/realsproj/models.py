@@ -9,6 +9,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from datetime import timedelta
 
 
 class AuthGroup(models.Model):
@@ -132,7 +134,7 @@ class Expenses(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -187,18 +189,14 @@ class Notifications(models.Model):
     @property
     def css_class(self):
         notif_type = self.notification_type.upper()
-        if notif_type == "OUT_OF_STOCK":
-            return "notif-danger"
-        elif notif_type == "LOW_STOCK":
+        if notif_type == "LOW_STOCK":
             return "notif-warning"
         return "notif-info"
 
     @property
     def icon_class(self):
         notif_type = self.notification_type.upper()
-        if notif_type == "OUT_OF_STOCK":
-            return "la la-times-circle"
-        elif notif_type == "LOW_STOCK":
+        if notif_type == "LOW_STOCK":
             return "la la-exclamation-circle"
         return "la la-info-circle"
 
@@ -213,9 +211,7 @@ class Notifications(models.Model):
             except Products.DoesNotExist:
                 product_name = "Unknown Product"
 
-            if notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {product_name}"
-            elif notif_type == "LOW_STOCK":
+            if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {product_name}"
 
         elif self.item_type.upper() == "RAW_MATERIAL":
@@ -225,9 +221,7 @@ class Notifications(models.Model):
             except RawMaterials.DoesNotExist:
                 material_name = "Unknown Raw Material"
 
-            if notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {material_name}"
-            elif notif_type == "LOW_STOCK":
+            if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {material_name}"
 
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
@@ -235,16 +229,21 @@ class Notifications(models.Model):
 
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateField()
+    batch_date = models.DateTimeField(default=timezone.now)
     product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
-    manufactured_date = models.DateField()
-    expiration_date = models.DateField()
+    manufactured_date = models.DateTimeField(default=timezone.now)
+    expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_batches'
+
+    def save(self, *args, **kwargs):
+        if self.manufactured_date and not self.expiration_date:
+            self.expiration_date = self.manufactured_date + timedelta(days=365)
+        super().save(*args, **kwargs)
 
 
 class ProductInventory(models.Model):
@@ -316,10 +315,10 @@ class Products(models.Model):
 
 class RawMaterialBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateField()
+    batch_date = models.DateTimeField(default=timezone.now)
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    received_date = models.DateField()
+    received_date = models.DateTimeField(default=timezone.now)
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -358,7 +357,7 @@ class Sales(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
