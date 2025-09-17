@@ -19,6 +19,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm
+from django.utils import timezone
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -589,6 +590,9 @@ class NotificationsList(ListView):
     def get_queryset(self):
         return Notifications.objects.order_by('-created_at')
 
+    def get(self, request, *args, **kwargs):
+        Notifications.objects.filter(is_read=False).update(is_read=True)
+        return super().get(request, *args, **kwargs)
 
 
 class BulkProductBatchCreateView(LoginRequiredMixin, View):
@@ -640,3 +644,41 @@ def register(request):
     else:
         form = CustomUserCreationForm()
     return render(request, "registration/register.html", {"form": form})
+
+
+def best_sellers_api(request):
+    TOP_N = 5
+    qs = (
+        Withdrawals.objects
+        .filter(item_type="PRODUCT", reason="SOLD")
+        .values("item_id")
+        .annotate(total_sold=Sum("quantity"))
+        .order_by("-total_sold")
+    )
+
+    sold_list = list(qs)
+    product_ids = [item["item_id"] for item in sold_list]
+    products = Products.objects.in_bulk(product_ids)
+
+    labels, data = [], []
+    for item in sold_list[:TOP_N]:
+        prod = products.get(item["item_id"])
+        labels.append(str(prod) if prod else f"Unknown {item['item_id']}")
+        data.append(float(item["total_sold"]))
+
+    if len(sold_list) > TOP_N:
+        total_top = sum(data)
+        total_all = sum(float(i["total_sold"]) for i in sold_list)
+        others = round(total_all - total_top, 2)
+        if others > 0:
+            labels.append("Others")
+            data.append(others)
+
+    return JsonResponse({"labels": labels, "data": data})
+
+
+def mark_notification_read(request, pk):
+    notif = get_object_or_404(Notifications, pk=pk)
+    notif.is_read = True
+    notif.save()
+    return redirect('notifications')

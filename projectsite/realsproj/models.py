@@ -185,6 +185,24 @@ class Notifications(models.Model):
         db_table = 'notifications'
 
     @property
+    def css_class(self):
+        notif_type = self.notification_type.upper()
+        if notif_type == "OUT_OF_STOCK":
+            return "notif-danger"
+        elif notif_type == "LOW_STOCK":
+            return "notif-warning"
+        return "notif-info"
+
+    @property
+    def icon_class(self):
+        notif_type = self.notification_type.upper()
+        if notif_type == "OUT_OF_STOCK":
+            return "la la-times-circle"
+        elif notif_type == "LOW_STOCK":
+            return "la la-exclamation-circle"
+        return "la la-info-circle"
+
+    @property
     def formatted_message(self):
         notif_type = self.notification_type.upper()
 
@@ -195,10 +213,10 @@ class Notifications(models.Model):
             except Products.DoesNotExist:
                 product_name = "Unknown Product"
 
-            if notif_type in ["OUT_OF_STOCK"]:
-                return f"{product_name} is out of stock"
-            elif notif_type in ["LOW_STOCK"]:
-                return f"{product_name} is low in stock"
+            if notif_type == "OUT_OF_STOCK":
+                return f"OUT OF STOCK: {product_name}"
+            elif notif_type == "LOW_STOCK":
+                return f"LOW STOCK: {product_name}"
 
         elif self.item_type.upper() == "RAW_MATERIAL":
             try:
@@ -207,12 +225,12 @@ class Notifications(models.Model):
             except RawMaterials.DoesNotExist:
                 material_name = "Unknown Raw Material"
 
-            if notif_type in ["OUT_OF_STOCK"]:
-                return f"{material_name} is out of stock"
-            elif notif_type in ["LOW_STOCK"]:
-                return f"{material_name} is low in stock"
+            if notif_type == "OUT_OF_STOCK":
+                return f"OUT OF STOCK: {material_name}"
+            elif notif_type == "LOW_STOCK":
+                return f"LOW STOCK: {material_name}"
 
-        return f"{self.notification_type} ({self.item_type})"
+        return f"{self.notification_type.upper()} ({self.item_type.title()})"
 
 
 class ProductBatches(models.Model):

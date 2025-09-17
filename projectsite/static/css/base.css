@@ -1,0 +1,44 @@
+.notif-center a {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+}
+
+.notif-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 10px;
+    color: #fff;
+}
+
+.notif-danger { background-color: #e74c3c; }
+.notif-warning { background-color: #f1c40f; }
+.notif-info    { background-color: #3498db; }
+
+.notif-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-content .block {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+a.unread {
+    background-color: #f9f9f9;
+    border-left: 4px solid #3498db;
+    font-weight: bold;
+}
+
+a.read {
+    background-color: #fff;
+    font-weight: normal;
+}

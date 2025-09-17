@@ -17,4 +17,16 @@
         xaxis: { categories: data.months }
       }).render();
     });
+
+  fetch("/api/best-sellers/")
+    .then(res => res.json())
+    .then(data => {
+      new ApexCharts(document.querySelector("#bestSellerChart"), {
+        chart: { type: "pie", height: 300 },
+        series: data.data,
+        labels: data.labels,
+        legend: { position: "bottom" }
+      }).render();
+    });
 })();
+
