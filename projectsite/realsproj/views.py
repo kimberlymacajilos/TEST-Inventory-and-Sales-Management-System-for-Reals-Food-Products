@@ -38,6 +38,7 @@ from realsproj.forms import (
     SrpPricesForm, 
     NotificationsForm,
     BulkProductBatchForm,
+    StockChangesForm,
 )
 
 from realsproj.models import (
@@ -59,6 +60,7 @@ from realsproj.models import (
     Withdrawals,
     Notifications,
     AuthUser,
+    StockChanges,
 )
 
 from django.db.models import Q
@@ -692,3 +694,13 @@ def mark_notification_read(request, pk):
 @login_required
 def profile_view(request):
     return render(request, "profile.html")
+
+
+class StockChangesList(ListView):
+    model = StockChanges
+    context_object_name = 'stock_changes'
+    template_name = "stock_changes.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return StockChanges.objects.all().order_by('-date')

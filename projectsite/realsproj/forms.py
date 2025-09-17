@@ -176,3 +176,8 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username", "email", "password1", "password2")
+
+class StockChangesForm(ModelForm):
+    class Meta:
+        model = StockChanges
+        fields = "__all__"
