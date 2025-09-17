@@ -4,7 +4,7 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Withdraw Item</h4>
+    <h4 class="page-title">Bulk Withdraw</h4>
     <div class="card">
       <div class="card-body">
         <form method="post">
@@ -19,46 +19,72 @@
             </select>
           </div>
 
-          <div class="form-group mt-2">
-            <label for="item_id">Select Item</label>
-            <select name="item_id" id="item_id" class="form-control" required>
-              <option value="">-- Select Item --</option>
-              {% for product in products %}
-              <option value="{{ product.id }}" data-type="PRODUCT">
-                {{ product.product_type.name }} - {{ product.variant.name }} - {{ product.size.size_label }} {{ product.size_unit.unit_name }}
-              </option>
-              {% endfor %}
-              {% for material in rawmaterials %}
-              <option value="{{ material.id }}" data-type="RAW_MATERIAL">
-                {{ material.name }} ({{ material.unit.unit_name }})
-              </option>
-              {% endfor %}
-            </select>
+          <!-- Products table -->
+          <div id="products_table" class="mt-3" style="display:none;">
+            <h5>Products</h5>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Stock</th>
+                  <th>Withdraw Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for product in products %}
+                <tr>
+                  <td>
+                    {{ product.product_type.name }} - {{ product.variant.name }} - {{ product.size.size_label }} {{ product.size_unit.unit_name }}
+                  </td>
+                  <td>{{ product.productinventory.total_stock|floatformat:0  }}</td>
+                  <td>
+                    <input type="number" step="0.01" name="product_{{ product.id }}" class="form-control" min="0">
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
-          <div class="form-group mt-2">
-            <label>Current Stock</label>
-            <p id="current_stock" class="font-weight-bold text-primary">Select an item</p>
+
+          <!-- Raw materials table -->
+          <div id="rawmaterials_table" class="mt-3" style="display:none;">
+            <h5>Raw Materials</h5>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Raw Material</th>
+                  <th>Stock</th>
+                  <th>Withdraw Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for material in rawmaterials %}
+                <tr>
+                  <td>{{ material.name }} ({{ material.unit.unit_name }})</td>
+                  <td>{{ material.rawmaterialinventory.total_stock|floatformat:0 }}</td>
+                  <td>
+                    <input type="number" step="0.01" name="material_{{ material.id }}" class="form-control" min="0">
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
 
           <div class="form-group mt-2">
-            <label for="quantity">Quantity</label>
-            <input type="number" name="quantity" id="quantity" step="0.01" class="form-control" required>
-          </div>
-
-        <div class="form-group mt-2">
             <label for="reason">Reason</label>
             <select name="reason" id="reason" class="form-control" required>
-                <option value="">-- Select Reason --</option>
-                <option value="SOLD">Sold</option>
-                <option value="EXPIRED">Expired</option>
-                <option value="DAMAGED">Damaged</option>
-                <option value="RETURNED">Returned</option>
-                <option value="OTHERS">Others</option>
+              <option value="">-- Select Reason --</option>
+              <option value="SOLD">Sold</option>
+              <option value="EXPIRED">Expired</option>
+              <option value="DAMAGED">Damaged</option>
+              <option value="RETURNED">Returned</option>
+              <option value="OTHERS">Others</option>
             </select>
-        </div>
+          </div>
 
           <div class="form-group mt-3">
-            <button type="submit" class="btn btn-warning btn-rounded">Withdraw</button>
+            <button type="submit" class="btn btn-warning btn-rounded">Withdraw Selected</button>
           </div>
         </form>
       </div>
@@ -68,30 +94,21 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const itemSelect = document.getElementById("item_id");
-  const itemTypeSelect = document.getElementById("item_type");
-  const stockDisplay = document.getElementById("current_stock");
+  const typeSelect = document.getElementById("item_type");
+  const prodTable = document.getElementById("products_table");
+  const matTable = document.getElementById("rawmaterials_table");
 
-  function updateOptions() {
-    const type = itemTypeSelect.value;
-    [...itemSelect.options].forEach(opt => {
-      if (!opt.value) return;
-      opt.hidden = (opt.dataset.type !== type);
-    });
-    itemSelect.value = "";
-    stockDisplay.textContent = "Select an item";
-  }
-
-  async function fetchStock(itemId, type) {
-    if (!itemId) return;
-    const response = await fetch(`/api/get-stock/?type=${type}&id=${itemId}`);
-    const data = await response.json();
-    stockDisplay.textContent = data.stock ?? "N/A";
-  }
-
-  itemTypeSelect.addEventListener("change", updateOptions);
-  itemSelect.addEventListener("change", () => {
-    fetchStock(itemSelect.value, itemTypeSelect.value);
+  typeSelect.addEventListener("change", function() {
+    if (this.value === "PRODUCT") {
+      prodTable.style.display = "block";
+      matTable.style.display = "none";
+    } else if (this.value === "RAW_MATERIAL") {
+      matTable.style.display = "block";
+      prodTable.style.display = "none";
+    } else {
+      prodTable.style.display = "none";
+      matTable.style.display = "none";
+    }
   });
 });
 </script>
