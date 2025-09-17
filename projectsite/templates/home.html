@@ -14,34 +14,42 @@
 {% endblock vendor_js %}
 
 {% block content %}
-<div class="mb-4">
-  <h4 class="fw-bold py-3 mb-4">
-    <span class="text-muted fw-light">Dashboard /</span> Sales vs Expenses
-  </h4>
-</div>
+<div class="container-fluid">
+  <div class="mb-4">
+    <h4 class="fw-bold py-3 mb-4">
+      <span class="text-muted fw-light">Dashboard /</span> Analytics
+    </h4>
+  </div>
 
-<div class="row gy-6">
-  <!-- Sales vs Expenses Chart -->
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0">Monthly Sales vs Expenses</h5>
+  <div class="row gy-4">
+    <!-- Sales vs Expenses Chart -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Monthly Sales vs Expenses</h5>
+        </div>
+        <div class="card-body d-flex justify-content-center">
+          <div id="salesExpensesChart" style="height: 350px; width: 90%; max-width: 900px;"></div>
+        </div>
       </div>
-      <div class="card-body">
-        <div id="salesExpensesChart" style="height: 300px"></div>
+    </div>
+
+    <!-- Best Seller Products Chart -->
+    <div class="col-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Best Seller Products</h5>
+        </div>
+        <div class="card-body d-flex justify-content-center">
+          <div id="bestSellerChart" style="height: 350px; width: 90%; max-width: 900px;"></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
-
-<script id="months-data" type="application/json">{{ months|safe }}</script>
-<script id="sales-data" type="application/json">{{ sales|safe }}</script>
-<script id="expenses-data" type="application/json">{{ expenses|safe }}</script>
-
 {% endblock content %}
 
 {% block page_js %}
   {{ block.super }}
   <script src="{% static 'js/dashboards-analytics.js' %}"></script>
 {% endblock page_js %}
-
