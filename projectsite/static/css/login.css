@@ -3,23 +3,22 @@ body {
   margin: 0;
   font-family: 'Nunito', sans-serif;
   background: #f4f4f4;
+
 }
 
 /* CONTAINER */
 .login-container {
   display: flex;
-  height: 100vh;
-  max-width: 1000px;
-  margin: auto;
-  background: #fff;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+  height: 100vh;      /* buong taas */
+  width: 100vw;       /* buong lapad */
+  margin: 0;          /* alisin centering */
+  border-radius: 0;   /* alisin rounded corners */
+  box-shadow: none;   /* alisin shadow */
 }
 
 /* LEFT SIDE */
 .login-left {
-  flex: 1;
+  flex: 0 0 60%;
   background: linear-gradient(135deg, #BBD8A3, #F0F1C5);
   color: #fff;
   padding: 50px 30px;
@@ -27,7 +26,6 @@ body {
   flex-direction: column;
   justify-content: space-between;
 }
-
 .brand-logo {
   width: 330px;
   background: transparent;
@@ -51,12 +49,12 @@ body {
 
 /* RIGHT SIDE */
 .login-right {
-  flex: 1;
+  flex: 0 0 40%;
+  background: #fff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
 }
-
 .form-wrapper {
   max-width: 300px;
   margin: auto;

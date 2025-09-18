@@ -83,7 +83,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'root',
+        'PASSWORD': 'reals',
         'HOST': 'localhost',
         'PORT': '5432',
     }
