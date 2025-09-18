@@ -18,7 +18,8 @@ from django.contrib import admin
 from django.urls import path
 from realsproj import views as a
 from django.contrib.auth import views as auth_views
-from django.urls import path, re_path
+from django.urls import path, re_path, include
+
 
 
 urlpatterns = [
@@ -82,18 +83,28 @@ urlpatterns = [
          auth_views.PasswordResetView.as_view(template_name="password_reset.html"), 
          name='password_reset'),
     path('password_reset/done/', 
-         auth_views.PasswordResetDoneView.as_view(template_name="password_reset_done.html"), 
+         auth_views.PasswordResetDoneView.as_view(), 
          name='password_reset_done'),
     path('reset/<uidb64>/<token>/', 
-         auth_views.PasswordResetConfirmView.as_view(template_name="password_reset_confirm.html"), 
+         auth_views.PasswordResetConfirmView.as_view(), 
          name='password_reset_confirm'),
     path('reset/done/', 
-         auth_views.PasswordResetCompleteView.as_view(template_name="password_reset_complete.html"), 
+         auth_views.PasswordResetCompleteView.as_view(), 
          name='password_reset_complete'),
     
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
+    
+    path("register/", a.register, name="register"),
 
+    path("api/best-sellers/", a.best_sellers_api, name="best_sellers_api"),
 
+    path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
+
+    path("profile/", a.profile_view, name="profile"),
+    path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
+
+    path("revenue-x-recent_sales", a.home, name="home"),
+    path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 ]

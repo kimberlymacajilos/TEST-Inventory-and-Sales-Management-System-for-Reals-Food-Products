@@ -14,34 +14,89 @@
 {% endblock vendor_js %}
 
 {% block content %}
-<div class="mb-4">
-  <h4 class="fw-bold py-3 mb-4">
-    <span class="text-muted fw-light">Dashboard /</span> Sales vs Expenses
-  </h4>
-</div>
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title"><span class="text-muted fw-light">Dashboard /</span> Analytics</h4>
 
-<div class="row gy-6">
-  <!-- Sales vs Expenses Chart -->
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0">Monthly Sales vs Expenses</h5>
+    <div class="row gy-4">
+      <!-- Sales vs Expenses Chart -->
+      <div class="col-12">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Monthly Sales vs Expenses</h5>
+          </div>
+          <div class="card-body d-flex justify-content-center">
+            <div id="salesExpensesChart" style="height: 350px; width: 90%; max-width: 900px;"></div>
+          </div>
+        </div>
       </div>
-      <div class="card-body">
-        <div id="salesExpensesChart" style="height: 300px"></div>
+    </div>
+
+    <!-- Best Seller + Recent Sales -->
+    <div class="row gy-4 pt-4">
+      <div class="col-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Best Seller Products</h5>
+          </div>
+          <div class="card-body d-flex justify-content-center">
+            <div id="bestSellerChart" class="w-100" style="height: 100%; min-height: 300px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Recent Sales</h5>
+          </div>
+          <div class="card-body">
+            <ul class="list-group">
+              {% for w in recent_sales|slice:":6" %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  {{ w.get_item_display }} - Qty: {{ w.quantity }}
+                  <span class="badge bg-success">₱{{ w.compute_revenue|floatformat:2 }}</span>
+                </li>
+              {% empty %}
+                <li class="list-group-item">No recent sales yet.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Revenue + Total Stocks -->
+    <div class="row gy-4 pt-4">
+      <div class="col-6">
+        <div class="card text-center h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Total Revenue</h5>
+          </div>
+          <div class="card-body d-flex align-items-center justify-content-center">
+            <h3 class="text-success">₱{{ total_revenue|floatformat:2 }}</h3>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="card text-center h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Total Stocks</h5>
+          </div>
+          <div class="card-body d-flex align-items-center justify-content-center">
+            <a href="{% url 'product_inventory_list' %}" class="stretched-link text-decoration-none">
+              <h2>{{ total_stocks }}</h2>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
-
-<script id="months-data" type="application/json">{{ months|safe }}</script>
-<script id="sales-data" type="application/json">{{ sales|safe }}</script>
-<script id="expenses-data" type="application/json">{{ expenses|safe }}</script>
-
 {% endblock content %}
 
 {% block page_js %}
   {{ block.super }}
   <script src="{% static 'js/dashboards-analytics.js' %}"></script>
 {% endblock page_js %}
-

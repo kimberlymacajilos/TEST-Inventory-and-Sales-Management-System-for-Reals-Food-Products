@@ -9,7 +9,10 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-
+from decimal import Decimal
+from django.db.models import Sum
+from django.db.models import Q
+from datetime import timedelta
 
 class AuthGroup(models.Model):
     name = models.CharField(unique=True, max_length=150)
@@ -132,7 +135,7 @@ class Expenses(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -170,8 +173,8 @@ class HistoryLogTypes(models.Model):
 
 class Notifications(models.Model):
     ITEM_TYPE_CHOICES = [
-        ('product', 'Product'),
-        ('raw_material', 'Raw Material'),
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
     ]
     item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
     item_id = models.BigIntegerField()
@@ -184,19 +187,64 @@ class Notifications(models.Model):
         managed = False
         db_table = 'notifications'
 
+    @property
+    def css_class(self):
+        notif_type = self.notification_type.upper()
+        if notif_type == "LOW_STOCK":
+            return "notif-warning"
+        return "notif-info"
+
+    @property
+    def icon_class(self):
+        notif_type = self.notification_type.upper()
+        if notif_type == "LOW_STOCK":
+            return "la la-exclamation-circle"
+        return "la la-info-circle"
+
+    @property
+    def formatted_message(self):
+        notif_type = self.notification_type.upper()
+
+        if self.item_type.upper() == "PRODUCT":
+            try:
+                product = Products.objects.get(pk=self.item_id)
+                product_name = str(product)
+            except Products.DoesNotExist:
+                product_name = "Unknown Product"
+
+            if notif_type == "LOW_STOCK":
+                return f"LOW STOCK: {product_name}"
+
+        elif self.item_type.upper() == "RAW_MATERIAL":
+            try:
+                material = RawMaterials.objects.get(pk=self.item_id)
+                material_name = str(material)
+            except RawMaterials.DoesNotExist:
+                material_name = "Unknown Raw Material"
+
+            if notif_type == "LOW_STOCK":
+                return f"LOW STOCK: {material_name}"
+
+        return f"{self.notification_type.upper()} ({self.item_type.title()})"
+
 
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateField()
+    batch_date = models.DateTimeField(default=timezone.now)
     product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
-    manufactured_date = models.DateField()
-    expiration_date = models.DateField()
+    manufactured_date = models.DateTimeField(default=timezone.now)
+    expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False
         db_table = 'product_batches'
+
+    def save(self, *args, **kwargs):
+        if self.manufactured_date and not self.expiration_date:
+            self.expiration_date = self.manufactured_date + timedelta(days=365)
+        super().save(*args, **kwargs)
 
 
 class ProductInventory(models.Model):
@@ -207,6 +255,11 @@ class ProductInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'product_inventory'
+
+
+    @classmethod
+    def get_total_stocks(cls):
+        return cls.objects.aggregate(total=Sum("total_stock"))["total"] or 0
 
 
 class ProductRecipes(models.Model):
@@ -268,10 +321,10 @@ class Products(models.Model):
 
 class RawMaterialBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateField()
+    batch_date = models.DateTimeField(default=timezone.now)
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    received_date = models.DateField()
+    received_date = models.DateTimeField(default=timezone.now)
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -310,7 +363,7 @@ class Sales(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -404,7 +457,7 @@ class Withdrawals(models.Model):
         ('OTHERS', 'Others'),
     ]
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
-    date = models.DateTimeField(auto_now_add=True) 
+    date = models.DateTimeField(auto_now_add=True)
     created_by_admin = models.ForeignKey(User, on_delete=models.DO_NOTHING, db_column="created_by_admin_id")
 
     class Meta:
@@ -413,3 +466,32 @@ class Withdrawals(models.Model):
 
     def __str__(self):
         return f"{self.item_type} {self.item_id} - {self.quantity}"
+
+    def get_item_display(self):
+        if self.item_type == "PRODUCT":
+            from .models import Products  
+            try:
+                product = Products.objects.get(id=self.item_id)
+                return str(product) 
+            except Products.DoesNotExist:
+                return f"Unknown Product (ID {self.item_id})"
+
+        elif self.item_type == "RAW_MATERIAL":
+            from .models import RawMaterials
+            try:
+                material = RawMaterials.objects.get(id=self.item_id)
+                return str(material) 
+            except RawMaterials.DoesNotExist:
+                return f"Unknown Material (ID {self.item_id})"
+
+        return f"Unknown Item (ID {self.item_id})"
+    
+    def compute_revenue(self):
+        if self.item_type == "PRODUCT" and self.reason == "SOLD":
+            from .models import Products
+            try:
+                product = Products.objects.get(id=self.item_id)
+                return Decimal(self.quantity) * product.srp_price.srp_price
+            except Products.DoesNotExist:
+                return Decimal(0)
+        return Decimal(0)
