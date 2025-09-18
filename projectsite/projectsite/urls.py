@@ -18,7 +18,8 @@ from django.contrib import admin
 from django.urls import path
 from realsproj import views as a
 from django.contrib.auth import views as auth_views
-from django.urls import path, re_path
+from django.urls import path, re_path, include
+
 
 
 urlpatterns = [
@@ -102,6 +103,8 @@ urlpatterns = [
     path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 
     path("profile/", a.profile_view, name="profile"),
-
     path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
+
+    path("revenue-x-recent_sales", a.home, name="home"),
+    path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 ]

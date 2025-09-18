@@ -556,8 +556,24 @@ class WithdrawItemView(View):
                 messages.error(request, e)
 
         return redirect("withdrawals")
+    
+def get_total_revenue():
+    withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
+    total = 0
+    for w in withdrawals:
+        total += w.compute_revenue()
+    return total
 
+def home(request):
+    total_revenue = get_total_revenue()
+    withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD").order_by("-date")[:10]
+    total_stocks = ProductInventory.get_total_stocks()
 
+    return render(request, "home.html", {
+        "total_revenue": total_revenue,
+        "recent_sales": withdrawals,
+        "total_stocks": total_stocks,
+    })
     
     
 @require_GET
@@ -656,7 +672,7 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect("login")  # or redirect to dashboard
+            return redirect("login")  
     else:
         form = CustomUserCreationForm()
     return render(request, "registration/register.html", {"form": form})
