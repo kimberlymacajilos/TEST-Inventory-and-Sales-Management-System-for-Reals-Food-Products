@@ -35,11 +35,18 @@ class SalesForm(ModelForm):
     class Meta:
         model = Sales
         fields = "__all__"
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
         fields = "__all__"
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
 
 class ProductBatchForm(ModelForm):
     class Meta:
@@ -169,3 +176,8 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username", "email", "password1", "password2")
+
+class StockChangesForm(ModelForm):
+    class Meta:
+        model = StockChanges
+        fields = "__all__"

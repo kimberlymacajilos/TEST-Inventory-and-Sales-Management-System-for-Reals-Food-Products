@@ -38,6 +38,7 @@ from realsproj.forms import (
     SrpPricesForm, 
     NotificationsForm,
     BulkProductBatchForm,
+    StockChangesForm,
 )
 
 from realsproj.models import (
@@ -59,6 +60,7 @@ from realsproj.models import (
     Withdrawals,
     Notifications,
     AuthUser,
+    StockChanges,
 )
 
 from django.db.models import Q
@@ -134,7 +136,7 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(description__icontains=query) |
                 Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)   # assuming ProductVariants also has "name"
+                Q(variant__name__icontains=query)  
             )
 
         return queryset
@@ -477,71 +479,101 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
-        products = Products.objects.all()
-        rawmaterials = RawMaterials.objects.all()
+        products = Products.objects.all().select_related(
+            "product_type", "variant", "size", "size_unit", "productinventory"
+        )
+        rawmaterials = RawMaterials.objects.all().select_related(
+            "unit", "rawmaterialinventory"
+        )
+
         return render(request, self.template_name, {
             "products": products,
             "rawmaterials": rawmaterials
         })
 
     def post(self, request):
-        # Convert form input to uppercase to match DB constraints
-        item_type = request.POST.get("item_type", "").strip().upper()
-        item_id = request.POST.get("item_id")
-        reason = request.POST.get("reason", "").strip().upper()
-        quantity_input = request.POST.get("quantity")
+        item_type = request.POST.get("item_type", "").upper()
+        reason = request.POST.get("reason", "").upper()
 
-        # Validate quantity
-        try:
-            quantity = Decimal(quantity_input)
-        except (InvalidOperation, TypeError):
-            messages.error(request, "Invalid quantity format.")
+        if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
+            messages.error(request, "Invalid item type.")
             return redirect("withdraw-item")
 
-        # Determine models based on item_type
         if item_type == "PRODUCT":
             model = Products
-            inventory_model = ProductInventory
-            field_name = "product_id"
-        elif item_type == "RAW_MATERIAL":
-            model = RawMaterials
-            inventory_model = RawMaterialInventory
-            field_name = "material_id"
+            prefix = "product_"
         else:
-            messages.error(request, "Invalid item type selected.")
-            return redirect("withdraw-item")
+            model = RawMaterials
+            prefix = "material_"
 
-        # Fetch item
-        item = get_object_or_404(model, id=item_id)
+        withdrawals_made = 0
+        errors = []
 
         with transaction.atomic():
-            inventory = get_object_or_404(inventory_model, **{field_name: item.id})
+            for key, value in request.POST.items():
+                if key.startswith(prefix) and value.strip():
+                    try:
+                        qty = Decimal(value)
+                    except (InvalidOperation, TypeError):
+                        continue
 
-            if quantity <= 0:
-                messages.error(request, "Quantity must be greater than zero.")
-                return redirect("withdraw-item")
-            elif quantity > inventory.total_stock:
-                messages.error(request, "Not enough stock to withdraw.")
-                return redirect("withdraw-item")
+                    if qty <= 0:
+                        continue
 
-            # Deduct stock
-            inventory.total_stock -= quantity
-            inventory.save()
+                    item_id = key.replace(prefix, "")
+                    item = get_object_or_404(model, id=item_id)
 
-            # Record withdrawal with uppercase item_type and reason
-            Withdrawals.objects.create(
-                item_id=item.id,
-                item_type=item_type,
-                quantity=quantity,
-                reason=reason,
-                date=timezone.now(),
-                created_by_admin=request.user,
-            )
+                    if item_type == "PRODUCT":
+                        inventory = getattr(item, "productinventory", None)
+                    else:
+                        inventory = getattr(item, "rawmaterialinventory", None)
 
-            messages.success(request, f"{quantity} withdrawn from {item} successfully.")
-            return redirect("withdrawals")
+                    if not inventory:
+                        errors.append(f"No inventory record found for {item}")
+                        continue
 
-        return redirect("withdraw-item")
+                    if qty > inventory.total_stock:
+                        errors.append(f"Not enough stock for {item}")
+                        continue
+
+                    inventory.total_stock -= qty
+                    inventory.save()
+
+                    Withdrawals.objects.create(
+                        item_id=item.id,
+                        item_type=item_type,
+                        quantity=qty,
+                        reason=reason,
+                        date=timezone.now(),
+                        created_by_admin=request.user,
+                    )
+                    withdrawals_made += 1
+
+        if withdrawals_made:
+            messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+
+        return redirect("withdrawals")
+    
+def get_total_revenue():
+    withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
+    total = 0
+    for w in withdrawals:
+        total += w.compute_revenue()
+    return total
+
+def home(request):
+    total_revenue = get_total_revenue()
+    withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD").order_by("-date")[:10]
+    total_stocks = ProductInventory.get_total_stocks()
+
+    return render(request, "home.html", {
+        "total_revenue": total_revenue,
+        "recent_sales": withdrawals,
+        "total_stocks": total_stocks,
+    })
     
     
 @require_GET
@@ -640,7 +672,7 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect("login")  # or redirect to dashboard
+            return redirect("login")  
     else:
         form = CustomUserCreationForm()
     return render(request, "registration/register.html", {"form": form})
@@ -661,18 +693,10 @@ def best_sellers_api(request):
     products = Products.objects.in_bulk(product_ids)
 
     labels, data = [], []
-    for item in sold_list[:TOP_N]:
+    for item in sold_list[:TOP_N]: 
         prod = products.get(item["item_id"])
         labels.append(str(prod) if prod else f"Unknown {item['item_id']}")
         data.append(float(item["total_sold"]))
-
-    if len(sold_list) > TOP_N:
-        total_top = sum(data)
-        total_all = sum(float(i["total_sold"]) for i in sold_list)
-        others = round(total_all - total_top, 2)
-        if others > 0:
-            labels.append("Others")
-            data.append(others)
 
     return JsonResponse({"labels": labels, "data": data})
 
@@ -682,3 +706,17 @@ def mark_notification_read(request, pk):
     notif.is_read = True
     notif.save()
     return redirect('notifications')
+
+@login_required
+def profile_view(request):
+    return render(request, "profile.html")
+
+
+class StockChangesList(ListView):
+    model = StockChanges
+    context_object_name = 'stock_changes'
+    template_name = "stock_changes.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return StockChanges.objects.all().order_by('-date')
