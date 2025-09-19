@@ -241,6 +241,7 @@ class ProductBatches(models.Model):
     quantity = models.IntegerField()
     manufactured_date = models.DateTimeField(default=timezone.now)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    expiration_date = models.DateField(blank=True, null=True)
 
     class Meta:
         managed = False

@@ -51,21 +51,12 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = "__all__"  # include expiration_date now
+        fields = "__all__"
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        manufactured_date = cleaned_data.get("manufactured_date")
-        expiration_date = cleaned_data.get("expiration_date")
-
-        if manufactured_date and not expiration_date:
-            cleaned_data["expiration_date"] = manufactured_date + timedelta(days=365)
-        return cleaned_data
 
 
 class ProductInventoryForm(ModelForm):
@@ -154,6 +145,7 @@ class NotificationsForm(forms.Form):
 class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -170,7 +162,9 @@ class BulkProductBatchForm(forms.Form):
                 "product": product,
                 "qty_field": self[field_name],
             })
-            
+
+
+
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
