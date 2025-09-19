@@ -25,6 +25,7 @@
                     <th scope="col">Material</th>
                     <th scope="col">Current Stock</th>
                     <th scope="col">Restock Threshold</th>
+                    <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryTableBody">
@@ -33,6 +34,17 @@
                     <td>{{ object.material }}</td>
                     <td>{{ object.total_stock }}</td>
                     <td>{{ object.reorder_threshold }}</td>
+                    <td>
+                        {% if object.total_stock == 0 %}
+                          <span class="badge bg-danger">Out of Stock</span>
+                        {% elif object.total_stock < object.reorder_threshold %}
+                          <span class="badge bg-warning text-dark">Low Stock</span>
+                        {% elif object.total_stock == object.reorder_threshold %}
+                          <span class="badge bg-info text-dark">Warning</span>
+                        {% else %}
+                          <span class="badge bg-success">On Stock</span>
+                        {% endif %}
+                    </td>
                   </tr>
                   {% endfor %}
                 </tbody>

@@ -220,6 +220,10 @@ class Notifications(models.Model):
 
             if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {product_name}"
+            elif notif_type == "OUT_OF_STOCK":
+                return f"OUT OF STOCK: {product_name}"
+            elif notif_type == "STOCK_HEALTHY":
+                return f"Stock back to healthy: {product_name}"
 
         elif self.item_type.upper() == "RAW_MATERIAL":
             try:
@@ -230,8 +234,14 @@ class Notifications(models.Model):
 
             if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {material_name}"
+            elif notif_type == "OUT_OF_STOCK":
+                return f"OUT OF STOCK: {material_name}"
+            elif notif_type == "STOCK_HEALTHY":
+                return f"Stock back to healthy: {material_name}"
 
+        # fallback
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
+
 
 
 class ProductBatches(models.Model):
