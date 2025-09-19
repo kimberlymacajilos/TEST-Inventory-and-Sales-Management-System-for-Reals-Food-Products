@@ -15,10 +15,11 @@ from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from .forms import CustomUserCreationForm
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -69,6 +70,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+
 
 @method_decorator(login_required, name='dispatch')
 
@@ -734,3 +736,39 @@ def register(request):
         form = UserCreationForm()  # Instantiate a blank form
 
     return render(request, 'register.html', {'form': form})
+
+def register(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()  # Save the new user to the database
+            messages.success(request, 'Your account has been created successfully! You can now log in.')
+            return redirect('login')  # Redirect to login page after successful registration
+    else:
+        form = CustomUserCreationForm()  # Instantiate a blank form
+
+    return render(request, 'registration/register.html', {'form': form})
+
+@login_required
+def profile_view(request):
+    return render(request, 'profile.html') 
+
+@login_required
+def edit_profile(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+
+        user = request.user
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")  # balik sa profile page
+
+    return render(request, "edit_profile.html")

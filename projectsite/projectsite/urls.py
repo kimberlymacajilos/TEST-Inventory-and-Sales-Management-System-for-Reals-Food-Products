@@ -107,4 +107,8 @@ urlpatterns = [
 
     path("revenue-x-recent_sales", a.home, name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
+
+    path("profile/", a.profile_view, name="profile"), 
+    path("profile/edit/", a.edit_profile, name="edit-profile"),
+
 ]

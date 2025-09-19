@@ -3,6 +3,7 @@ from django import forms
 from datetime import timedelta
 from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -173,3 +174,8 @@ class StockChangesForm(ModelForm):
     class Meta:
         model = StockChanges
         fields = "__all__"
+
+class CustomUserCreationForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name',  'email']

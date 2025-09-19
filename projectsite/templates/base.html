@@ -96,7 +96,7 @@
                                     <div class="u-text">
                                         <h4>{{ request.user.username }}</h4>
                                         <p class="text-muted">{{ request.user.email }}</p>
-                                        <a href="" class="btn btn-rounded btn-danger btn-sm">View Profile</a>
+                                        <a href="{% url 'profile' %}" class="btn btn-rounded btn-danger btn-sm">View Profile</a>
                                     </div>
                                 </div>
                             </li>
@@ -131,8 +131,8 @@
                     </a>
                     <div class="collapse in" id="collapseExample" aria-expanded="true">
                         <ul class="nav">
-                            <li><a href="#profile"><span class="link-collapse">My Profile</span></a></li>
-                            <li><a href="#edit"><span class="link-collapse">Edit Profile</span></a></li>
+                            <li><a href="{% url 'profile' %}"><span class="link-collapse">My Profile</span></a></li>
+                            <li><a href="{% url 'edit-profile' %}"><span class="link-collapse">Edit Profile</span></a></li>
                             <li><a href="#settings"><span class="link-collapse">Settings</span></a></li>
                         </ul>
                     </div>
