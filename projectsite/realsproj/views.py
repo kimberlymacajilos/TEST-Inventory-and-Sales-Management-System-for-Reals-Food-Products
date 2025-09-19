@@ -208,6 +208,28 @@ class SalesList(ListView):
     template_name = "sales_list.html"
     paginate_by = 10
 
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+        self.filtered_queryset = queryset  # keep reference for context
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Compute total sales from filtered queryset
+        qs = getattr(self, "filtered_queryset", self.get_queryset())
+        context["total_sales"] = qs.aggregate(total=Sum("amount"))["total"] or 0
+        return context
+
 class SalesCreateView(CreateView):
     model = Sales
     form_class = SalesForm
@@ -225,12 +247,14 @@ class SalesDeleteView(DeleteView):
     template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
+from django.db.models import Sum
+
 class ExpensesList(ListView):
     model = Expenses
     context_object_name = 'expenses'
     template_name = "expenses_list.html"
     paginate_by = 10
-    
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
@@ -243,8 +267,14 @@ class ExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["total_expenses"] = Expenses.objects.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses

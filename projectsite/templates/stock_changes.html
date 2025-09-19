@@ -21,7 +21,6 @@
               <table class="table table-striped" id="stockChangesTable">
                 <thead>
                   <tr>
-                    <th scope="col">Item Type</th>
                     <th scope="col">Item ID</th>
                     <th scope="col">Quantity Change</th>
                     <th scope="col">Category</th>
@@ -31,8 +30,7 @@
                 <tbody id="stockChangesTableBody">
                   {% for object in object_list %}
                   <tr>
-                    <td>{{ object.item_type }}</td>
-                    <td>{{ object.item_id }}</td>
+                    <td>{{ object.item_display  }}</td>
                     <td>{{ object.quantity_change }}</td>
                     <td>{{ object.category }}</td>
                     <td>{{ object.date|date:"Y-m-d H:i" }}</td>
