@@ -105,7 +105,7 @@ urlpatterns = [
 
     path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
 
-    path("revenue-x-recent_sales", a.home, name="home"),
+    path("revenue-x-recent_sales", a.HomePageView.as_view(), name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 
     path("profile/", a.profile_view, name="profile"), 

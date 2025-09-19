@@ -58,15 +58,6 @@ class ProductBatchForm(ModelForm):
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
-    def clean(self):
-        cleaned_data = super().clean()
-        manufactured_date = cleaned_data.get("manufactured_date")
-        expiration_date = cleaned_data.get("expiration_date")
-
-        if manufactured_date and not expiration_date:
-            cleaned_data["expiration_date"] = manufactured_date + timedelta(days=365)
-
-        return cleaned_data
 
 class ProductInventoryForm(ModelForm):
     class Meta:
@@ -154,7 +145,7 @@ class NotificationsForm(forms.Form):
 class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -167,8 +158,12 @@ class BulkProductBatchForm(forms.Form):
                 label=str(product),
                 widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
             )
-            # store for easy access in template
-            self.products.append({"qty_field": self[field_name], "label": str(product)})
+            self.products.append({
+                "product": product,
+                "qty_field": self[field_name],
+            })
+
+
 
 class StockChangesForm(ModelForm):
     class Meta:
