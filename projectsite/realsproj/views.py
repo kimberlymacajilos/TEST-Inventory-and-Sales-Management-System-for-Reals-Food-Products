@@ -558,6 +558,13 @@ class WithdrawItemView(View):
 
             for p in products:
                 p.filtered_stock = stock_map.get(p.id, 0)
+        
+        
+        else:
+            # not filtered: annotate with full inventory total_stock
+            for p in products:
+                inv = getattr(p, "productinventory", None)
+                p.filtered_stock = inv.total_stock if inv else 0
 
         if selected_type == "RAW_MATERIAL" and selected_expiration:
             if selected_expiration == "NONE":
@@ -578,6 +585,11 @@ class WithdrawItemView(View):
 
             for m in rawmaterials:
                 m.filtered_stock = Decimal(str(mstock_map.get(m.id, 0)))
+
+        else:
+            for m in rawmaterials:
+                inv = getattr(m, "rawmaterialinventory", None)
+                m.filtered_stock = inv.total_stock if inv else Decimal("0")
 
         return render(request, self.template_name, {
             "products": products,
