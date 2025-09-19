@@ -38,6 +38,7 @@ from realsproj.forms import (
     SrpPricesForm, 
     NotificationsForm,
     BulkProductBatchForm,
+    StockChangesForm,
 )
 
 from realsproj.models import (
@@ -59,6 +60,7 @@ from realsproj.models import (
     Withdrawals,
     Notifications,
     AuthUser,
+    StockChanges,
 )
 
 from django.db.models import Q
@@ -134,7 +136,7 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(description__icontains=query) |
                 Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)   # assuming ProductVariants also has "name"
+                Q(variant__name__icontains=query)  
             )
 
         return queryset
@@ -206,6 +208,28 @@ class SalesList(ListView):
     template_name = "sales_list.html"
     paginate_by = 10
 
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+        self.filtered_queryset = queryset  # keep reference for context
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Compute total sales from filtered queryset
+        qs = getattr(self, "filtered_queryset", self.get_queryset())
+        context["total_sales"] = qs.aggregate(total=Sum("amount"))["total"] or 0
+        return context
+
 class SalesCreateView(CreateView):
     model = Sales
     form_class = SalesForm
@@ -223,12 +247,14 @@ class SalesDeleteView(DeleteView):
     template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
+from django.db.models import Sum
+
 class ExpensesList(ListView):
     model = Expenses
     context_object_name = 'expenses'
     template_name = "expenses_list.html"
     paginate_by = 10
-    
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
@@ -241,8 +267,14 @@ class ExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["total_expenses"] = Expenses.objects.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses
@@ -691,18 +723,10 @@ def best_sellers_api(request):
     products = Products.objects.in_bulk(product_ids)
 
     labels, data = [], []
-    for item in sold_list[:TOP_N]:
+    for item in sold_list[:TOP_N]: 
         prod = products.get(item["item_id"])
         labels.append(str(prod) if prod else f"Unknown {item['item_id']}")
         data.append(float(item["total_sold"]))
-
-    if len(sold_list) > TOP_N:
-        total_top = sum(data)
-        total_all = sum(float(i["total_sold"]) for i in sold_list)
-        others = round(total_all - total_top, 2)
-        if others > 0:
-            labels.append("Others")
-            data.append(others)
 
     return JsonResponse({"labels": labels, "data": data})
 
@@ -716,3 +740,13 @@ def mark_notification_read(request, pk):
 @login_required
 def profile_view(request):
     return render(request, "profile.html")
+
+
+class StockChangesList(ListView):
+    model = StockChanges
+    context_object_name = 'stock_changes'
+    template_name = "stock_changes.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        return StockChanges.objects.all().order_by('-date')

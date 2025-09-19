@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 from django.db.models import Sum
+from django.db.models import Q
+from datetime import timedelta
 
 
 class AuthGroup(models.Model):
@@ -134,7 +136,7 @@ class Expenses(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -144,6 +146,15 @@ class Expenses(models.Model):
 
     def __str__(self):
         return f"{self.category} - ₱{self.amount} on {self.date.strftime('%Y-%m-%d')}"
+
+
+class ExpensesSummary(models.Model):
+    id = models.BigIntegerField(primary_key=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        managed = False
+        db_table = 'expenses_summary'
 
 
 class HistoryLog(models.Model):
@@ -171,16 +182,13 @@ class HistoryLogTypes(models.Model):
 
 
 class Notifications(models.Model):
-    ITEM_TYPE_CHOICES = [
-        ('PRODUCT', 'Product'),
-        ('RAW_MATERIAL', 'Raw Material'),
-    ]
-    item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
+    id = models.BigAutoField(primary_key=True)
+    item_type = models.CharField(max_length=12)
     item_id = models.BigIntegerField()
     notification_type = models.CharField(max_length=20)
     notification_timestamp = models.DateTimeField()
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField()
+    created_at = models.DateTimeField()
 
     class Meta:
         managed = False
@@ -189,18 +197,14 @@ class Notifications(models.Model):
     @property
     def css_class(self):
         notif_type = self.notification_type.upper()
-        if notif_type == "OUT_OF_STOCK":
-            return "notif-danger"
-        elif notif_type == "LOW_STOCK":
+        if notif_type == "LOW_STOCK":
             return "notif-warning"
         return "notif-info"
 
     @property
     def icon_class(self):
         notif_type = self.notification_type.upper()
-        if notif_type == "OUT_OF_STOCK":
-            return "la la-times-circle"
-        elif notif_type == "LOW_STOCK":
+        if notif_type == "LOW_STOCK":
             return "la la-exclamation-circle"
         return "la la-info-circle"
 
@@ -215,9 +219,7 @@ class Notifications(models.Model):
             except Products.DoesNotExist:
                 product_name = "Unknown Product"
 
-            if notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {product_name}"
-            elif notif_type == "LOW_STOCK":
+            if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {product_name}"
 
         elif self.item_type.upper() == "RAW_MATERIAL":
@@ -227,9 +229,7 @@ class Notifications(models.Model):
             except RawMaterials.DoesNotExist:
                 material_name = "Unknown Raw Material"
 
-            if notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {material_name}"
-            elif notif_type == "LOW_STOCK":
+            if notif_type == "LOW_STOCK":
                 return f"LOW STOCK: {material_name}"
 
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
@@ -248,6 +248,11 @@ class ProductBatches(models.Model):
         managed = False
         db_table = 'product_batches'
 
+    def save(self, *args, **kwargs):
+        if self.manufactured_date and not self.expiration_date:
+            self.expiration_date = self.manufactured_date + timedelta(days=365)
+        super().save(*args, **kwargs)
+
 
 class ProductInventory(models.Model):
     product = models.OneToOneField('Products', models.DO_NOTHING, primary_key=True)
@@ -257,7 +262,6 @@ class ProductInventory(models.Model):
     class Meta:
         managed = False
         db_table = 'product_inventory'
-
 
     @classmethod
     def get_total_stocks(cls):
@@ -302,6 +306,7 @@ class ProductVariants(models.Model):
     def __str__(self):
         return self.name
 
+
 class Products(models.Model):
     id = models.BigAutoField(primary_key=True)
     product_type = models.ForeignKey(ProductTypes, models.DO_NOTHING)
@@ -310,10 +315,9 @@ class Products(models.Model):
     size_unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     unit_price = models.ForeignKey('UnitPrices', models.DO_NOTHING)
     srp_price = models.ForeignKey('SrpPrices', models.DO_NOTHING)
-    date_created = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-
+    date_created = models.DateTimeField(default=timezone.now)
     class Meta:
         managed = False
         db_table = 'products'
@@ -321,12 +325,13 @@ class Products(models.Model):
     def __str__(self):
         return f"{self.product_type.name} - {self.variant.name} ({self.size.size_label} {self.size_unit.unit_name})"
 
+
 class RawMaterialBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateField()
-    material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
+    batch_date = models.DateTimeField(default=timezone.now)
+    material = models.ForeignKey('RawMaterials', on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    received_date = models.DateField()
+    received_date = models.DateTimeField(default=timezone.now)
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -361,11 +366,12 @@ class RawMaterials(models.Model):
     def __str__(self):
         return f"{self.name} ({self.size} {self.unit}) - ₱{self.price_per_unit}"
 
+
 class Sales(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
@@ -375,6 +381,15 @@ class Sales(models.Model):
 
     def __str__(self):
         return f"{self.category} - ₱{self.amount} on {self.date.strftime('%Y-%m-%d')}"
+
+
+class SalesSummary(models.Model):
+    id = models.BigIntegerField(primary_key=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        managed = False
+        db_table = 'sales_summary'
 
 
 class SizeUnits(models.Model):
@@ -429,6 +444,29 @@ class StockChanges(models.Model):
         managed = False
         db_table = 'stock_changes'
 
+    def get_item(self):
+        if not self.item_type:
+            return None
+
+        item_type = self.item_type.strip().lower()
+
+        if item_type in ("raw", "raw_material", "rawmaterials"):
+            return RawMaterials.objects.filter(id=self.item_id).first()
+        elif item_type in ("product", "products"):
+            return Products.objects.filter(id=self.item_id).first()
+        return None
+
+    @property
+    def item_display(self):
+        """Human-readable item representation."""
+        item = self.get_item()
+        if item:
+            return str(item)
+        return f"[{self.item_type}] Unknown Item (ID: {self.item_id})"
+
+    def __str__(self):
+        return self.item_display
+
 
 class UnitPrices(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -442,25 +480,15 @@ class UnitPrices(models.Model):
     def __str__(self):
         return f"₱{self.unit_price}"
 
+
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
-    ITEM_TYPE_CHOICES = [
-        ('PRODUCT', 'Product'),
-        ('RAW_MATERIAL', 'Raw Material'),
-    ]
-    item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
+    item_type = models.CharField(max_length=12)
     item_id = models.BigIntegerField()
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    REASON_CHOICES = [
-        ('SOLD', 'Sold'),
-        ('EXPIRED', 'Expired'),
-        ('DAMAGED', 'Damaged'),
-        ('RETURNED', 'Returned'),
-        ('OTHERS', 'Others'),
-    ]
-    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
-    date = models.DateTimeField(auto_now_add=True)
-    created_by_admin = models.ForeignKey(User, on_delete=models.DO_NOTHING, db_column="created_by_admin_id")
+    reason = models.CharField(max_length=20)
+    date = models.DateTimeField(default=timezone.now)
+    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
 
     class Meta:
         managed = False

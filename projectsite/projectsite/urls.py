@@ -103,7 +103,8 @@ urlpatterns = [
     path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 
     path("profile/", a.profile_view, name="profile"),
-    
+    path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
+
     path("revenue-x-recent_sales", a.home, name="home"),
-    path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),
+    path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 ]
