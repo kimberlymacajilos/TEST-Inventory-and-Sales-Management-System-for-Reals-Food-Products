@@ -13,8 +13,11 @@
                     <div class="col-md-6">
                     <div class="card-body">
                         <form action="" method="post" novalidate>
-                            <p>Are you sure you want to delete "{{ object.name }} - {{ object.size }} - {{ object.unit }}"?</p>
-                            {% csrf_token %} {% include 'includes/form.html' %}
+                            <p>Are you sure you want to delete 
+                            "{{ object.category }} - ₱{{ object.amount }} on {{ object.date|date:'Y-m-d' }}"?
+                            </p>
+                            {% csrf_token %}
+                            {% include 'includes/form.html' %}
 
                             <div class="form-group">
                                 <div class="col-md-12 col-sm-3">
