@@ -350,7 +350,7 @@ class ProductInventoryList(ListView):
                 Q(restock_threshold__icontains=query)       # comes from ProductInventory
             )
 
-        return queryset.order_by("-product_id")
+        return queryset.order_by("product__id")
 
 
 class ProductInventoryCreateView(CreateView):
@@ -509,6 +509,29 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
+        selected_type = request.GET.get("item_type", "").upper()
+        selected_expiration = request.GET.get("expiration_date", "")
+
+        product_date_qs = (
+            ProductBatches.objects
+            .filter(expiration_date__isnull=False)
+            .values_list("expiration_date", flat=True)
+            .distinct()
+            .order_by("expiration_date")
+        )
+        product_expirations = [{"value": d.isoformat(), "display": d.strftime("%b %d, %Y")} for d in product_date_qs]
+        product_has_no_expiration = ProductBatches.objects.filter(expiration_date__isnull=True).exists()
+
+        material_date_qs = (
+            RawMaterialBatches.objects
+            .filter(expiration_date__isnull=False)
+            .values_list("expiration_date", flat=True)
+            .distinct()
+            .order_by("expiration_date")
+        )
+        material_expirations = [{"value": d.isoformat(), "display": d.strftime("%b %d, %Y")} for d in material_date_qs]
+        material_has_no_expiration = RawMaterialBatches.objects.filter(expiration_date__isnull=True).exists()
+
         products = Products.objects.all().select_related(
             "product_type", "variant", "size", "size_unit", "productinventory"
         )
@@ -516,68 +539,170 @@ class WithdrawItemView(View):
             "unit", "rawmaterialinventory"
         )
 
+        if selected_type == "PRODUCT" and selected_expiration:
+            if selected_expiration == "NONE":
+                batches = ProductBatches.objects.filter(expiration_date__isnull=True)
+            else:
+                batches = ProductBatches.objects.filter(expiration_date=selected_expiration)
+
+            batches = batches.filter(quantity__gt=0)
+
+            product_ids = batches.values_list("product_id", flat=True).distinct()
+            products = Products.objects.filter(
+                id__in=product_ids,
+                productinventory__total_stock__gt=0
+            ).select_related("product_type", "variant", "size", "size_unit", "productinventory")
+
+            batch_sums = batches.values("product").annotate(total_stock=Sum("quantity"))
+            stock_map = {int(b["product"]): b["total_stock"] or 0 for b in batch_sums}
+
+            for p in products:
+                p.filtered_stock = stock_map.get(p.id, 0)
+
+        if selected_type == "RAW_MATERIAL" and selected_expiration:
+            if selected_expiration == "NONE":
+                mbatches = RawMaterialBatches.objects.filter(expiration_date__isnull=True)
+            else:
+                mbatches = RawMaterialBatches.objects.filter(expiration_date=selected_expiration)
+
+            mbatches = mbatches.filter(quantity__gt=0)
+
+            material_ids = mbatches.values_list("material_id", flat=True).distinct()
+            rawmaterials = RawMaterials.objects.filter(
+                id__in=material_ids,
+                rawmaterialinventory__total_stock__gt=0
+            ).select_related("unit", "rawmaterialinventory")
+
+            mbatch_sums = mbatches.values("material").annotate(total_stock=Sum("quantity"))
+            mstock_map = {int(b["material"]): b["total_stock"] or 0 for b in mbatch_sums}
+
+            for m in rawmaterials:
+                m.filtered_stock = Decimal(str(mstock_map.get(m.id, 0)))
+
         return render(request, self.template_name, {
             "products": products,
-            "rawmaterials": rawmaterials
+            "rawmaterials": rawmaterials,
+            "product_expirations": product_expirations,
+            "product_has_no_expiration": product_has_no_expiration,
+            "material_expirations": material_expirations,
+            "material_has_no_expiration": material_has_no_expiration,
+            "selected_type": selected_type,
+            "selected_expiration": selected_expiration,
         })
 
     def post(self, request):
         item_type = request.POST.get("item_type", "").upper()
         reason = request.POST.get("reason", "").upper()
+        expiration_date = request.POST.get("expiration_date", "")
 
         if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
             messages.error(request, "Invalid item type.")
             return redirect("withdraw-item")
 
-        if item_type == "PRODUCT":
-            model = Products
-            prefix = "product_"
-        else:
-            model = RawMaterials
-            prefix = "material_"
+        model = Products if item_type == "PRODUCT" else RawMaterials
+        prefix = "product_" if item_type == "PRODUCT" else "material_"
 
         withdrawals_made = 0
         errors = []
 
         with transaction.atomic():
             for key, value in request.POST.items():
-                if key.startswith(prefix) and value.strip():
-                    try:
-                        qty = Decimal(value)
-                    except (InvalidOperation, TypeError):
-                        continue
+                if not key.startswith(prefix):
+                    continue
+                if not value.strip():
+                    continue
 
-                    if qty <= 0:
-                        continue
+                try:
+                    qty = Decimal(value)
+                except (InvalidOperation, TypeError):
+                    errors.append(f"Invalid quantity for {key}.")
+                    continue
 
-                    item_id = key.replace(prefix, "")
-                    item = get_object_or_404(model, id=item_id)
+                if qty <= 0:
+                    continue
 
+                item_id = key.replace(prefix, "")
+                item = get_object_or_404(model, id=item_id)
+
+                if item_type == "PRODUCT":
+                    inventory = getattr(item, "productinventory", None)
+                else:
+                    inventory = getattr(item, "rawmaterialinventory", None)
+
+                if expiration_date:
                     if item_type == "PRODUCT":
-                        inventory = getattr(item, "productinventory", None)
+                        if expiration_date == "NONE":
+                            batch_sum = ProductBatches.objects.filter(product_id=item.id, expiration_date__isnull=True).aggregate(s=Sum("quantity"))["s"] or 0
+                        else:
+                            batch_sum = ProductBatches.objects.filter(product_id=item.id, expiration_date=expiration_date).aggregate(s=Sum("quantity"))["s"] or 0
+                        available_stock = Decimal(str(batch_sum))
                     else:
-                        inventory = getattr(item, "rawmaterialinventory", None)
+                        if expiration_date == "NONE":
+                            mbatch_sum = RawMaterialBatches.objects.filter(material_id=item.id, expiration_date__isnull=True).aggregate(s=Sum("quantity"))["s"] or 0
+                        else:
+                            mbatch_sum = RawMaterialBatches.objects.filter(material_id=item.id, expiration_date=expiration_date).aggregate(s=Sum("quantity"))["s"] or 0
+                        available_stock = Decimal(str(mbatch_sum))
+                else:
+                    available_stock = Decimal(str(inventory.total_stock)) if inventory and inventory.total_stock is not None else Decimal("0")
 
-                    if not inventory:
-                        errors.append(f"No inventory record found for {item}")
-                        continue
+                if available_stock == 0:
+                    errors.append(f"No stock for {item}.")
+                    continue
 
-                    if qty > inventory.total_stock:
-                        errors.append(f"Not enough stock for {item}")
-                        continue
+                if qty > available_stock:
+                    errors.append(f"Not enough stock for {item}. Requested {qty}, available {available_stock}.")
+                    continue
 
-                    inventory.total_stock -= qty
-                    inventory.save()
+                if not inventory:
+                    errors.append(f"No inventory record found for {item}.")
+                    continue
 
-                    Withdrawals.objects.create(
-                        item_id=item.id,
-                        item_type=item_type,
-                        quantity=qty,
-                        reason=reason,
-                        date=timezone.now(),
-                        created_by_admin=request.user,
-                    )
-                    withdrawals_made += 1
+                inventory.total_stock = Decimal(str(inventory.total_stock)) - qty
+                inventory.save()
+
+                if expiration_date:
+                    if item_type == "PRODUCT":
+                        if expiration_date == "NONE":
+                            batches_qs = ProductBatches.objects.filter(
+                                product=item, expiration_date__isnull=True
+                            ).order_by("id")
+                        else:
+                            batches_qs = ProductBatches.objects.filter(
+                                product=item, expiration_date=expiration_date
+                            ).order_by("id")
+                    else:  # RAW_MATERIAL
+                        if expiration_date == "NONE":
+                            batches_qs = RawMaterialBatches.objects.filter(
+                                material=item, expiration_date__isnull=True
+                            ).order_by("id")
+                        else:
+                            batches_qs = RawMaterialBatches.objects.filter(
+                                material=item, expiration_date=expiration_date
+                            ).order_by("id")
+
+                    remaining = qty
+                    for batch in batches_qs:
+                        if remaining <= 0:
+                            break
+                        if batch.quantity >= remaining:
+                            batch.quantity -= remaining
+                            batch.save()
+                            remaining = 0
+                        else:
+                            remaining -= batch.quantity
+                            batch.quantity = 0
+                            batch.save()
+
+                Withdrawals.objects.create(
+                    item_id=item.id,
+                    item_type=item_type,
+                    quantity=qty,
+                    reason=reason,
+                    date=timezone.now(),
+                    created_by_admin=request.user,
+                )
+                withdrawals_made += 1
+
 
         if withdrawals_made:
             messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
