@@ -15,10 +15,9 @@ from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
-from .forms import CustomUserCreationForm
 from django.utils import timezone
 from realsproj.forms import (
     ProductsForm,
@@ -70,7 +69,6 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
-from .forms import CustomUserCreationForm
 
 @method_decorator(login_required, name='dispatch')
 
@@ -620,29 +618,6 @@ def get_stock(request):
 
     return JsonResponse({"stock": inventory.total_stock if inventory else 0})
 
-def signup_view(request):
-    if request.method == "POST":
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect("home")  # redirect after signup
-    else:
-        form = UserCreationForm()
-    return render(request, "signup.html", {"form": form})
-
-def login_view(request):
-    if request.method == "POST":
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            return redirect("home")  # redirect after login
-    else:
-        form = AuthenticationForm()
-    return render(request, "login.html", {"form": form})
-
-
 class NotificationsList(ListView):
     model = Notifications
     context_object_name = 'notifications'
@@ -697,16 +672,6 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
         ]
         return render(request, self.template_name, {'form': form, 'products': products})
 
-def register(request):
-    if request.method == "POST":
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect("login")  
-    else:
-        form = CustomUserCreationForm()
-    return render(request, "registration/register.html", {"form": form})
-
 
 def best_sellers_api(request):
     TOP_N = 5
@@ -737,10 +702,6 @@ def mark_notification_read(request, pk):
     notif.save()
     return redirect('notifications')
 
-@login_required
-def profile_view(request):
-    return render(request, "profile.html")
-
 
 class StockChangesList(ListView):
     model = StockChanges
@@ -750,3 +711,26 @@ class StockChangesList(ListView):
 
     def get_queryset(self):
         return StockChanges.objects.all().order_by('-date')
+    
+def login_view(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('home')  # Redirect to home page after login
+    else:
+        form = AuthenticationForm()
+    return render(request, 'login.html', {'form': form})
+
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()  # Save the new user to the database
+            messages.success(request, 'Your account has been created successfully! You can now log in.')
+            return redirect('login')  # Redirect to login page after successful registration
+    else:
+        form = UserCreationForm()  # Instantiate a blank form
+
+    return render(request, 'register.html', {'form': form})
