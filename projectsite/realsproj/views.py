@@ -320,7 +320,7 @@ class ProductInventoryList(ListView):
                 Q(restock_threshold__icontains=query)       # comes from ProductInventory
             )
 
-        return queryset.order_by("-product_id")
+        return queryset.order_by("product_id")
 
 
 class ProductInventoryCreateView(CreateView):
@@ -677,6 +677,39 @@ def register(request):
         form = CustomUserCreationForm()
     return render(request, "registration/register.html", {"form": form})
 
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def profile_view(request):
+    return render(request, "profile.html")
+
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+
+@login_required
+def edit_profile(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+
+        user = request.user
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")  # balik sa profile page
+
+    return render(request, "editprofile.html")
+
+
 
 def best_sellers_api(request):
     TOP_N = 5
@@ -706,10 +739,6 @@ def mark_notification_read(request, pk):
     notif.is_read = True
     notif.save()
     return redirect('notifications')
-
-@login_required
-def profile_view(request):
-    return render(request, "profile.html")
 
 
 class StockChangesList(ListView):

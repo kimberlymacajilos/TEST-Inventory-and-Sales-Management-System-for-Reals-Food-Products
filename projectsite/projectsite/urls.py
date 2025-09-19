@@ -19,11 +19,11 @@ from django.urls import path
 from realsproj import views as a
 from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, include
-
+from django.urls import path
+from realsproj import views
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
     re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
@@ -102,7 +102,9 @@ urlpatterns = [
 
     path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 
-    path("profile/", a.profile_view, name="profile"),
+    path("profile/", views.profile_view, name="profile"),  # <-- profile url
+    path("profile/edit/", views.edit_profile, name="edit-profile"),
+    
     path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
 
     path("revenue-x-recent_sales", a.home, name="home"),
