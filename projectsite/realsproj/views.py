@@ -830,6 +830,9 @@ def register(request):
             form.save()  # Save the new user to the database
             messages.success(request, 'Your account has been created successfully! You can now log in.')
             return redirect('login')  # Redirect to login page after successful registration
+        else:
+            # If the form is not valid, the errors will automatically be shown in the template
+            messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
         form = CustomUserCreationForm()  # Instantiate a blank form
 
@@ -841,20 +844,20 @@ def profile_view(request):
 
 @login_required
 def edit_profile(request):
+    user = request.user  # Get the currently logged-in user
+
     if request.method == "POST":
-        username = request.POST.get("username")
-        first_name = request.POST.get("first_name")
-        last_name = request.POST.get("last_name")
-        email = request.POST.get("email")
+        # Create a form instance with the POST data and the current user
+        form = UserChangeForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            form.save()  # Save the form if it's valid
+            messages.success(request, "Profile updated successfully!")
+            return redirect("profile")  # Redirect to the profile page after saving
+        else:
+            # If the form is invalid, show errors
+            messages.error(request, "There was an error updating your profile. Please check the form.")
+    else:
+        # If it's a GET request, pre-fill the form with the current user data
+        form = UserChangeForm(instance=user)
 
-        user = request.user
-        user.username = username
-        user.first_name = first_name
-        user.last_name = last_name
-        user.email = email
-        user.save()
-
-        messages.success(request, "Profile updated successfully!")
-        return redirect("profile")  # balik sa profile page
-
-    return render(request, "edit_profile.html")
+    return render(request, "editprofile.html", {"form": form})

@@ -1,0 +1,142 @@
+/* Profile Page */
+.profile-page {
+    position: relative;
+    display: flex;
+    flex-direction: column; /* Stack everything vertically */
+    padding: 20px;
+    min-height: 100vh;
+
+}
+
+/* Profile Header */
+.profile-header {
+    display: flex;
+    justify-content: flex-start; /* Align profile image to the left */
+    align-items: center;
+    position: relative; /* Make it relative for positioning the Edit button */
+    width: 100%;
+    margin-bottom: 10px;
+    margin-top: 20px;
+
+}
+
+/* Circular container for profile image */
+.profile-img-container {
+    margin-top: 50px;
+    margin-left: 30px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #007bff;
+}
+
+/* Edit Profile Button */
+.edit-button-container {
+    position: absolute;
+    top: 100px;
+    right: 0;
+    margin: 10px 20px; /* Add some spacing around the button */
+}
+
+.edit-button-container a {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    display: inline-block;
+}
+
+/* Profile Info Section (Form and Email) */
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Image Upload Section (optional) */
+.upload-section {
+    margin-bottom: 10px;
+    margin-left: 30px;
+
+}
+
+.upload-label {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    display: block;
+    margin-bottom: 10px;
+}
+
+#image-upload {
+    padding: 5px;
+    font-size: 14px;
+}
+
+/* Profile Form */
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+/* Form Styling */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+}
+
+.form-group input {
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    background-color: #f9f9f9;
+    cursor: not-allowed; /* Initially set to not-allowed for profile page */
+}
+
+.form-group input:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Responsiveness for smaller screens */
+@media (max-width: 768px) {
+    .profile-page {
+        flex-direction: column; /* Stack profile image and form vertically on mobile */
+        align-items: center;
+    }
+
+    .profile-header, .profile-info {
+        width: 100%; /* Make form and header take full width on mobile */
+        margin-bottom: 20px; /* Add space between profile image and form */
+    }
+
+    .edit-button-container {
+        position: static; /* Remove absolute positioning on smaller screens */
+        margin-top: 10px;
+        justify-content: center;
+    }
+}
+
+/* End of Profile Page */
+
+/* Edit Profile Page Modifications - Specific CSS */
+.edit-page .form-group input {
+    cursor: text; /* Text cursor for editable fields in the Edit Profile page */
+    background-color: #fff; /* Editable fields should have normal white background */
+    border: 1px solid #007bff; /* Highlight border for editable fields */
+}

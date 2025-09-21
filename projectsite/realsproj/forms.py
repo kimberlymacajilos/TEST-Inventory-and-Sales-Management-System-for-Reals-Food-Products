@@ -3,7 +3,9 @@ from django import forms
 from datetime import timedelta
 from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.core.exceptions import ValidationError
+
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -170,7 +172,33 @@ class StockChangesForm(ModelForm):
         model = StockChanges
         fields = "__all__"
 
-class CustomUserCreationForm(UserCreationForm):
+class CustomUserCreationForm(forms.ModelForm):
+    password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
+    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
+
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name',  'email']
+        fields = ['username', 'first_name', 'last_name', 'email']
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("This email address is already in use.")
+        return email
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        if password1 != password2:
+            raise ValidationError("Passwords do not match.")
+        return password2
+    
+class CustomUserChangeForm(UserChangeForm):
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+
+        # Check if email is already taken by another user (excluding the current user)
+        if User.objects.exclude(id=self.instance.id).filter(email=email).exists():
+            raise ValidationError("This email address is already in use by another account.")
+
+        return email

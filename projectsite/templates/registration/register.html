@@ -28,14 +28,14 @@
     <div class="login-right">
       <div class="form-wrapper">
         <h2>SIGN UP</h2>
-        <form method="post">
+        <form method="post" id="register-form">
           {% csrf_token %}
           <input type="text" name="username" placeholder="Enter Username" required>
           <input type="text" name="first_name" placeholder="Enter First Name" required>
           <input type="text" name="last_name" placeholder="Enter Last Name" required>
           <input type="email" name="email" placeholder="Enter Email" required>
-          <input type="password" name="password1" placeholder="Enter Password" required>
-          <input type="password" name="password2" placeholder="Confirm Password" required>
+          <input type="password" name="password1" id="password1" placeholder="Enter Password" required>
+          <input type="password" name="password2" id="password2" placeholder="Confirm Password" required>
 
           {% if form.errors %}
             <div class="alert alert-danger">
@@ -57,5 +57,34 @@
   <!-- Bootstrap JS -->
   <script src="{% static 'js/core/jquery.3.2.1.min.js' %}"></script>
   <script src="{% static 'js/core/bootstrap.min.js' %}"></script>
+
+  <!-- JS for password validation -->
+  <script>
+    const password1Input = document.getElementById('password1');
+    const password2Input = document.getElementById('password2');
+
+    // Check if password meets the requirements
+    function checkPasswordRequirements(password) {
+      const lengthValid = password.length >= 8;
+      const numberValid = /\d/.test(password);
+      const uppercaseValid = /[A-Z]/.test(password);
+      const lowercaseValid = /[a-z]/.test(password);
+
+      return lengthValid && numberValid && uppercaseValid && lowercaseValid;
+    }
+
+    // Listen to submit event to prevent submission if password doesn't meet requirements
+    const form = document.getElementById('register-form');
+    form.addEventListener('submit', function (e) {
+      // Check if passwords match
+      if (password1Input.value !== password2Input.value) {
+        e.preventDefault();
+        alert("Passwords do not match.");
+      } else if (!checkPasswordRequirements(password1Input.value)) {
+        e.preventDefault();
+        alert("Password must contain at least 8 characters, one number, one uppercase letter, and one lowercase letter.");
+      }
+    });
+  </script>
 </body>
 </html>
