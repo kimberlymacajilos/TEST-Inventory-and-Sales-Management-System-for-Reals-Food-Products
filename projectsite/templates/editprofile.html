@@ -59,6 +59,37 @@
     </div>
 </div>
 
+                <!-- Non-field errors (will be shown above the submit button) -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-2">
+                        {% for error in form.non_field_errors %}
+                            <p class="mb-0">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+<script>
+    // Check if there are any messages
+    const messagesElement = document.getElementById("popup-messages");
+
+    // If there are messages, show the pop-up
+    if (messagesElement && messagesElement.children.length > 0) {
+        // Show the message pop-up and apply the fade-in transition
+        messagesElement.style.display = "block";
+        setTimeout(() => {
+            messagesElement.style.opacity = "1"; // Fade in
+        }, 10); // Delay to allow the display change to happen
+
+        // Set a timeout to hide the message after 5 seconds
+        setTimeout(() => {
+            messagesElement.style.opacity = "0";  // Fade out
+            setTimeout(() => {
+                messagesElement.style.display = "none"; // Hide after fading out
+            }, 500);  // Wait for the fade-out effect to complete
+        }, 5000);  // 5000ms = 5 seconds
+    }
+</script>
+
 <script>
     const imageInput = document.getElementById("image-upload");
     const profileImage = document.getElementById("profile-img");

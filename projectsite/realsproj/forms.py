@@ -175,10 +175,15 @@ class StockChangesForm(ModelForm):
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
+    user_type = forms.ChoiceField(
+        choices=[('staff', 'Staff'), ('superuser', 'Superuser')],
+        widget=forms.Select,  # This creates a dropdown
+        required=True
+    )
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email']
+        fields = ['username', 'first_name', 'last_name', 'email', 'user_type']
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -192,6 +197,18 @@ class CustomUserCreationForm(forms.ModelForm):
         if password1 != password2:
             raise ValidationError("Passwords do not match.")
         return password2
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user_type = self.cleaned_data.get('user_type')
+        if user_type == 'staff':
+            user.is_staff = True
+            user.is_superuser = False
+        elif user_type == 'superuser':
+            user.is_staff = True
+            user.is_superuser = True
+        if commit:
+            user.save()
+        return user
     
 class CustomUserChangeForm(UserChangeForm):
     def clean_email(self):

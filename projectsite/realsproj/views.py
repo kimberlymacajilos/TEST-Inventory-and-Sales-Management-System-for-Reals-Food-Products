@@ -72,6 +72,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.contrib.auth.models import User
 
 
 @method_decorator(login_required, name='dispatch')
@@ -802,14 +803,19 @@ class StockChangesList(ListView):
     
 def login_view(request):
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            return redirect('home')  # Redirect to home page after login
-    else:
-        form = AuthenticationForm()
-    return render(request, 'login.html', {'form': form})
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if user.is_active:
+                login(request, user)
+                return redirect('home')  # Redirect to home after successful login
+            else:
+                messages.error(request, "Your account is not active.")
+        else:
+            messages.error(request, "Invalid username or password.")
+    return render(request, 'login.html')
 
 def register(request):
     if request.method == 'POST':
@@ -847,17 +853,29 @@ def edit_profile(request):
     user = request.user  # Get the currently logged-in user
 
     if request.method == "POST":
-        # Create a form instance with the POST data and the current user
-        form = UserChangeForm(request.POST, request.FILES, instance=user)
-        if form.is_valid():
-            form.save()  # Save the form if it's valid
-            messages.success(request, "Profile updated successfully!")
-            return redirect("profile")  # Redirect to the profile page after saving
-        else:
-            # If the form is invalid, show errors
-            messages.error(request, "There was an error updating your profile. Please check the form.")
+       # Get the updated data from the form
+        username = request.POST.get("username")
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+
+        # Check if the email is already taken by another user (excluding the current user)
+        if User.objects.exclude(id=user.id).filter(email=email).exists():
+            messages.error(request, "This email address is already in use by another account.")
+            return redirect("edit_profile")  # Redirect back to the edit profile page
+
+        # Update the user's fields
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+
+        # Save the updated user object to the database
+        user.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")  # Redirect to profile page after saving
     else:
-        # If it's a GET request, pre-fill the form with the current user data
-        form = UserChangeForm(instance=user)
+        form = UserChangeForm(instance=user)  # Pre-fill the form with current user data
 
     return render(request, "editprofile.html", {"form": form})
