@@ -506,19 +506,20 @@ class WithdrawItemView(View):
         })
     
     def post(self, request):
-        
         item_type = request.POST.get("item_type", "").upper()
         reason = request.POST.get("reason", "").upper()
+
+        sales_channel = request.POST.get("sales_channel", None)
+        price_type = request.POST.get("price_type", None)
 
         if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
             messages.error(request, "Invalid item type.")
             return redirect("withdraw-item")
-        
+
         if item_type == "PRODUCT":
             model = Products
             prefix = "product_"
         else:
-            
             model = RawMaterials
             prefix = "material_"
 
@@ -559,17 +560,12 @@ class WithdrawItemView(View):
                         reason=reason,
                         date=timezone.now(),
                         created_by_admin=request.user,
+                        sales_channel=sales_channel if reason == "SOLD" else None,
+                        price_type=price_type if reason == "SOLD" else None,
                     )
                     withdrawals_made += 1
-
-        if withdrawals_made:
-            messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-
+            
         return redirect("withdrawals")
-
     
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
@@ -619,7 +615,8 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
+            expiration_date = form.cleaned_data.get('expiration_date')
+            deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
             for product_info in form.products:
@@ -632,7 +629,8 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
                         batch_date=batch_date,
                         manufactured_date=manufactured_date,
                         expiration_date=expiration_date,
-                        created_by_admin=auth_user
+                        created_by_admin=auth_user,
+                        deduct_raw_material=deduct_raw_material
                     )
 
             return redirect('product-batch')
@@ -670,7 +668,6 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
             return redirect('rawmaterial-batch')
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
-
 
 
 def best_sellers_api(request):

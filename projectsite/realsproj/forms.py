@@ -53,11 +53,12 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = "__all__"
+        fields = ["batch_date", "manufactured_date", "expiration_date", "deduct_raw_material"]
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+            
         }
 
 
@@ -127,16 +128,50 @@ class UnifiedWithdrawForm(forms.Form):
         ('PRODUCT', 'Product'),
         ('RAW_MATERIAL', 'Raw Material'),
     ]
+    SALES_CHANNEL_CHOICES = [
+        ('ORDER', 'Order'),
+        ('CONSIGNMENT', 'Consignment'),
+        ('RESELLER', 'Reseller'),
+        ('PHYSICAL_STORE', 'Physical Store'),
+    ]
+    PRICE_TYPE_CHOICES = [
+        ('UNIT', 'Unit Price'),
+        ('SRP', 'Suggested Retail Price'),
+    ]
 
     item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
     item = forms.ChoiceField(choices=[], required=True)
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
-    reason = forms.CharField(max_length=255, required=True)
+
+    REASON_CHOICES = [
+        ('SOLD', 'Sold'),
+        ('EXPIRED', 'Expired'),
+        ('DAMAGED', 'Damaged'),
+        ('RETURNED', 'Returned'),
+        ('OTHERS', 'Others'),
+    ]
+    reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
+
+    # New fields
+    sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+
+        if reason == "SOLD":
+            if not cleaned_data.get("sales_channel"):
+                self.add_error("sales_channel", "This field is required when reason is SOLD.")
+            if not cleaned_data.get("price_type"):
+                self.add_error("price_type", "This field is required when reason is SOLD.")
+
+        return cleaned_data
+
 
 
 class NotificationsForm(forms.Form):
@@ -148,6 +183,11 @@ class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Deduct Raw Materials"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

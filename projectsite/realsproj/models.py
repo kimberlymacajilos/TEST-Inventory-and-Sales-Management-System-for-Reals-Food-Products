@@ -243,7 +243,6 @@ class Notifications(models.Model):
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
 
 
-
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
     batch_date = models.DateTimeField(default=timezone.now)
@@ -252,6 +251,7 @@ class ProductBatches(models.Model):
     manufactured_date = models.DateTimeField(default=timezone.now)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     expiration_date = models.DateField(blank=True, null=True)
+    deduct_raw_material = models.BooleanField(default=True)
 
     class Meta:
         managed = False
@@ -483,8 +483,23 @@ class UnitPrices(models.Model):
         return f"₱{self.unit_price}"
 
 
+class UserProfile(models.Model):
+    user = models.OneToOneField(AuthUser, on_delete=models.CASCADE)
+    profile_picture = models.ImageField(
+        upload_to='profile_pics/',
+        blank=True,
+        null=True,
+        default='profile_pics/default.png'
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'user_profile' 
+
+
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
+
     ITEM_TYPE_CHOICES = [
         ('PRODUCT', 'Product'),
         ('RAW_MATERIAL', 'Raw Material'),
@@ -492,6 +507,7 @@ class Withdrawals(models.Model):
     item_type = models.CharField(max_length=12, choices=ITEM_TYPE_CHOICES)
     item_id = models.BigIntegerField()
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
+
     REASON_CHOICES = [
         ('SOLD', 'Sold'),
         ('EXPIRED', 'Expired'),
@@ -500,10 +516,41 @@ class Withdrawals(models.Model):
         ('OTHERS', 'Others'),
     ]
     reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+
     date = models.DateTimeField(auto_now_add=True)
-    created_by_admin = models.ForeignKey(User, on_delete=models.DO_NOTHING, db_column="created_by_admin_id")
+    created_by_admin = models.ForeignKey(
+        User,
+        on_delete=models.DO_NOTHING,
+        db_column="created_by_admin_id"
+    )
+
+    # ✅ add these fields so Django ORM can accept them
+    SALES_CHANNEL_CHOICES = [
+        ('ORDER', 'Order'),
+        ('CONSIGNMENT', 'Consignment'),
+        ('RESELLER', 'Reseller'),
+        ('PHYSICAL_STORE', 'Physical Store'),
+    ]
+    sales_channel = models.CharField(
+        max_length=20,
+        choices=SALES_CHANNEL_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    PRICE_TYPE_CHOICES = [
+        ('UNIT', 'Unit Price'),
+        ('SRP', 'SRP'),
+    ]
+    price_type = models.CharField(
+        max_length=10,
+        choices=PRICE_TYPE_CHOICES,
+        null=True,
+        blank=True
+    )
+
     class Meta:
-        managed = False
+        managed = False   # leave this since DB is already created
         db_table = 'withdrawals'
 
     def __str__(self):
@@ -514,20 +561,18 @@ class Withdrawals(models.Model):
             from .models import Products  
             try:
                 product = Products.objects.get(id=self.item_id)
-                return str(product) 
+                return str(product)
             except Products.DoesNotExist:
                 return f"Unknown Product (ID {self.item_id})"
-
         elif self.item_type == "RAW_MATERIAL":
             from .models import RawMaterials
             try:
                 material = RawMaterials.objects.get(id=self.item_id)
-                return str(material) 
+                return str(material)
             except RawMaterials.DoesNotExist:
                 return f"Unknown Material (ID {self.item_id})"
-
         return f"Unknown Item (ID {self.item_id})"
-    
+
     def compute_revenue(self):
         if self.item_type == "PRODUCT" and self.reason == "SOLD":
             from .models import Products
