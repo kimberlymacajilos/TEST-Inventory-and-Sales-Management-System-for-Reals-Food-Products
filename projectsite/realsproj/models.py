@@ -188,7 +188,6 @@ class Notifications(models.Model):
     notification_timestamp = models.DateTimeField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True) 
-    
     class Meta:
         managed = False
         db_table = 'notifications'
@@ -241,6 +240,7 @@ class Notifications(models.Model):
 
         # fallback
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
+
 
 
 class ProductBatches(models.Model):

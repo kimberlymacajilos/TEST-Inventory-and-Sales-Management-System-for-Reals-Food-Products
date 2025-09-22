@@ -9,25 +9,27 @@
             <div class="col-md-12">
                 <div class="card">
                     <!-- Filter controls -->
-                    <div class="card-header">
-                        <div class="card-title">List of Product Batches</div>
-                        <div class="card-category">Filter Batches</div>
-                        <div class="row mt-3">
-                            <div class="col-md-3">
-                                <input type="text" id="searchInput" class="form-control" placeholder="Search product/batch...">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" id="minQty" class="form-control" placeholder="Min Quantity">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" id="maxQty" class="form-control" placeholder="Max Quantity">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="date" id="dateFilter" class="form-control">
-                            </div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="card-title">List of Product Batches</div>
+                            <div class="card-category">Filter Batches</div>
+                            <!-- Search form -->
+                            <form method="get" action="" class="mt-2" id="batchSearchForm">
+                                <div class="input-group">
+                                    <input type="text" id="batchSearchInput" name="q" 
+                                        class="form-control" 
+                                        placeholder="Search product/batch..." 
+                                        value="{{ request.GET.q }}">
+                                    <div class="ms-2">
+                                        <button type="submit" class="btn btn-primary">Search</button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
-                        <div class="pull-right mt-3">
-                            <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">Add Product Batch</a>
+                        <div class="pull-right">
+                            <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
+                                Add Product Batch
+                            </a>
                         </div>
                     </div>
 
@@ -43,8 +45,8 @@
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for object in object_list %}
+                            <tbody id="batchTableBody">
+                                {% for object in product_batch %}
                                 <tr>
                                     <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                                     <td>{{ object.product }}</td>
@@ -76,47 +78,5 @@
     </div>
 </div>
 
-<script>
-function filterBatchTable() {
-    var search = document.getElementById("searchInput").value.toLowerCase();
-    var minQty = parseFloat(document.getElementById("minQty").value) || 0;
-    var maxQty = parseFloat(document.getElementById("maxQty").value) || Infinity;
-    var dateInput = document.getElementById("dateFilter").value;
-
-    var rows = document.querySelectorAll("#batchTable tbody tr");
-
-    rows.forEach(function(row) {
-        var text = row.textContent.toLowerCase();
-        var qty = parseFloat(row.cells[2].textContent) || 0;
-        var batchDate = row.cells[0].textContent; // YYYY-MM-DD
-
-        // --- DATE FILTER LOGIC ---
-        var matchesDate = true;
-        if (dateInput) {
-            if (dateInput.length === 4) {
-                matchesDate = batchDate.startsWith(dateInput);
-            } else if (dateInput.length === 7) {
-                matchesDate = batchDate.startsWith(dateInput);
-            } else {
-                matchesDate = batchDate === dateInput;
-            }
-        }
-
-        var matchesSearch = text.includes(search);
-        var matchesQty = qty >= minQty && qty <= maxQty;
-
-        if (matchesSearch && matchesQty && matchesDate) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-        }
-    });
-}
-
-// Attach listeners
-document.getElementById("searchInput").addEventListener("keyup", filterBatchTable);
-document.getElementById("minQty").addEventListener("input", filterBatchTable);
-document.getElementById("maxQty").addEventListener("input", filterBatchTable);
-document.getElementById("dateFilter").addEventListener("change", filterBatchTable);
-</script>
+<script src="{% static 'js/product_search.js' %}"></script>
 {% endblock %}
