@@ -89,6 +89,24 @@
             </select>
           </div>
 
+          <div id="sales-price-section" style="display:none; margin-top:10px;">
+            <label for="sales_channel">Sales Channel</label>
+            <select name="sales_channel" id="sales_channel">
+              <option value="">-- Select --</option>
+              <option value="ORDER">Order</option>
+              <option value="CONSIGNMENT">Consignment</option>
+              <option value="RESELLER">Reseller</option>
+              <option value="PHYSICAL_STORE">Physical Store</option>
+            </select>
+
+            <label for="price_type">Price Type</label>
+            <select name="price_type" id="price_type">
+              <option value="">-- Select --</option>
+              <option value="UNIT">Unit Price</option>
+              <option value="SRP">SRP</option>
+            </select>
+          </div>
+
           <!-- Submit -->
           <div class="form-group mt-3">
             <button type="submit" class="btn btn-warning btn-rounded">Withdraw Selected</button>
@@ -118,6 +136,14 @@ document.addEventListener("DOMContentLoaded", function() {
       matTable.style.display = "none";
     }
   });
+});
+
+document.getElementById("reason").addEventListener("change", function() {
+  if (this.value === "SOLD") {
+    document.getElementById("sales-price-section").style.display = "block";
+  } else {
+    document.getElementById("sales-price-section").style.display = "none";
+  }
 });
 </script>
 {% endblock %}

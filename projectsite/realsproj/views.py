@@ -489,19 +489,20 @@ class WithdrawItemView(View):
         })
     
     def post(self, request):
-        
         item_type = request.POST.get("item_type", "").upper()
         reason = request.POST.get("reason", "").upper()
+
+        sales_channel = request.POST.get("sales_channel", None)
+        price_type = request.POST.get("price_type", None)
 
         if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
             messages.error(request, "Invalid item type.")
             return redirect("withdraw-item")
-        
+
         if item_type == "PRODUCT":
             model = Products
             prefix = "product_"
         else:
-            
             model = RawMaterials
             prefix = "material_"
 
@@ -542,17 +543,12 @@ class WithdrawItemView(View):
                         reason=reason,
                         date=timezone.now(),
                         created_by_admin=request.user,
+                        sales_channel=sales_channel if reason == "SOLD" else None,
+                        price_type=price_type if reason == "SOLD" else None,
                     )
                     withdrawals_made += 1
-
-        if withdrawals_made:
-            messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-
+            
         return redirect("withdrawals")
-
     
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
