@@ -483,6 +483,20 @@ class UnitPrices(models.Model):
         return f"₱{self.unit_price}"
 
 
+class UserProfile(models.Model):
+    user = models.OneToOneField(AuthUser, on_delete=models.CASCADE)
+    profile_picture = models.ImageField(
+        upload_to='profile_pics/',
+        blank=True,
+        null=True,
+        default='profile_pics/default.png'
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'user_profile' 
+
+
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
     ITEM_TYPE_CHOICES = [
