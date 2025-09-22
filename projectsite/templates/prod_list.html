@@ -1,44 +1,48 @@
-{% extends 'base.html' %} 
-{% load static %} 
+{% extends 'base.html' %}
+{% load static %}
 {% block content %}
 <div class="content">
     <div class="container-fluid">
         <h4 class="page-title">Products</h4>
-
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <!-- Filter controls -->
-                    <div class="card-header">
-                        <div class="card-title">List of Products</div>
-                        <div class="card-category">Filter Products</div>
-                        <div class="row mt-3">
-                            <div class="col-md-3">
-                                <input type="text" id="searchInput" class="form-control" placeholder="Search name/variant...">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="number" id="minPrice" class="form-control" placeholder="Min Price">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="number" id="maxPrice" class="form-control" placeholder="Max Price">
-                            </div>
-                            <div class="col-md-2">
-                                <select id="sizeFilter" class="form-control">
-                                    <option value="">All Sizes</option>
-                                    {% for object in object_list %}
-                                    <option value="{{ object.size.size_label }}">{{ object.size.size_label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="date" id="dateFilter" class="form-control">
-                            </div>
+                    <!-- Header -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="card-title">List of Products</div>
+                            <div class="card-category">Filter Products</div>
+
+                            <!-- Search form -->
+                            <form method="get" action="" id="searchForm" class="mt-2 d-flex align-items-end gap-2">
+                                <!-- Text search -->
+                                <div class="flex-grow-1">
+                                    <label for="searchInput" class="form-label visually-hidden">Search</label>
+                                    <input type="text" id="searchInput" name="q"
+                                        class="form-control"
+                                        placeholder="Search name/variant..."
+                                        value="{{ request.GET.q }}">
+                                </div>
+
+                                <!-- Date filter -->
+                                <div>
+                                    <label for="dateInput" class="form-label visually-hidden">Date</label>
+                                    <input type="date" id="dateInput" name="date_created" 
+                                        class="form-control"
+                                        value="{{ request.GET.date_created|date:'Y-m-d' }}">
+                                </div>
+
+                                <!-- Submit button -->
+                                <button type="submit" class="btn btn-primary">Search</button>
+                            </form>
+
                         </div>
-                        <div class="pull-right mt-3">
+                        <div class="pull-right">
                             <a href="{% url 'product-add' %}" class="btn btn-success btn-rounded">Add Product</a>
                         </div>
                     </div>
 
+                    <!-- Body -->
                     <div class="card-body">
                         <table class="table table-striped mt-3" id="productsTable">
                             <thead>
@@ -54,10 +58,10 @@
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for object in object_list %}
+                            <tbody id="productsTableBody">
+                                {% for object in products %}
                                 <tr>
-                                    <td>{{ object.product_type.name}}</td>
+                                    <td>{{ object.product_type.name }}</td>
                                     <td>{{ object.variant.name }}</td>
                                     <td>{{ object.size.size_label }}</td>
                                     <td>{{ object.size_unit.unit_name }}</td>
@@ -90,55 +94,6 @@
     </div>
 </div>
 
-<script>
-function filterTable() {
-    var search = document.getElementById("searchInput").value.toLowerCase();
-    var minPrice = parseFloat(document.getElementById("minPrice").value) || 0;
-    var maxPrice = parseFloat(document.getElementById("maxPrice").value) || Infinity;
-    var size = document.getElementById("sizeFilter").value.toLowerCase();
-    var dateInput = document.getElementById("dateFilter").value;
-
-    var rows = document.querySelectorAll("#productsTable tbody tr");
-
-    rows.forEach(function(row) {
-        var text = row.textContent.toLowerCase();
-        var price = parseFloat(row.cells[4].textContent) || 0;
-        var sizeVal = row.cells[2].textContent.toLowerCase();
-        var dateVal = row.cells[7].textContent; // format: YYYY-MM-DD
-
-        // --- DATE FILTER LOGIC ---
-        var matchesDate = true;
-        if (dateInput) {
-            if (dateInput.length === 4) {
-                // If only year (YYYY)
-                matchesDate = dateVal.startsWith(dateInput);
-            } else if (dateInput.length === 7) {
-                // If year + month (YYYY-MM)
-                matchesDate = dateVal.startsWith(dateInput);
-            } else {
-                // Full date (YYYY-MM-DD)
-                matchesDate = dateVal === dateInput;
-            }
-        }
-
-        var matchesSearch = text.includes(search);
-        var matchesPrice = price >= minPrice && price <= maxPrice;
-        var matchesSize = size === "" || sizeVal === size;
-
-        if (matchesSearch && matchesPrice && matchesSize && matchesDate) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-        }
-    });
-}
-
-
-// Attach listeners
-document.getElementById("searchInput").addEventListener("keyup", filterTable);
-document.getElementById("minPrice").addEventListener("input", filterTable);
-document.getElementById("maxPrice").addEventListener("input", filterTable);
-document.getElementById("sizeFilter").addEventListener("change", filterTable);
-document.getElementById("dateFilter").addEventListener("change", filterTable);
-</script>
+<script src="{% static 'js/product_search.js' %}"></script>
 {% endblock %}
+

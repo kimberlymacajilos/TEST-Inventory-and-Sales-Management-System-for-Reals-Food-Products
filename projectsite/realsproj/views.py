@@ -64,8 +64,8 @@ from realsproj.models import (
     SalesSummary,
     ExpensesSummary,
 )
-
-from django.db.models import Q
+from django.db.models.functions import Cast
+from django.db.models import Q, CharField
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
@@ -73,6 +73,8 @@ from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 from .forms import CustomUserCreationForm
+from django.core.paginator import Paginator
+from datetime import datetime
 
 @method_decorator(login_required, name='dispatch')
 
@@ -140,15 +142,14 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+
 class ProductsList(ListView):
     model = Products
     context_object_name = 'products'
     template_name = "prod_list.html"
     paginate_by = 10
-    
 
     def get_queryset(self):
-        # Preload related FKs for performance
         queryset = (
             super()
             .get_queryset()
@@ -156,14 +157,68 @@ class ProductsList(ListView):
         )
 
         query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(description__icontains=query) |
-                Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)  
-            )
+        date_filter = self.request.GET.get("date_created", "").strip()
+
+        
+        queryset = filter_products(queryset, query)
+
+        
+        if date_filter:
+            try:
+                date_obj = datetime.strptime(date_filter, "%Y-%m-%d").date()
+                queryset = queryset.filter(date_created__date=date_obj)
+            except ValueError:
+                pass  
 
         return queryset
+
+    
+ #product_search 
+def product_search(request):
+    query = request.GET.get("q", "").strip()
+    date_filter = request.GET.get("date_created", "").strip()
+    page_number = request.GET.get("page", 1)
+
+    queryset = Products.objects.select_related(
+        "product_type", "variant", "size", "size_unit", "unit_price", "srp_price"
+    )
+
+    queryset = filter_products(queryset, query)
+    
+    if date_filter:
+        try:
+            date_obj = datetime.strptime(date_filter, "%Y-%m-%d").date()
+            queryset = queryset.filter(date_created__date=date_obj)
+        except ValueError:
+            pass
+
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, "partials/product_table_body.html", {
+        "products": page_obj,
+        "paginator": paginator,
+        "page_obj": page_obj,
+    })
+
+    
+#filter
+from django.db.models import Q
+
+def filter_products(queryset, query):
+    """Shared filter logic for Products search."""
+    if query:
+        queryset = queryset.filter(
+            Q(description__icontains=query) |
+            Q(product_type__name__icontains=query) |      # assuming ProductTypes has 'name'
+            Q(variant__name__icontains=query) |           # assuming ProductVariants has 'name'
+            Q(size_unit__unit_name__icontains=query) |    # ✅ corrected
+            Q(unit_price__unit_price__icontains=query) |  # need to confirm field name
+            Q(srp_price__srp_price__icontains=query) |    # ✅ corrected
+            Q(created_by_admin__username__icontains=query) |
+            Q(size__size_label__icontains=query)          # ✅ corrected
+        )
+    return queryset
 
 
 
@@ -220,7 +275,7 @@ class HistoryLogList(ListView):
         if query:
             queryset = queryset.filter(
                 Q(admin__username__icontains=query) |
-                Q(log_type__category__icontains=query) |   # adjust if field is different
+                Q(log_type__category__icontains=query) | 
                 Q(log_date__icontains=query)
             )
 
@@ -344,17 +399,27 @@ class ProductBatchList(ListView):
 
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
+        queryset = super().get_queryset().select_related(
+            "product", "created_by_admin",
+            "product__product_type", "product__variant", 
+            "product__size", "product__size_unit"
+        ).order_by('-id')
+
         query = self.request.GET.get("q", "").strip()
 
         if query:
+            query = query.strip()
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |   # product description from Products
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(manufactured_date__icontains=query) |      # manufactured_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(product__product_type__name__icontains=query) |
+                Q(product__variant__name__icontains=query) |
+                Q(product__size__size_label__icontains=query) |         # <-- fixed
+                Q(product__size_unit__unit_name__icontains=query) |     # <-- fixed
+                Q(product__description__icontains=query) |
+                Q(batch_date__icontains=query) |
+                Q(manufactured_date__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(quantity__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
             )
 
         return queryset
@@ -382,15 +447,35 @@ class ProductInventoryList(ListView):
     template_name = "prodinvent_list.html"
     paginate_by = 10
 
+class ProductInventoryList(ListView):
+    model = ProductInventory
+    context_object_name = 'product_inventory'
+    template_name = "prodinvent_list.html"
+    paginate_by = 10
+
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product")
+        queryset = super().get_queryset().select_related(
+            "product",
+            "product__product_type",
+            "product__variant",
+            "product__size",
+            "product__size_unit",
+            "unit"
+        )
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
-                Q(product__description__icontains=query) |  # comes from Products
-                Q(total_stock__icontains=query) |           # comes from ProductInventory
-                Q(restock_threshold__icontains=query)       # comes from ProductInventory
+            queryset = queryset.annotate(
+                total_stock_str=Cast("total_stock", CharField()),
+                restock_threshold_str=Cast("restock_threshold", CharField())
+            ).filter(
+                Q(product__description__icontains=query) |
+                Q(product__product_type__name__icontains=query) |
+                Q(product__variant__name__icontains=query) |      
+                Q(product__size_unit__unit_name__icontains=query) |
+                Q(total_stock_str__icontains=query) |
+                Q(restock_threshold_str__icontains=query) |
+                Q(unit__unit_name__icontains=query)
             )
 
         return queryset.order_by("product_id")
