@@ -243,7 +243,6 @@ class Notifications(models.Model):
         return f"{self.notification_type.upper()} ({self.item_type.title()})"
 
 
-
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
     batch_date = models.DateTimeField(default=timezone.now)
@@ -252,6 +251,7 @@ class ProductBatches(models.Model):
     manufactured_date = models.DateTimeField(default=timezone.now)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     expiration_date = models.DateField(blank=True, null=True)
+    deduct_raw_material = models.BooleanField(default=True)
 
     class Meta:
         managed = False

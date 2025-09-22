@@ -53,11 +53,12 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = "__all__"
+        fields = ["batch_date", "manufactured_date", "expiration_date", "deduct_raw_material"]
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+            
         }
 
 
@@ -148,6 +149,11 @@ class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Deduct Raw Materials"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

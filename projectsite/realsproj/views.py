@@ -717,7 +717,8 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
+            expiration_date = form.cleaned_data.get('expiration_date')
+            deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
             for product_info in form.products:
@@ -730,13 +731,13 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
                         batch_date=batch_date,
                         manufactured_date=manufactured_date,
                         expiration_date=expiration_date,
-                        created_by_admin=auth_user
+                        created_by_admin=auth_user,
+                        deduct_raw_material=deduct_raw_material
                     )
 
             return redirect('product-batch')
 
         return render(request, self.template_name, {'form': form, 'products': form.products})
-
 
 
 def best_sellers_api(request):
