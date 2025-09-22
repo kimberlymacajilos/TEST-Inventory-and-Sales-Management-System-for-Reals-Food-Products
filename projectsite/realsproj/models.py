@@ -360,6 +360,7 @@ class RawMaterials(models.Model):
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     expiration_date = models.DateField(blank=True, null=True)
+    size = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         managed = False
