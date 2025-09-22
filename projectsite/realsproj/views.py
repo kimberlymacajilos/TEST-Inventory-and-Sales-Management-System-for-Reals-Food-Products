@@ -602,7 +602,7 @@ class WithdrawItemView(View):
 
                 item_id = key.replace(prefix, "")
                 item = get_object_or_404(model, id=item_id)
-
+            
                 if item_type == "PRODUCT":
                     inventory = getattr(item, "productinventory", None)
                 else:
@@ -611,66 +611,44 @@ class WithdrawItemView(View):
                 if expiration_date:
                     if item_type == "PRODUCT":
                         if expiration_date == "NONE":
-                            batch_sum = ProductBatches.objects.filter(product_id=item.id, expiration_date__isnull=True).aggregate(s=Sum("quantity"))["s"] or 0
+                            available_stock = ProductBatches.objects.filter(
+                                product_id=item.id, expiration_date__isnull=True
+                            ).aggregate(s=Sum("quantity"))["s"] or 0
                         else:
-                            batch_sum = ProductBatches.objects.filter(product_id=item.id, expiration_date=expiration_date).aggregate(s=Sum("quantity"))["s"] or 0
-                        available_stock = Decimal(str(batch_sum))
-                    else:
+                            available_stock = ProductBatches.objects.filter(
+                                product_id=item.id, expiration_date=expiration_date
+                            ).aggregate(s=Sum("quantity"))["s"] or 0
+                    else: 
                         if expiration_date == "NONE":
-                            mbatch_sum = RawMaterialBatches.objects.filter(material_id=item.id, expiration_date__isnull=True).aggregate(s=Sum("quantity"))["s"] or 0
+                            available_stock = RawMaterialBatches.objects.filter(
+                                material_id=item.id, expiration_date__isnull=True
+                            ).aggregate(s=Sum("quantity"))["s"] or 0
                         else:
-                            mbatch_sum = RawMaterialBatches.objects.filter(material_id=item.id, expiration_date=expiration_date).aggregate(s=Sum("quantity"))["s"] or 0
-                        available_stock = Decimal(str(mbatch_sum))
+                            available_stock = RawMaterialBatches.objects.filter(
+                                material_id=item.id, expiration_date=expiration_date
+                            ).aggregate(s=Sum("quantity"))["s"] or 0
                 else:
-                    available_stock = Decimal(str(inventory.total_stock)) if inventory and inventory.total_stock is not None else Decimal("0")
+                    available_stock = (
+                        Decimal(str(inventory.total_stock))
+                        if inventory and inventory.total_stock is not None
+                        else Decimal("0")
+                    )
+
+                available_stock = Decimal(str(available_stock))
 
                 if available_stock == 0:
                     errors.append(f"No stock for {item}.")
                     continue
 
                 if qty > available_stock:
-                    errors.append(f"Not enough stock for {item}. Requested {qty}, available {available_stock}.")
+                    errors.append(
+                        f"Not enough stock for {item}. Requested {qty}, available {available_stock}."
+                    )
                     continue
 
                 if not inventory:
                     errors.append(f"No inventory record found for {item}.")
                     continue
-
-                inventory.total_stock = Decimal(str(inventory.total_stock)) - qty
-                inventory.save()
-
-                if expiration_date:
-                    if item_type == "PRODUCT":
-                        if expiration_date == "NONE":
-                            batches_qs = ProductBatches.objects.filter(
-                                product=item, expiration_date__isnull=True
-                            ).order_by("id")
-                        else:
-                            batches_qs = ProductBatches.objects.filter(
-                                product=item, expiration_date=expiration_date
-                            ).order_by("id")
-                    else:  # RAW_MATERIAL
-                        if expiration_date == "NONE":
-                            batches_qs = RawMaterialBatches.objects.filter(
-                                material=item, expiration_date__isnull=True
-                            ).order_by("id")
-                        else:
-                            batches_qs = RawMaterialBatches.objects.filter(
-                                material=item, expiration_date=expiration_date
-                            ).order_by("id")
-
-                    remaining = qty
-                    for batch in batches_qs:
-                        if remaining <= 0:
-                            break
-                        if batch.quantity >= remaining:
-                            batch.quantity -= remaining
-                            batch.save()
-                            remaining = 0
-                        else:
-                            remaining -= batch.quantity
-                            batch.quantity = 0
-                            batch.save()
 
                 Withdrawals.objects.create(
                     item_id=item.id,
@@ -682,7 +660,6 @@ class WithdrawItemView(View):
                 )
                 withdrawals_made += 1
 
-
         if withdrawals_made:
             messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
         if errors:
@@ -690,6 +667,7 @@ class WithdrawItemView(View):
                 messages.error(request, e)
 
         return redirect("withdrawals")
+
     
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
