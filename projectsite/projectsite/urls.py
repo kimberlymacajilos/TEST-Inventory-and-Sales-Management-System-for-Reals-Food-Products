@@ -61,7 +61,7 @@ urlpatterns = [
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
 
     path('rawmatbatch/', a.RawMaterialBatchList.as_view(), name='rawmaterial-batch'),
-    path('rawmatbatch/add', a.RawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
+    path('rawmatbatch/add', a.BulkRawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
     path('rawmatbatch/<pk>', a.RawMaterialBatchUpdateView.as_view(), name='rawmaterial-batch-edit'),
     path('rawmatbatch/<pk>/delete', a.RawMaterialBatchDeleteView.as_view(), name='rawmaterial-batch-delete'),
 

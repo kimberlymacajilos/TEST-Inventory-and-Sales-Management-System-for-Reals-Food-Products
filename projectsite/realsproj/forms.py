@@ -165,6 +165,27 @@ class BulkProductBatchForm(forms.Form):
                 "qty_field": self[field_name],
             })
 
+class BulkRawMaterialBatchForm(forms.Form):
+    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    received_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rawmaterials = []
+        for rawmaterial in RawMaterials.objects.all():
+            field_name = f'rawmaterial_{rawmaterial.id}_qty'
+            self.fields[field_name] = forms.DecimalField(
+                required=False,
+                min_value=0,
+                label=str(rawmaterial),
+                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+            )
+            self.rawmaterials.append({
+                "rawmaterial": rawmaterial,
+                "qty_field": self[field_name],
+            })
+
 
 
 class StockChangesForm(ModelForm):

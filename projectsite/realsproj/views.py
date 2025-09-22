@@ -39,6 +39,7 @@ from realsproj.forms import (
     NotificationsForm,
     BulkProductBatchForm,
     StockChangesForm,
+    BulkRawMaterialBatchForm,
 )
 
 from realsproj.models import (
@@ -401,6 +402,22 @@ class RawMaterialBatchList(ListView):
     context_object_name = 'rawmatbatch'
     template_name = "rawmatbatch_list.html"
     paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(rawmaterial__description__icontains=query) |   # raw material description from RawMaterials
+                Q(batch_date__icontains=query) |             # batch_date
+                Q(received_date__icontains=query) |      # received_date
+                Q(expiration_date__icontains=query) |        # expiration_date
+                Q(quantity__icontains=query) |               # quantity
+                Q(created_by_admin__username__icontains=query)  # admin username
+            )
+
+        return queryset
     
 class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
@@ -621,6 +638,38 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
             return redirect('product-batch')
 
         return render(request, self.template_name, {'form': form, 'products': form.products})
+
+class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
+    template_name = "rawmatbatch_add.html"
+
+    def get(self, request):
+        form = BulkRawMaterialBatchForm()
+        return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
+
+    def post(self, request):
+        form = BulkRawMaterialBatchForm(request.POST)
+        if form.is_valid():
+            batch_date = form.cleaned_data['batch_date']
+            received_date = form.cleaned_data['received_date']
+            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
+            auth_user = AuthUser.objects.get(id=request.user.id)
+
+            for rawmaterial_info in form.rawmaterials:
+                rawmaterial = rawmaterial_info['rawmaterial']
+                qty = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_qty')
+                if qty:
+                    RawMaterialBatches.objects.create(
+                        material=rawmaterial,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        received_date=received_date,
+                        expiration_date=expiration_date,
+                        created_by_admin=auth_user
+                    )
+
+            return redirect('rawmaterial-batch')
+
+        return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
 
 
 
