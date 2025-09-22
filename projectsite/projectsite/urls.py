@@ -20,6 +20,7 @@ from realsproj import views as a
 from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, include
 from django.contrib.auth.forms import AuthenticationForm
+from realsproj.views import profile_view, edit_profile
 
 
 
@@ -108,7 +109,7 @@ urlpatterns = [
     path("revenue-x-recent_sales", a.HomePageView.as_view(), name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 
-    path("profile/", a.profile_view, name="profile"), 
-    path("profile/edit/", a.edit_profile, name="edit-profile"),
+    path('profile/', profile_view, name='profile'),
+    path('profile/edit/', a.edit_profile, name='edit_profile'),
 
 ]
