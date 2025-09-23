@@ -2,8 +2,10 @@ from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
 from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.core.exceptions import ValidationError
+
 
 class ProductsForm(forms.ModelForm):
     class Meta:
@@ -51,22 +53,14 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = "__all__"
+        fields = ["batch_date", "manufactured_date", "expiration_date", "deduct_raw_material"]
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+            
         }
 
-    def clean(self):
-        cleaned_data = super().clean()
-        manufactured_date = cleaned_data.get("manufactured_date")
-        expiration_date = cleaned_data.get("expiration_date")
-
-        if manufactured_date and not expiration_date:
-            cleaned_data["expiration_date"] = manufactured_date + timedelta(days=365)
-
-        return cleaned_data
 
 class ProductInventoryForm(ModelForm):
     class Meta:
@@ -134,16 +128,50 @@ class UnifiedWithdrawForm(forms.Form):
         ('PRODUCT', 'Product'),
         ('RAW_MATERIAL', 'Raw Material'),
     ]
+    SALES_CHANNEL_CHOICES = [
+        ('ORDER', 'Order'),
+        ('CONSIGNMENT', 'Consignment'),
+        ('RESELLER', 'Reseller'),
+        ('PHYSICAL_STORE', 'Physical Store'),
+    ]
+    PRICE_TYPE_CHOICES = [
+        ('UNIT', 'Unit Price'),
+        ('SRP', 'Suggested Retail Price'),
+    ]
 
     item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
     item = forms.ChoiceField(choices=[], required=True)
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
-    reason = forms.CharField(max_length=255, required=True)
+
+    REASON_CHOICES = [
+        ('SOLD', 'Sold'),
+        ('EXPIRED', 'Expired'),
+        ('DAMAGED', 'Damaged'),
+        ('RETURNED', 'Returned'),
+        ('OTHERS', 'Others'),
+    ]
+    reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
+
+    # New fields
+    sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.fields['item'].choices = [(p.id, str(p)) for p in Products.objects.all()]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+
+        if reason == "SOLD":
+            if not cleaned_data.get("sales_channel"):
+                self.add_error("sales_channel", "This field is required when reason is SOLD.")
+            if not cleaned_data.get("price_type"):
+                self.add_error("price_type", "This field is required when reason is SOLD.")
+
+        return cleaned_data
+
 
 
 class NotificationsForm(forms.Form):
@@ -154,7 +182,12 @@ class NotificationsForm(forms.Form):
 class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Deduct Raw Materials"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -167,17 +200,66 @@ class BulkProductBatchForm(forms.Form):
                 label=str(product),
                 widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
             )
-            # store for easy access in template
-            self.products.append({"qty_field": self[field_name], "label": str(product)})
+            self.products.append({
+                "product": product,
+                "qty_field": self[field_name],
+            })
 
-class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True)
+class BulkRawMaterialBatchForm(forms.Form):
+    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    received_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
 
-    class Meta:
-        model = User
-        fields = ("username", "first_name","last_name" , "email", "password1", "password2")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rawmaterials = []
+        for rawmaterial in RawMaterials.objects.all():
+            field_name = f'rawmaterial_{rawmaterial.id}_qty'
+            self.fields[field_name] = forms.DecimalField(
+                required=False,
+                min_value=0,
+                label=str(rawmaterial),
+                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+            )
+            self.rawmaterials.append({
+                "rawmaterial": rawmaterial,
+                "qty_field": self[field_name],
+            })
+
+
 
 class StockChangesForm(ModelForm):
     class Meta:
         model = StockChanges
         fields = "__all__"
+
+class CustomUserCreationForm(forms.ModelForm):
+    password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
+    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("This email address is already in use.")
+        return email
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        if password1 != password2:
+            raise ValidationError("Passwords do not match.")
+        return password2
+    
+class CustomUserChangeForm(UserChangeForm):
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+
+        # Check if email is already taken by another user (excluding the current user)
+        if User.objects.exclude(id=self.instance.id).filter(email=email).exists():
+            raise ValidationError("This email address is already in use by another account.")
+
+        return email

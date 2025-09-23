@@ -19,8 +19,11 @@ from django.urls import path
 from realsproj import views as a
 from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, include
-from django.urls import path
-from realsproj import views
+from django.contrib.auth.forms import AuthenticationForm
+from realsproj.views import profile_view, edit_profile
+from django.conf import settings
+from django.conf.urls.static import static
+
 
 
 urlpatterns = [
@@ -59,7 +62,7 @@ urlpatterns = [
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
 
     path('rawmatbatch/', a.RawMaterialBatchList.as_view(), name='rawmaterial-batch'),
-    path('rawmatbatch/add', a.RawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
+    path('rawmatbatch/add', a.BulkRawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
     path('rawmatbatch/<pk>', a.RawMaterialBatchUpdateView.as_view(), name='rawmaterial-batch-edit'),
     path('rawmatbatch/<pk>/delete', a.RawMaterialBatchDeleteView.as_view(), name='rawmaterial-batch-delete'),
 
@@ -76,8 +79,8 @@ urlpatterns = [
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
+    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path("login/", a.login_view, name="login"),
-    path("signup/", a.signup_view, name="signup"),
 
     path('password_reset/', 
          auth_views.PasswordResetView.as_view(template_name="password_reset.html"), 
@@ -95,18 +98,22 @@ urlpatterns = [
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
-    
+
     path("register/", a.register, name="register"),
 
     path("api/best-sellers/", a.best_sellers_api, name="best_sellers_api"),
 
     path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 
-    path("profile/", views.profile_view, name="profile"),  # <-- profile url
-    path("profile/edit/", views.edit_profile, name="edit-profile"),
-    
     path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
 
-    path("revenue-x-recent_sales", a.home, name="home"),
+    path("revenue-x-recent_sales", a.HomePageView.as_view(), name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
+
+    path('profile/', profile_view, name='profile'),
+    path('profile/edit/', a.edit_profile, name='edit_profile'),
+
 ]
+
+if settings.DEBUG: 
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -34,6 +34,17 @@
           </div>
 
           <div class="card-body">
+
+            <!-- 🔹 Summary Section -->
+            <div class="mb-3">
+              <h5>Sales Summary</h5>
+              <ul class="list-unstyled" id="salesSummary">
+                <li><strong>Total Sales:</strong> {{ sales_summary.total_sales|default:0 }}</li>
+                <li><strong>Average Sale:</strong> {{ sales_summary.average_sales|floatformat:2 }}</li>
+                <li><strong>Number of Sales:</strong> {{ sales_summary.sales_count }}</li>
+              </ul>
+            </div>
+
             <div class="table-responsive">
               <table class="table table-striped" id="salesTable">
                 <thead>
@@ -81,6 +92,7 @@
   const dateFilter = document.getElementById('dateFilter');
   const tbody = document.getElementById('salesTableBody');
   const table = document.getElementById('salesTable');
+  const summary = document.getElementById('salesSummary');
 
   function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
 
@@ -99,6 +111,22 @@
     }
   }
 
+  function updateSummary(rows){
+    let total = 0, count = 0;
+    rows.forEach(row => {
+      if(row.style.display !== 'none'){
+        total += parseFloat(row.cells[1].textContent) || 0;
+        count++;
+      }
+    });
+    const avg = count ? (total / count).toFixed(2) : 0;
+    summary.innerHTML = `
+      <li><strong>Total Sales:</strong> ${total}</li>
+      <li><strong>Average Sale:</strong> ${avg}</li>
+      <li><strong>Number of Sales:</strong> ${count}</li>
+    `;
+  }
+
   function filterRows(){
     const q = normalize(searchInput.value);
     const selectedCategory = normalize(categoryFilter.value);
@@ -115,17 +143,12 @@
 
       let match = true;
 
-      // Text search
       if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
         match = false;
       }
-
-      // Category filter
       if(selectedCategory && category !== selectedCategory) {
         match = false;
       }
-
-      // Date filter
       if(selectedDate && date !== selectedDate) {
         match = false;
       }
@@ -135,6 +158,7 @@
     });
 
     showNoResults(visible === 0);
+    updateSummary(rows);
   }
 
   searchInput.addEventListener('keyup', filterRows);

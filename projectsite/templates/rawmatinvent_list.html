@@ -1,5 +1,7 @@
+
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -7,15 +9,11 @@
     <div class="row">
       <div class="col-md-12">
         <div class="card">
-          <!-- Header: title + search -->
+          <!-- Header: title + filters + add button -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-              <div class="card-title">List of Raw Material Stock</div>
+              <div class="card-title">List of Raw Material Inventory</div>
               <div class="card-category">Page Subtitle</div>
-            </div>
-
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <input id="searchInput" class="form-control" style="width:260px;" placeholder="Search raw material stock..." />
             </div>
           </div>
 
@@ -27,6 +25,7 @@
                     <th scope="col">Material</th>
                     <th scope="col">Current Stock</th>
                     <th scope="col">Restock Threshold</th>
+                    <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryTableBody">
@@ -35,6 +34,17 @@
                     <td>{{ object.material }}</td>
                     <td>{{ object.total_stock }}</td>
                     <td>{{ object.reorder_threshold }}</td>
+                    <td>
+                        {% if object.total_stock == 0 %}
+                          <span class="badge bg-danger">Out of Stock</span>
+                        {% elif object.total_stock < object.reorder_threshold %}
+                          <span class="badge bg-warning text-dark">Low Stock</span>
+                        {% elif object.total_stock == object.reorder_threshold %}
+                          <span class="badge bg-info text-dark">Warning</span>
+                        {% else %}
+                          <span class="badge bg-success">On Stock</span>
+                        {% endif %}
+                    </td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -47,47 +57,4 @@
     </div>
   </div>
 </div>
-
-<script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const tbody = document.getElementById('inventoryTableBody');
-  const table = document.getElementById('inventoryTable');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No stock records found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const text = normalize(row.textContent);
-      const match = q === '' || text.includes(q);
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
-    });
-
-    showNoResults(visible === 0);
-  }
-
-  searchInput.addEventListener('keyup', filterRows);
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
-</script>
 {% endblock %}

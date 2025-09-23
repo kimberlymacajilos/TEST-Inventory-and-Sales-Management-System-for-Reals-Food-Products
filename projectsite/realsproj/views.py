@@ -15,11 +15,11 @@ from decimal import InvalidOperation
 from decimal import Decimal
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
-from .forms import CustomUserCreationForm
 from django.utils import timezone
+from .forms import CustomUserCreationForm
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -39,6 +39,7 @@ from realsproj.forms import (
     NotificationsForm,
     BulkProductBatchForm,
     StockChangesForm,
+    BulkRawMaterialBatchForm,
 )
 
 from realsproj.models import (
@@ -61,6 +62,8 @@ from realsproj.models import (
     Notifications,
     AuthUser,
     StockChanges,
+    SalesSummary,
+    ExpensesSummary,
 )
 
 from django.db.models import Q
@@ -70,12 +73,34 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
-from .forms import CustomUserCreationForm
+
 
 @method_decorator(login_required, name='dispatch')
 
 class HomePageView(LoginRequiredMixin, TemplateView):
     template_name = "home.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        sales_summary = SalesSummary.objects.first()
+        total_sales = sales_summary.total_amount if sales_summary else 0
+
+        expenses_summary = ExpensesSummary.objects.first()
+        total_expenses = expenses_summary.total_amount if expenses_summary else 0
+
+        context['total_revenue'] = total_sales - total_expenses
+
+        context['total_stocks'] = ProductBatches.objects.aggregate(
+            total=Sum('quantity')
+        )['total'] or 0
+
+        context['recent_sales'] = Withdrawals.objects.filter(
+            item_type="PRODUCT", reason="SOLD"
+        ).order_by('-date')[:6]
+
+        return context
+
 
 def sales_vs_expenses(request):
     sales_data = (
@@ -202,11 +227,39 @@ class HistoryLogList(ListView):
 
         return queryset
     
+from django.db.models import Sum, Avg, Count
+
 class SalesList(ListView):
     model = Sales
     context_object_name = 'sales'
     template_name = "sales_list.html"
     paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+        self.filtered_queryset = queryset
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        summary = self.filtered_queryset.aggregate(
+            total_sales=Sum("amount"),
+            average_sales=Avg("amount"),
+            sales_count=Count("id"),
+        )
+        context["sales_summary"] = summary
+        return context
 
 class SalesCreateView(CreateView):
     model = Sales
@@ -225,12 +278,14 @@ class SalesDeleteView(DeleteView):
     template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
+from django.db.models import Sum
+
 class ExpensesList(ListView):
     model = Expenses
     context_object_name = 'expenses'
     template_name = "expenses_list.html"
     paginate_by = 10
-    
+
     def get_queryset(self):
         queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
@@ -243,8 +298,27 @@ class ExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
+        self.filtered_queryset = queryset
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        summary = self.filtered_queryset.aggregate(
+            total_expenses=Sum("amount"),
+            average_expenses=Avg("amount"),
+            expenses_count=Count("id"),
+        )
+        context["expenses_summary"] = summary
+        return context
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["total_expenses"] = Expenses.objects.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses
@@ -323,23 +397,6 @@ class ProductInventoryList(ListView):
         return queryset.order_by("product_id")
 
 
-class ProductInventoryCreateView(CreateView):
-    model = ProductInventory
-    form_class = ProductInventoryForm
-    template_name = 'prodinvent_add.html'
-    success_url = reverse_lazy('product-inventory')
-
-class ProductInventoryUpdateView(UpdateView):
-    model = ProductInventory
-    form_class = ProductInventoryForm
-    template_name = 'prodinvent_edit.html'
-    success_url = reverse_lazy('product-inventory')
-
-class ProductInventoryDeleteView(DeleteView):
-    model = ProductInventory
-    template_name = 'prodinvent_delete.html'
-    success_url = reverse_lazy('product-inventory')
-
 class RawMaterialBatchList(ListView):
     model = RawMaterialBatches
     context_object_name = 'rawmatbatch'
@@ -347,23 +404,17 @@ class RawMaterialBatchList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = (
-            super()
-            .get_queryset()
-            .select_related("material", "created_by_admin")  # preload FKs for performance
-            .order_by("-id")
-        )
-
+        queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
         query = self.request.GET.get("q", "").strip()
+
         if query:
             queryset = queryset.filter(
-                Q(material__name__icontains=query) |        # material name
-                Q(material__size__name__icontains=query) | # size (from Sizes)
-                Q(material__unit__name__icontains=query) | # unit (from SizeUnits)
-                Q(batch_date__icontains=query) |           # batch date
-                Q(received_date__icontains=query) |        # received date
-                Q(expiration_date__icontains=query) |      # expiration date
-                Q(created_by_admin__username__icontains=query)
+                Q(rawmaterial__description__icontains=query) |   # raw material description from RawMaterials
+                Q(batch_date__icontains=query) |             # batch_date
+                Q(received_date__icontains=query) |      # received_date
+                Q(expiration_date__icontains=query) |        # expiration_date
+                Q(quantity__icontains=query) |               # quantity
+                Q(created_by_admin__username__icontains=query)  # admin username
             )
 
         return queryset
@@ -390,43 +441,6 @@ class RawMaterialInventoryList(ListView):
     context_object_name = 'rawmatinvent'
     template_name = "rawmatinvent_list.html"
     paginate_by = 10
-
-    def get_queryset(self):
-        queryset = (
-            super()
-            .get_queryset()
-            .select_related("material", "material__size", "material__unit", "material__created_by_admin")
-            .order_by("material__id")   # since `RawMaterialInventory` primary key = material
-        )
-
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(material__name__icontains=query) |
-                Q(material__size__name__icontains=query) |
-                Q(material__unit__name__icontains=query) |
-                Q(material__price_per_unit__icontains=query) |
-                Q(material__created_by_admin__username__icontains=query)
-            )
-
-        return queryset
-    
-class RawMaterialInventoryCreateView(CreateView):
-    model = RawMaterialInventory
-    form_class = RawMaterialInventoryForm
-    template_name = 'rawmatinvent_add.html'
-    success_url = reverse_lazy('rawmat-inventory')
-
-class RawMaterialInventoryUpdateView(UpdateView):
-    model = RawMaterialInventory
-    form_class = RawMaterialInventoryForm
-    template_name = 'rawmatinvent_edit.html'
-    success_url = reverse_lazy('rawmat-inventory')
-
-class RawMaterialInventoryDeleteView(DeleteView):
-    model = RawMaterialInventory
-    template_name = 'rawmatinvent_delete.html'
-    success_url = reverse_lazy('rawmat-inventory')
 
 class ProductTypeCreateView(CreateView):
     model = ProductTypes
@@ -490,10 +504,13 @@ class WithdrawItemView(View):
             "products": products,
             "rawmaterials": rawmaterials
         })
-
+    
     def post(self, request):
         item_type = request.POST.get("item_type", "").upper()
         reason = request.POST.get("reason", "").upper()
+
+        sales_channel = request.POST.get("sales_channel", None)
+        price_type = request.POST.get("price_type", None)
 
         if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
             messages.error(request, "Invalid item type.")
@@ -536,9 +553,6 @@ class WithdrawItemView(View):
                         errors.append(f"Not enough stock for {item}")
                         continue
 
-                    inventory.total_stock -= qty
-                    inventory.save()
-
                     Withdrawals.objects.create(
                         item_id=item.id,
                         item_type=item_type,
@@ -546,15 +560,11 @@ class WithdrawItemView(View):
                         reason=reason,
                         date=timezone.now(),
                         created_by_admin=request.user,
+                        sales_channel=sales_channel if reason == "SOLD" else None,
+                        price_type=price_type if reason == "SOLD" else None,
                     )
                     withdrawals_made += 1
-
-        if withdrawals_made:
-            messages.success(request, f"{withdrawals_made} {item_type.lower()}(s) withdrawn successfully.")
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-
+            
         return redirect("withdrawals")
     
 def get_total_revenue():
@@ -564,17 +574,6 @@ def get_total_revenue():
         total += w.compute_revenue()
     return total
 
-def home(request):
-    total_revenue = get_total_revenue()
-    withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD").order_by("-date")[:10]
-    total_stocks = ProductInventory.get_total_stocks()
-
-    return render(request, "home.html", {
-        "total_revenue": total_revenue,
-        "recent_sales": withdrawals,
-        "total_stocks": total_stocks,
-    })
-    
     
 @require_GET
 def get_stock(request):
@@ -589,29 +588,6 @@ def get_stock(request):
         return JsonResponse({"stock": None})
 
     return JsonResponse({"stock": inventory.total_stock if inventory else 0})
-
-def signup_view(request):
-    if request.method == "POST":
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect("home")  # redirect after signup
-    else:
-        form = UserCreationForm()
-    return render(request, "signup.html", {"form": form})
-
-def login_view(request):
-    if request.method == "POST":
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            return redirect("home")  # redirect after login
-    else:
-        form = AuthenticationForm()
-    return render(request, "login.html", {"form": form})
-
 
 class NotificationsList(ListView):
     model = Notifications
@@ -632,23 +608,19 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
 
     def get(self, request):
         form = BulkProductBatchForm()
-        products = [
-            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
-            for p in Products.objects.all()
-        ]
-        return render(request, self.template_name, {'form': form, 'products': products})
+        return render(request, self.template_name, {'form': form, 'products': form.products})
 
     def post(self, request):
         form = BulkProductBatchForm(request.POST)
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            expiration_date = form.cleaned_data['expiration_date']
-
-            from realsproj.models import AuthUser
+            expiration_date = form.cleaned_data.get('expiration_date')
+            deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
-            for product in Products.objects.all():
+            for product_info in form.products:
+                product = product_info['product']
                 qty = form.cleaned_data.get(f'product_{product.id}_qty')
                 if qty:
                     ProductBatches.objects.create(
@@ -657,25 +629,45 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
                         batch_date=batch_date,
                         manufactured_date=manufactured_date,
                         expiration_date=expiration_date,
-                        created_by_admin=auth_user 
+                        created_by_admin=auth_user,
+                        deduct_raw_material=deduct_raw_material
                     )
+
             return redirect('product-batch')
 
-        products = [
-            {"qty_field": form[f'product_{p.id}_qty'], "label": str(p)}
-            for p in Products.objects.all()
-        ]
-        return render(request, self.template_name, {'form': form, 'products': products})
+        return render(request, self.template_name, {'form': form, 'products': form.products})
 
-def register(request):
-    if request.method == "POST":
-        form = CustomUserCreationForm(request.POST)
+class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
+    template_name = "rawmatbatch_add.html"
+
+    def get(self, request):
+        form = BulkRawMaterialBatchForm()
+        return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
+
+    def post(self, request):
+        form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect("login")  
-    else:
-        form = CustomUserCreationForm()
-    return render(request, "registration/register.html", {"form": form})
+            batch_date = form.cleaned_data['batch_date']
+            received_date = form.cleaned_data['received_date']
+            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
+            auth_user = AuthUser.objects.get(id=request.user.id)
+
+            for rawmaterial_info in form.rawmaterials:
+                rawmaterial = rawmaterial_info['rawmaterial']
+                qty = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_qty')
+                if qty:
+                    RawMaterialBatches.objects.create(
+                        material=rawmaterial,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        received_date=received_date,
+                        expiration_date=expiration_date,
+                        created_by_admin=auth_user
+                    )
+
+            return redirect('rawmaterial-batch')
+
+        return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -749,3 +741,65 @@ class StockChangesList(ListView):
 
     def get_queryset(self):
         return StockChanges.objects.all().order_by('-date')
+    
+def login_view(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('home')  # Redirect to home page after login
+    else:
+        form = AuthenticationForm()
+    return render(request, 'login.html', {'form': form})
+
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()  # Save the new user to the database
+            messages.success(request, 'Your account has been created successfully! You can now log in.')
+            return redirect('login')  # Redirect to login page after successful registration
+    else:
+        form = UserCreationForm()  # Instantiate a blank form
+
+    return render(request, 'register.html', {'form': form})
+
+def register(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()  # Save the new user to the database
+            messages.success(request, 'Your account has been created successfully! You can now log in.')
+            return redirect('login')  # Redirect to login page after successful registration
+        else:
+            # If the form is not valid, the errors will automatically be shown in the template
+            messages.error(request, 'There were errors in your form. Please check the fields and try again.')
+    else:
+        form = CustomUserCreationForm()  # Instantiate a blank form
+
+    return render(request, 'registration/register.html', {'form': form})
+
+@login_required
+def profile_view(request):
+    return render(request, 'profile.html') 
+
+@login_required
+def edit_profile(request):
+    user = request.user  # Get the currently logged-in user
+
+    if request.method == "POST":
+        # Create a form instance with the POST data and the current user
+        form = UserChangeForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            form.save()  # Save the form if it's valid
+            messages.success(request, "Profile updated successfully!")
+            return redirect("profile")  # Redirect to the profile page after saving
+        else:
+            # If the form is invalid, show errors
+            messages.error(request, "There was an error updating your profile. Please check the form.")
+    else:
+        # If it's a GET request, pre-fill the form with the current user data
+        form = UserChangeForm(instance=user)
+
+    return render(request, "editprofile.html", {"form": form})

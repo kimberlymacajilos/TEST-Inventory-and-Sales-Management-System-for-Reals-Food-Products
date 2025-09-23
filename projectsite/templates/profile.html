@@ -1,44 +1,72 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block title %}My Profile{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-lg border-0 rounded-lg">
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th scope="row">Username</th>
-                            <td>{{ request.user.username }}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">First Name</th>
-                            <td>{{ request.user.first_name }}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Last Name</th>
-                            <td>{{ request.user.last_name }}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Email</th>
-                            <td>{{ request.user.email }}</td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Role</th>
-                            <td>
-                                {% if request.user.is_superuser %}
-                                    Administrator
-                                {% else %}
-                                    Staff
-                                {% endif %}
-                            </td>
-                        </tr>
-                    </table>
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}">
+
+    <div class="edit-page">
+        <div class="profile-header">
+            <div class="edit-button-container">
+                <a href="{% url 'edit_profile' %}" class="btn btn-primary">Edit Profile</a>
+            </div>
+            <!-- Circular container for profile image -->
+            <div class="profile-img-container">
+                <img id="profile-img" src="" alt="Profile Picture" class="profile-img" style="display: none;">
+            </div>
+        </div>
+
+        <div class="profile-info">
+            <!-- Image Upload Section -->
+            <!-- <div class="upload-section">
+                <label for="image-upload" class="upload-label">Choose Profile Picture</label>
+                <input type="file" id="image-upload" name="profile-img" accept="image/*">
+            </div> -->
+
+            <!-- Edit Button Container -->
+            </div>
+
+            <div class="profile-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" value="{{ request.user.username }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{ request.user.email }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="first-name">First Name</label>
+                    <input type="text" id="first-name" name="first-name" value="{{ request.user.first_name }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="last-name">Last Name</label>
+                    <input type="text" id="last-name" name="last-name" value="{{ request.user.last_name }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" value="********" readonly>
                 </div>
             </div>
         </div>
     </div>
-</div>
+
+    <script>
+        const imageInput = document.getElementById("image-upload");
+        const profileImage = document.getElementById("profile-img");
+
+        imageInput.addEventListener("change", function(event) {
+            const file = event.target.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    profileImage.src = e.target.result;
+                    profileImage.style.display = "block"; // Show the image after upload
+                };
+                reader.readAsDataURL(file); // Converts the image file to a URL
+            }
+        });
+    </script>
 {% endblock %}
