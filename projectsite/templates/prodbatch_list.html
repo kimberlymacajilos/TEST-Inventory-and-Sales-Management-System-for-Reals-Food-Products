@@ -15,16 +15,41 @@
                             <div class="card-category">Filter Batches</div>
                             <!-- Search form -->
                             <form method="get" action="" class="mt-2" id="batchSearchForm">
-                                <div class="input-group">
-                                    <input type="text" id="batchSearchInput" name="q" 
-                                        class="form-control" 
-                                        placeholder="Search product/batch..." 
-                                        value="{{ request.GET.q }}">
-                                    <div class="ms-2">
-                                        <button type="submit" class="btn btn-primary">Search</button>
-                                    </div>
-                                </div>
-                            </form>
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <input type="text" id="batchSearchInput" name="q" 
+                   class="form-control" 
+                   placeholder="Search product/batch..." 
+                   value="{{ request.GET.q }}">
+        </div>
+
+        <!-- Batch Date filter -->
+        <div class="col-md-3">
+            <label for="batch_date" class="form-label">Batch Date</label>
+            <input type="date" name="batch_date" id="batch_date" class="form-control"
+                   value="{{ request.GET.batch_date }}">
+        </div>
+
+        <!-- Manufactured Date filter -->
+        <div class="col-md-3">
+            <label for="manufactured_date" class="form-label">Manufactured Date</label>
+            <input type="date" name="manufactured_date" id="manufactured_date" class="form-control"
+                   value="{{ request.GET.manufactured_date }}">
+        </div>
+
+        <!-- Expiration Date filter -->
+        <div class="col-md-3">
+            <label for="expiration_date" class="form-label">Expiration Date</label>
+            <input type="date" name="expiration_date" id="expiration_date" class="form-control"
+                   value="{{ request.GET.expiration_date }}">
+        </div>
+
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Filter</button>
+        </div>
+    </div>
+</form>
+
                         </div>
                         <div class="pull-right">
                             <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
@@ -76,7 +101,17 @@
             </div>
         </div>
     </div>
-</div>
+    <script>
+    document.getElementById("batchSearchInput").addEventListener("keyup", function() {
+        var search = this.value.toLowerCase();
+        var rows = document.querySelectorAll("#batchTable tbody tr");
 
-<script src="{% static 'js/product_search.js' %}"></script>
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? "" : "none";
+    });
+});
+</script>
+
+</div>
 {% endblock %}
