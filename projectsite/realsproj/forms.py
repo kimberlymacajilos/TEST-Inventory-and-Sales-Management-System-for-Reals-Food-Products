@@ -53,12 +53,11 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = ["batch_date", "manufactured_date", "expiration_date", "deduct_raw_material"]
+        fields = "__all__"   
         widgets = {
-            'batch_date': forms.DateInput(attrs={'type': 'date'}),
-            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
-            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
-            
+            "batch_date": forms.DateInput(attrs={"type": "date"}),
+            "manufactured_date": forms.DateInput(attrs={"type": "date"}),
+            "expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
 
 
