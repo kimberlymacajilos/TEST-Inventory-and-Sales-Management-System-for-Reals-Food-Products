@@ -21,6 +21,8 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, include
 from django.contrib.auth.forms import AuthenticationForm
 from realsproj.views import profile_view, edit_profile
+from django.conf import settings
+from django.conf.urls.static import static
 
 
 
@@ -61,7 +63,7 @@ urlpatterns = [
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
 
     path('rawmatbatch/', a.RawMaterialBatchList.as_view(), name='rawmaterial-batch'),
-    path('rawmatbatch/add', a.RawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
+    path('rawmatbatch/add', a.BulkRawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
     path('rawmatbatch/<pk>', a.RawMaterialBatchUpdateView.as_view(), name='rawmaterial-batch-edit'),
     path('rawmatbatch/<pk>/delete', a.RawMaterialBatchDeleteView.as_view(), name='rawmaterial-batch-delete'),
 
@@ -113,3 +115,6 @@ urlpatterns = [
     path('profile/edit/', a.edit_profile, name='edit_profile'),
 
 ]
+
+if settings.DEBUG: 
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
