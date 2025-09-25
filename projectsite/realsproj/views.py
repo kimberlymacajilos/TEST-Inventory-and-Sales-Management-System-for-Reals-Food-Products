@@ -292,34 +292,32 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
-        self._full_queryset = qs
-        return qs
+        self.filtered_queryset = queryset
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
-
-        context["expenses_summary"] = full_qs.aggregate(
+        summary = self.filtered_queryset.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
 
-        return context
+        context["expenses_summary"] = summary
 
+        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses

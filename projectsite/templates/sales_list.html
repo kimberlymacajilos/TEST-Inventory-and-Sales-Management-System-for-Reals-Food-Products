@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -35,14 +36,37 @@
 
           <div class="card-body">
 
-          <div class="mb-3">
-            <h5>Sales Summary</h5>
-            <ul class="list-unstyled" id="salesSummary">
-              <li><strong>Total Sales:</strong> <span id="summaryTotal">{{ sales_summary.total_sales|default:0 }}</span></li>
-              <li><strong>Average Sale:</strong> <span id="summaryAvg">{{ sales_summary.average_sales|floatformat:2 }}</span></li>
-              <li><strong>Number of Sales:</strong> <span id="summaryCount">{{ sales_summary.sales_count|default:0 }}</span></li>
-            </ul>
-          </div>
+            <div class="row mb-3 text-center">
+              <!-- Total Sales -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Sales</h5>
+                    <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Average Sale -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Average Sale</h5>
+                    <h3 class="text-primary">₱{{ sales_summary.average_sales|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Number of Sales -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Number of Sales</h5>
+                    <h3 class="text-info">{{ sales_summary.sales_count }}</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div class="table-responsive">
               <table class="table table-striped" id="salesTable">
@@ -96,7 +120,18 @@
   function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
 
   function showNoResults(show){
-    ...
+    let existing = document.getElementById('noResultsRow');
+    if(show){
+      if(!existing){
+        const cols = table.querySelectorAll('thead th').length;
+        const tr = document.createElement('tr');
+        tr.id = 'noResultsRow';
+        tr.innerHTML = `<td colspan="${cols}" class="text-center">No sales found.</td>`;
+        tbody.appendChild(tr);
+      }
+    } else {
+      if(existing) existing.remove();
+    }
   }
 
   function updateSummary(rows){
@@ -108,14 +143,44 @@
       }
     });
     const avg = count ? (total / count).toFixed(2) : 0;
-
-    document.getElementById('summaryTotal').textContent = total;
-    document.getElementById('summaryAvg').textContent = avg;
-    document.getElementById('summaryCount').textContent = count;
+    summary.innerHTML = `
+      <li><strong>Total Sales:</strong> ${total}</li>
+      <li><strong>Average Sale:</strong> ${avg}</li>
+      <li><strong>Number of Sales:</strong> ${count}</li>
+    `;
   }
 
   function filterRows(){
-    ...
+    const q = normalize(searchInput.value);
+    const selectedCategory = normalize(categoryFilter.value);
+    const selectedDate = dateFilter.value; // format: YYYY-MM
+
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
+    let visible = 0;
+
+    rows.forEach(row => {
+      const category = normalize(row.cells[0].textContent);
+      const amount = normalize(row.cells[1].textContent);
+      const date = (row.cells[2].textContent || '').trim().substring(0,7); // YYYY-MM
+      const description = normalize(row.cells[3].textContent);
+
+      let match = true;
+
+      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
+        match = false;
+      }
+      if(selectedCategory && category !== selectedCategory) {
+        match = false;
+      }
+      if(selectedDate && date !== selectedDate) {
+        match = false;
+      }
+
+      row.style.display = match ? '' : 'none';
+      if(match) visible++;
+    });
+
+    showNoResults(visible === 0);
     updateSummary(rows);
   }
 
