@@ -35,13 +35,12 @@
 
           <div class="card-body">
 
-            <!-- 🔹 Summary Section -->
             <div class="mb-3">
               <h5>Expenses Summary</h5>
               <ul class="list-unstyled" id="expensesSummary">
-                <li><strong>Total Expenses:</strong> {{ expenses_summary.total_expenses|default:0 }}</li>
-                <li><strong>Average Expense:</strong> {{ expenses_summary.average_expenses|floatformat:2 }}</li>
-                <li><strong>Number of Expenses:</strong> {{ expenses_summary.expenses_count }}</li>
+                <li><strong>Total Expenses:</strong> <span id="summaryTotal">{{ expenses_summary.total_expenses|default:0 }}</span></li>
+                <li><strong>Average Expense:</strong> <span id="summaryAvg">{{ expenses_summary.average_expenses|floatformat:2 }}</span></li>
+                <li><strong>Number of Expenses:</strong> <span id="summaryCount">{{ expenses_summary.expenses_count|default:0 }}</span></li>
               </ul>
             </div>
 
@@ -86,6 +85,7 @@
 </div>
 
 <script>
+<script>
 (function () {
   const searchInput = document.getElementById('searchInput');
   const categoryFilter = document.getElementById('categoryFilter');
@@ -111,6 +111,7 @@
     }
   }
 
+  // 🔹 Same structure as sales
   function updateSummary(rows){
     let total = 0, count = 0;
     rows.forEach(row => {
@@ -120,17 +121,16 @@
       }
     });
     const avg = count ? (total / count).toFixed(2) : 0;
-    summary.innerHTML = `
-      <li><strong>Total Expenses:</strong> ${total}</li>
-      <li><strong>Average Expense:</strong> ${avg}</li>
-      <li><strong>Number of Expenses:</strong> ${count}</li>
-    `;
+
+    document.getElementById('summaryTotal').textContent = total;
+    document.getElementById('summaryAvg').textContent = avg;
+    document.getElementById('summaryCount').textContent = count;
   }
 
   function filterRows(){
     const q = normalize(searchInput.value);
     const selectedCategory = normalize(categoryFilter.value);
-    const selectedDate = dateFilter.value; // format: YYYY-MM
+    const selectedDate = dateFilter.value; // format YYYY-MM
 
     const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
     let visible = 0;
@@ -138,20 +138,13 @@
     rows.forEach(row => {
       const category = normalize(row.cells[0].textContent);
       const amount = normalize(row.cells[1].textContent);
-      const date = (row.cells[2].textContent || '').trim().substring(0,7); // YYYY-MM
+      const date = (row.cells[2].textContent || '').trim().substring(0,7);
       const description = normalize(row.cells[3].textContent);
 
       let match = true;
-
-      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
-        match = false;
-      }
-      if(selectedCategory && category !== selectedCategory) {
-        match = false;
-      }
-      if(selectedDate && date !== selectedDate) {
-        match = false;
-      }
+      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) match = false;
+      if(selectedCategory && category !== selectedCategory) match = false;
+      if(selectedDate && date !== selectedDate) match = false;
 
       row.style.display = match ? '' : 'none';
       if(match) visible++;
