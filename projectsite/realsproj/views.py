@@ -20,6 +20,8 @@ from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .forms import CustomUserCreationForm
+from django.contrib import messages
+from django.db.models import Avg, Count, Sum
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -227,7 +229,6 @@ class HistoryLogList(ListView):
 
         return queryset
     
-from django.db.models import Sum, Avg, Count
 
 class SalesList(ListView):
     model = Sales
@@ -236,30 +237,35 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+        qs = Sales.objects.select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
-                Q(category__icontains=query) |
+            qs = qs.filter(
+                Q(item__icontains=query) |
+                Q(quantity__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-        self.filtered_queryset = queryset
-        return queryset
+
+        self._full_queryset = qs
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        summary = self.filtered_queryset.aggregate(
+
+        full_qs = getattr(self, "_full_queryset", Sales.objects.all())
+
+        context["sales_summary"] = full_qs.aggregate(
             total_sales=Sum("amount"),
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        context["sales_summary"] = summary
+
         return context
+
 
 class SalesCreateView(CreateView):
     model = Sales
@@ -278,7 +284,6 @@ class SalesDeleteView(DeleteView):
     template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
-from django.db.models import Sum
 
 class ExpensesList(ListView):
     model = Expenses
@@ -287,38 +292,34 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
+            qs = qs.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-        self.filtered_queryset = queryset
-        return queryset
+
+        self._full_queryset = qs
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        summary = self.filtered_queryset.aggregate(
+
+        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
+
+        context["expenses_summary"] = full_qs.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
-        context["expenses_summary"] = summary
+
         return context
 
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["total_expenses"] = Expenses.objects.aggregate(
-            total=Sum("amount")
-        )["total"] or 0
-        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses
