@@ -7,108 +7,77 @@
     <h4 class="page-title">Bulk Withdraw</h4>
 
     <div class="card">
-      <div class="card-body">
-        
-        <!-- Filter section -->
-        <form method="get" id="filter_form" class="mb-3">
-          <div class="row align-items-end">
-            <!-- Item Type -->
-            <div class="col-md-3">
-              <label for="item_type">Item Type</label>
-              <select name="item_type" id="item_type" class="form-control" required>
-                <option value="">-- Select Type --</option>
-                <option value="PRODUCT" {% if selected_type == "PRODUCT" %}selected{% endif %}>Product</option>
-                <option value="RAW_MATERIAL" {% if selected_type == "RAW_MATERIAL" %}selected{% endif %}>Raw Material</option>
-              </select>
-            </div>
-
-            <!-- Expiration Date -->
-            <div class="col-md-4">
-              <label for="expiration_date">Filter by Expiration Date (optional)</label>
-              <select name="expiration_date" id="expiration_date" class="form-control" {% if not selected_type %}disabled{% endif %}>
-                <option value="">All</option>
-
-                {% if selected_type == "PRODUCT" %}
-                  {% for d in product_expirations %}
-                    <option value="{{ d.value }}" {% if selected_expiration == d.value %}selected{% endif %}>{{ d.display }}</option>
-                  {% endfor %}
-                  {% if product_has_no_expiration %}
-                    <option value="NONE" {% if selected_expiration == "NONE" %}selected{% endif %}>No expiration</option>
-                  {% endif %}
-                {% elif selected_type == "RAW_MATERIAL" %}
-                  {% for d in material_expirations %}
-                    <option value="{{ d.value }}" {% if selected_expiration == d.value %}selected{% endif %}>{{ d.display }}</option>
-                  {% endfor %}
-                  {% if material_has_no_expiration %}
-                    <option value="NONE" {% if selected_expiration == "NONE" %}selected{% endif %}>No expiration</option>
-                  {% endif %}
-                {% endif %}
-              </select>
-            </div>
-          </div>
-        </form>
-
-        <!-- Withdraw form -->
+      <div class="card-body"> 
         <form method="post">
           {% csrf_token %}
-          <input type="hidden" name="item_type" value="{{ selected_type }}">
-          <input type="hidden" name="expiration_date" value="{{ selected_expiration }}">
+          
+          <!-- Item type selection -->
+          <div class="form-group">
+            <label for="item_type">Select Item Type</label>
+            <select name="item_type" id="item_type" class="form-control" required>
+              <option value="">-- Select Type --</option>
+              <option value="PRODUCT">Product</option>
+              <option value="RAW_MATERIAL">Raw Material</option>
+            </select>
+          </div>
+          
+          <!-- Products table -->
+          <div id="products_table" class="mt-3" style="display:none;">
+            <h5>Products</h5>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Stock</th>
+                  <th>Withdraw Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for product in products %}
+                <tr>
+                  <td>
+                    {{ product.product_type.name }} - {{ product.variant.name }} - 
+                    {{ product.size.size_label }} {{ product.size_unit.unit_name }}
+                  </td>
+                  <td>{{ product.productinventory.total_stock|floatformat:0 }}</td>
+                  <td>
+                    <input type="number" step="0.01" name="product_{{ product.id }}" 
+                           class="form-control" min="0">
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
-          {% if selected_type == "PRODUCT" %}
-          <h5 class="mt-4">Products</h5>
-          <table class="table table-bordered">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Stock</th>
-                <th>Withdraw Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for product in products %}
-              <tr>
-                <td>
-                  {{ product.product_type.name }} - {{ product.variant.name }} - 
-                  {{ product.size.size_label }} {{ product.size_unit.unit_name }}
-                </td>
-                <td>{{ product.filtered_stock|floatformat:0 }}</td>
-                <td>
-                  <input type="number" step="0.01" name="product_{{ product.id }}" class="form-control" min="0">
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="3">No products found.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% elif selected_type == "RAW_MATERIAL" %}
-          <h5 class="mt-4">Raw Materials</h5>
-          <table class="table table-bordered">
-            <thead>
-              <tr>
-                <th>Raw Material</th>
-                <th>Stock</th>
-                <th>Withdraw Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for material in rawmaterials %}
-              <tr>
-                <td>{{ material.name }} ({{ material.unit.unit_name }})</td>
-                <td>{{ material.filtered_stock|floatformat:0 }}</td>
-                <td>
-                  <input type="number" step="0.01" name="material_{{ material.id }}" class="form-control" min="0">
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="3">No raw materials found.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% endif %}
+          <!-- Raw materials table -->
+          <div id="rawmaterials_table" class="mt-3" style="display:none;">
+            <h5>Raw Materials</h5>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Raw Material</th>
+                  <th>Stock</th>
+                  <th>Withdraw Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for material in rawmaterials %}
+                <tr>
+                  <td>{{ material.name }} ({{ material.unit.unit_name }})</td>
+                  <td>{{ material.rawmaterialinventory.total_stock|floatformat:0 }}</td>
+                  <td>
+                    <input type="number" step="0.01" name="material_{{ material.id }}" 
+                           class="form-control" min="0">
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
           <!-- Reason -->
-          <div class="form-group mt-3">
+          <div class="form-group mt-2">
             <label for="reason">Reason</label>
             <select name="reason" id="reason" class="form-control" required>
               <option value="">-- Select Reason --</option>
@@ -117,6 +86,24 @@
               <option value="DAMAGED">Damaged</option>
               <option value="RETURNED">Returned</option>
               <option value="OTHERS">Others</option>
+            </select>
+          </div>
+
+          <div id="sales-price-section" style="display:none; margin-top:10px;">
+            <label for="sales_channel">Sales Channel</label>
+            <select name="sales_channel" id="sales_channel">
+              <option value="">-- Select --</option>
+              <option value="ORDER">Order</option>
+              <option value="CONSIGNMENT">Consignment</option>
+              <option value="RESELLER">Reseller</option>
+              <option value="PHYSICAL_STORE">Physical Store</option>
+            </select>
+
+            <label for="price_type">Price Type</label>
+            <select name="price_type" id="price_type">
+              <option value="">-- Select --</option>
+              <option value="UNIT">Unit Price</option>
+              <option value="SRP">SRP</option>
             </select>
           </div>
 
@@ -130,13 +117,33 @@
   </div>
 </div>
 
-<!-- Auto-submit filters -->
+<!-- Auto-toggle tables -->
 <script>
-document.getElementById("item_type").addEventListener("change", function() {
-  document.getElementById("filter_form").submit();
+document.addEventListener("DOMContentLoaded", function() {
+  const typeSelect = document.getElementById("item_type");
+  const prodTable = document.getElementById("products_table");
+  const matTable = document.getElementById("rawmaterials_table");
+
+  typeSelect.addEventListener("change", function() {
+    if (this.value === "PRODUCT") {
+      prodTable.style.display = "block";
+      matTable.style.display = "none";
+    } else if (this.value === "RAW_MATERIAL") {
+      matTable.style.display = "block";
+      prodTable.style.display = "none";
+    } else {
+      prodTable.style.display = "none";
+      matTable.style.display = "none";
+    }
+  });
 });
-document.getElementById("expiration_date").addEventListener("change", function() {
-  document.getElementById("filter_form").submit();
+
+document.getElementById("reason").addEventListener("change", function() {
+  if (this.value === "SOLD") {
+    document.getElementById("sales-price-section").style.display = "block";
+  } else {
+    document.getElementById("sales-price-section").style.display = "none";
+  }
 });
 </script>
 {% endblock %}

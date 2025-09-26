@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+<div class="edit-page">
+    <div class="profile-header">
+        <div class="edit-button-container">
+            <a href="{% url 'profile' %}" class="btn btn-secondary">Back to Profile</a>
+        </div>
+        <!-- Circular container for profile image -->
+        <div class="profile-img-container">
+            <img id="profile-img" src="" alt="Profile Picture" class="profile-img" style="display: none;">
+        </div>
+    </div>
+
+    <div class="profile-info">
+        <!-- Image Upload Section -->
+        <div class="upload-section">
+            <label for="image-upload" class="upload-label">Choose Profile Picture</label>
+            <input type="file" id="image-upload" name="profile-img" accept="image/*">
+        </div>
+
+        <div class="profile-form">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    {{form.username}}
+                    <!-- <input type="text" id="username" name="username" value="{{ request.user.username }}"> -->
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    {{form.email}}
+                    <!-- <input type="email" id="email" name="email" value="{{ request.user.email }}"> -->
+                </div>
+                <div class="form-group">
+                    <label for="first-name">First Name</label>
+                    {{form.first_name}}
+                    <!-- <input type="text" id="first-name" name="first-name" value="{{ request.user.first_name }}"> -->
+                </div>
+                <div class="form-group">
+                    <label for="last-name">Last Name</label>
+                    {{form.last_name}}
+                    <!-- <input type="text" id="last-name" name="last-name" value="{{ request.user.last_name }}"> -->
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Leave empty to keep current">
+                </div>
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'profile' %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-success">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const imageInput = document.getElementById("image-upload");
+    const profileImage = document.getElementById("profile-img");
+
+    imageInput.addEventListener("change", function(event) {
+        const file = event.target.files[0];
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                profileImage.src = e.target.result;
+                profileImage.style.display = "block"; // Show the image after upload
+            };
+            reader.readAsDataURL(file); // Converts the image file to a URL
+        }
+    });
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -32,14 +33,36 @@
 
           <div class="card-body">
 
-            <!-- 🔹 Summary Section -->
-            <div class="mb-3">
-              <h5>Sales Summary</h5>
-              <ul class="list-unstyled" id="salesSummary">
-                <li><strong>Total Sales:</strong> {{ sales_summary.total_sales|default:0 }}</li>
-                <li><strong>Average Sale:</strong> {{ sales_summary.average_sales|floatformat:2 }}</li>
-                <li><strong>Number of Sales:</strong> {{ sales_summary.sales_count }}</li>
-              </ul>
+            <div class="row mb-3 text-center">
+              <!-- Total Sales -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Sales</h5>
+                    <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Average Sale -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Average Sale</h5>
+                    <h3 class="text-primary">₱{{ sales_summary.average_sales|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Number of Sales -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Number of Sales</h5>
+                    <h3 class="text-info">{{ sales_summary.sales_count }}</h3>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Table -->
@@ -58,17 +81,40 @@
                   {% for object in object_list %}
                   <tr>
                     <td>{{ object.category }}</td>
-                    <td>{{ object.amount }}</td>
-                    <td>{{ object.date }}</td>
+                    <td>₱{{ object.amount }}</td>
+                    <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td>{{ object.description }}</td>
                     <td>
                       <a href="{% url 'sales-edit' object.id %}" style="color: blue;" title="Edit">
                         <i class="la la-edit la-lg"></i>
                       </a>
                       &nbsp;&nbsp;
-                      <a href="{% url 'sales-delete' object.id %}" style="color: red;" title="Delete">
+                      <a href="#" data-toggle="modal" data-target="#deleteSaleModal{{ object.id }}" style="color: red;" title="Delete">
                         <i class="la la-trash la-lg"></i>
                       </a>
+                      <div class="modal fade" id="deleteSaleModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title">Confirm Delete</h5>
+                              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span>&times;</span>
+                              </button>
+                            </div>
+                            <div class="modal-body">
+                              Are you sure you want to delete
+                              <strong>{{ object.category }} - ₱{{ object.amount }} on {{ object.date|date:"Y-m-d" }}</strong>?
+                            </div>
+                            <div class="modal-footer">
+                              <form method="post" action="{% url 'sales-delete' object.id %}">
+                                {% csrf_token %}
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                   {% empty %}
