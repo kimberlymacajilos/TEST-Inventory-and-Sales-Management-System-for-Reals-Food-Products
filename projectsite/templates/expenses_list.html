@@ -1,170 +1,100 @@
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
 <div class="content">
-  <div class="container-fluid">
-    <h4 class="page-title">Expenses</h4>
-    <div class="row">
-      <div class="col-md-12">
-        <div class="card">
-          <!-- Header: title + filters + add button -->
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-              <div class="card-title">List of Expenses</div>
-              <div class="card-category">Page Subtitle</div>
+    <div class="container-fluid">
+        <h4 class="page-title">Expenses</h4>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+
+                    <!-- Header: title + filters + add button -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="card-title">List of Expenses</div>
+                            <div class="card-category">Page Subtitle</div>
+                        </div>
+
+                        <div class="d-flex align-items-center" style="gap:0.5rem;">
+                            <!-- Category Filter -->
+                            <select id="categoryFilter" class="form-control" style="width:150px;">
+                                <option value="">All Categories</option>
+                                {% for object in object_list|dictsort:"category" %}
+                                    <option value="{{ object.category }}">{{ object.category }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <!-- Date Filter -->
+                            <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
+
+                            <!-- Search -->
+                            <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search expenses..." />
+
+                            <!-- Add Button -->
+                            <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expense</a>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+
+                        <!-- 🔹 Summary Section -->
+                        <div class="mb-3">
+                            <h5>Expenses Summary</h5>
+                            <ul class="list-unstyled" id="expensesSummary">
+                                <li><strong>Total Expenses:</strong> {{ expenses_summary.total_expenses|default:0 }}</li>
+                                <li><strong>Average Expense:</strong> {{ expenses_summary.average_expenses|floatformat:2 }}</li>
+                                <li><strong>Number of Expenses:</strong> {{ expenses_summary.expenses_count }}</li>
+                            </ul>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="expensesTable">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Category</th>
+                                        <th scope="col">Amount</th>
+                                        <th scope="col">Date</th>
+                                        <th scope="col">Description</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expensesTableBody">
+                                    {% for object in object_list %}
+                                        <tr>
+                                            <td>{{ object.category }}</td>
+                                            <td>{{ object.amount }}</td>
+                                            <td>{{ object.date }}</td>
+                                            <td>{{ object.description }}</td>
+                                            <td>
+                                                <a href="{% url 'expenses-edit' object.id %}" style="color: blue;" title="Edit">
+                                                    <i class="la la-edit la-lg"></i>
+                                                </a>
+                                                &nbsp;&nbsp;
+                                                <a href="{% url 'expenses-delete' object.id %}" style="color: red;" title="Delete">
+                                                    <i class="la la-trash la-lg"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center">No expenses found.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% include 'includes/pagination.html' %}
+                    </div>
+
+                </div>
             </div>
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:150px;">
-                <option value="">All Categories</option>
-                {% for object in object_list|dictsort:"category" %}
-                  <option value="{{ object.category }}">{{ object.category }}</option>
-                {% endfor %}
-              </select>
-
-              <!-- Date Filter -->
-              <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
-
-              <!-- Search -->
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search expenses..." />
-
-              <!-- Add Button -->
-              <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expense</a>
-            </div>
-          </div>
-
-          <div class="card-body">
-
-            <!-- 🔹 Summary Section -->
-            <div class="mb-3">
-              <h5>Expenses Summary</h5>
-              <ul class="list-unstyled" id="expensesSummary">
-                <li><strong>Total Expenses:</strong> {{ expenses_summary.total_expenses|default:0 }}</li>
-                <li><strong>Average Expense:</strong> {{ expenses_summary.average_expenses|floatformat:2 }}</li>
-                <li><strong>Number of Expenses:</strong> {{ expenses_summary.expenses_count }}</li>
-              </ul>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-striped" id="expensesTable">
-                <thead>
-                  <tr>
-                    <th scope="col">Category</th>
-                    <th scope="col">Amount</th>
-                    <th scope="col">Date</th>
-                    <th scope="col">Description</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="expensesTableBody">
-                  {% for object in object_list %}
-                  <tr>
-                    <td>{{ object.category }}</td>
-                    <td>{{ object.amount }}</td>
-                    <td>{{ object.date }}</td>
-                    <td>{{ object.description }}</td>
-                    <td>
-                      <a href="{% url 'expenses-edit' object.id %}" style="color: blue;" title="Edit">
-                        <i class="la la-edit la-lg"></i>
-                      </a>
-                      &nbsp;&nbsp;
-                      <a href="{% url 'expenses-delete' object.id %}" style="color: red;" title="Delete">
-                        <i class="la la-trash la-lg"></i>
-                      </a>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-            {% include 'includes/pagination.html' %}
-          </div>
         </div>
-      </div>
+
     </div>
-  </div>
 </div>
 
-<script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const categoryFilter = document.getElementById('categoryFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('expensesTableBody');
-  const table = document.getElementById('expensesTable');
-  const summary = document.getElementById('expensesSummary');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No expenses found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  function updateSummary(rows){
-    let total = 0, count = 0;
-    rows.forEach(row => {
-      if(row.style.display !== 'none'){
-        total += parseFloat(row.cells[1].textContent) || 0;
-        count++;
-      }
-    });
-    const avg = count ? (total / count).toFixed(2) : 0;
-    summary.innerHTML = `
-      <li><strong>Total Expenses:</strong> ${total}</li>
-      <li><strong>Average Expense:</strong> ${avg}</li>
-      <li><strong>Number of Expenses:</strong> ${count}</li>
-    `;
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const selectedCategory = normalize(categoryFilter.value);
-    const selectedDate = dateFilter.value; // format: YYYY-MM
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const category = normalize(row.cells[0].textContent);
-      const amount = normalize(row.cells[1].textContent);
-      const date = (row.cells[2].textContent || '').trim().substring(0,7); // YYYY-MM
-      const description = normalize(row.cells[3].textContent);
-
-      let match = true;
-
-      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
-        match = false;
-      }
-      if(selectedCategory && category !== selectedCategory) {
-        match = false;
-      }
-      if(selectedDate && date !== selectedDate) {
-        match = false;
-      }
-
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
-    });
-
-    showNoResults(visible === 0);
-    updateSummary(rows);
-  }
-
-  searchInput.addEventListener('keyup', filterRows);
-  categoryFilter.addEventListener('change', filterRows);
-  dateFilter.addEventListener('change', filterRows);
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
-</script>
+<script src="{% static 'js/expenses_search.js' %}"></script>
 {% endblock %}

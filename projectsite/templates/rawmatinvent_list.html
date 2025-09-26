@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -9,7 +8,7 @@
     <div class="row">
       <div class="col-md-12">
         <div class="card">
-          <!-- Header: title + filters + add button -->
+          <!-- Card Header -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of Raw Material Inventory</div>
@@ -17,29 +16,40 @@
             </div>
           </div>
 
+          <!-- Card Body -->
           <div class="card-body">
+            <!-- Search bar above table -->
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <form id="inventorySearchForm">
+                  <input type="text" id="inventorySearchInput" class="form-control" placeholder="Search raw material inventory...">
+                </form>
+              </div>
+            </div>
+
+            <!-- Table -->
             <div class="table-responsive">
-              <table class="table table-striped" id="inventoryTable">
+              <table class="table table-striped">
                 <thead>
                   <tr>
-                    <th scope="col">Material</th>
-                    <th scope="col">Current Stock</th>
-                    <th scope="col">Restock Threshold</th>
-                    <th scope="col">Status</th>
+                    <th>Material</th>
+                    <th>Current Stock</th>
+                    <th>Restock Threshold</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryTableBody">
-                  {% for object in object_list %}
+                  {% for item in rawmatinvent %}
                   <tr>
-                    <td>{{ object.material }}</td>
-                    <td>{{ object.total_stock }}</td>
-                    <td>{{ object.reorder_threshold }}</td>
+                    <td>{{ item.material.name }}</td>
+                    <td>{{ item.total_stock }}</td>
+                    <td>{{ item.reorder_threshold }}</td>
                     <td>
-                        {% if object.total_stock == 0 %}
+                        {% if item.total_stock == 0 %}
                           <span class="badge bg-danger">Out of Stock</span>
-                        {% elif object.total_stock < object.reorder_threshold %}
+                        {% elif item.total_stock < item.reorder_threshold %}
                           <span class="badge bg-warning text-dark">Low Stock</span>
-                        {% elif object.total_stock == object.reorder_threshold %}
+                        {% elif item.total_stock == item.reorder_threshold %}
                           <span class="badge bg-info text-dark">Warning</span>
                         {% else %}
                           <span class="badge bg-success">On Stock</span>
@@ -50,11 +60,18 @@
                 </tbody>
               </table>
             </div>
-            {% include 'includes/pagination.html' %}
+
+            <!-- Pagination -->
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Include JS for AJAX search -->
+<script src="{% static 'js/rawmaterial_search.js' %}"></script>
 {% endblock %}

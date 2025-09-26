@@ -14,16 +14,11 @@
                             <div class="card-title">List of Product Batches</div>
                             <div class="card-category">Filter Batches</div>
                             <!-- Search form -->
-                            <form method="get" action="" class="mt-2" id="batchSearchForm">
-                                <div class="input-group">
-                                    <input type="text" id="batchSearchInput" name="q" 
-                                        class="form-control" 
-                                        placeholder="Search product/batch..." 
-                                        value="{{ request.GET.q }}">
-                                    <div class="ms-2">
-                                        <button type="submit" class="btn btn-primary">Search</button>
-                                    </div>
-                                </div>
+                            <form id="batchSearchForm" class="mt-2">
+                                <input type="text" id="batchSearchInput" 
+                                       class="form-control" 
+                                       placeholder="Search product/batch..." 
+                                       value="{{ request.GET.q }}">
                             </form>
                         </div>
                         <div class="pull-right">

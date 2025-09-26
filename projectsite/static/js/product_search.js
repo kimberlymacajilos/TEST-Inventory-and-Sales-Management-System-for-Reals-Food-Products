@@ -58,32 +58,37 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 
-// batch_list search
 document.addEventListener("DOMContentLoaded", function() {
     const searchInput = document.getElementById("batchSearchInput");
-    const searchForm = document.getElementById("batchSearchForm");
+    const monthInput = document.getElementById("batchDateFilter");
     const batchTableBody = document.getElementById("batchTableBody");
-    const pagination = document.querySelector(".pagination");
-
-    // Prevent form reload
-    searchForm.addEventListener("submit", function(e) {
-        e.preventDefault();
-        fetchBatches(searchInput.value.trim());
-    });
+    const pagination = document.querySelector(".pagination-container");
 
     let timeout;
+
+    // Trigger search on typing
     searchInput.addEventListener("input", function() {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
-            fetchBatches(searchInput.value.trim());
+            fetchBatches(searchInput.value.trim(), monthInput ? monthInput.value : "");
         }, 300);
     });
 
-    function fetchBatches(query = "") {
+
+    if (monthInput) {
+        monthInput.addEventListener("change", function () {
+            fetchBatches(searchInput.value.trim(), monthInput.value);
+        });
+    }
+
+    function fetchBatches(query = "", month = "") {
         let url = "/prodbatch/";
-        if (query) {
-            url += `?q=${encodeURIComponent(query)}`;
-        }
+        let params = [];
+
+        if (query) params.push(`q=${encodeURIComponent(query)}`);
+        if (month) params.push(`month=${encodeURIComponent(month)}`);
+
+        if (params.length > 0) url += `?${params.join("&")}`;
 
         fetch(url)
             .then(response => response.text())
@@ -91,19 +96,18 @@ document.addEventListener("DOMContentLoaded", function() {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, "text/html");
 
+                // Update table body
                 const newRows = doc.querySelector("#batchTableBody");
-                if (newRows) {
-                    batchTableBody.innerHTML = newRows.innerHTML;
-                }
+                if (newRows) batchTableBody.innerHTML = newRows.innerHTML;
 
-                const newPagination = doc.querySelector(".pagination");
-                if (newPagination && pagination) {
-                    pagination.innerHTML = newPagination.innerHTML;
-                }
+                // Update pagination
+                const newPagination = doc.querySelector(".pagination-container");
+                if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
             })
             .catch(err => console.error("Error fetching batches:", err));
     }
 });
+
 
 // prodinvent_list search
 document.addEventListener("DOMContentLoaded", function() {
