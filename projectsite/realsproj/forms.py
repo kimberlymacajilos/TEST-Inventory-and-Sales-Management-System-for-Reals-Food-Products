@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
-        fields = '__all__'
+        exclude = ['created_by_admin'] 
         widgets = {
             'date_created': forms.DateTimeInput(
                 attrs={'type': 'datetime-local'},

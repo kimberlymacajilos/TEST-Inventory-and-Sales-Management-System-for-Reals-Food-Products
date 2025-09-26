@@ -176,6 +176,12 @@ class ProductCreateView(CreateView):
     template_name = 'prod_add.html'
     success_url = reverse_lazy('products')
 
+    def form_valid(self, form):
+        # ✅ map Django User -> AuthUser
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+    
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
