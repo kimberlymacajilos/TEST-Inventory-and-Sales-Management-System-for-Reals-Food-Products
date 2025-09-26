@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -35,13 +36,42 @@
 
           <div class="card-body">
 
-            <div class="mb-3">
-              <h5>Expenses Summary</h5>
-              <ul class="list-unstyled" id="expensesSummary">
-                <li><strong>Total Expenses:</strong> <span id="summaryTotal">{{ expenses_summary.total_expenses|default:0 }}</span></li>
-                <li><strong>Average Expense:</strong> <span id="summaryAvg">{{ expenses_summary.average_expenses|floatformat:2 }}</span></li>
-                <li><strong>Number of Expenses:</strong> <span id="summaryCount">{{ expenses_summary.expenses_count|default:0 }}</span></li>
-              </ul>
+            <div class="row mb-3 text-center">
+              <!-- Total Expenses -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Expenses</h5>
+                    <h3 class="text-danger">
+                      ₱{{ expenses_summary.total_expenses|floatformat:2|intcomma }}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Average Expense -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Average Expense</h5>
+                    <h3 class="text-warning">
+                      ₱{{ expenses_summary.average_expenses|floatformat:2|intcomma }}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Number of Expenses -->
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Number of Expenses</h5>
+                    <h3 class="text-info">
+                      {{ expenses_summary.expenses_count|intcomma }}
+                    </h3>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="table-responsive">
@@ -132,21 +162,26 @@
     }
   }
 
+  // 🔹 Same structure as sales
   function updateSummary(rows){
-    // Do nothing – keep Django’s totals/count
-  }
+    let total = 0, count = 0;
+    rows.forEach(row => {
+      if(row.style.display !== 'none'){
+        total += parseFloat(row.cells[1].textContent) || 0;
+        count++;
+      }
+    });
+    const avg = count ? (total / count).toFixed(2) : 0;
 
-
-    // Only update number of visible rows
+    document.getElementById('summaryTotal').textContent = total;
+    document.getElementById('summaryAvg').textContent = avg;
     document.getElementById('summaryCount').textContent = count;
-
-    // Keep Django totals (Total & Average) untouched
   }
 
   function filterRows(){
     const q = normalize(searchInput.value);
     const selectedCategory = normalize(categoryFilter.value);
-    const selectedDate = dateFilter.value; // format YYYY-MM
+    const selectedDate = dateFilter.value; // format: YYYY-MM
 
     const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
     let visible = 0;
@@ -154,13 +189,20 @@
     rows.forEach(row => {
       const category = normalize(row.cells[0].textContent);
       const amount = normalize(row.cells[1].textContent);
-      const date = (row.cells[2].textContent || '').trim().substring(0,7);
+      const date = (row.cells[2].textContent || '').trim().substring(0,7); // YYYY-MM
       const description = normalize(row.cells[3].textContent);
 
       let match = true;
-      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) match = false;
-      if(selectedCategory && category !== selectedCategory) match = false;
-      if(selectedDate && date !== selectedDate) match = false;
+
+      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
+        match = false;
+      }
+      if(selectedCategory && category !== selectedCategory) {
+        match = false;
+      }
+      if(selectedDate && date !== selectedDate) {
+        match = false;
+      }
 
       row.style.display = match ? '' : 'none';
       if(match) visible++;
