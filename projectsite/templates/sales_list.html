@@ -23,8 +23,12 @@
                   <option value="{{ object.category }}">{{ object.category }}</option>
                 {% endfor %}
               </select>
+
               <!-- Search -->
               <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search sales..." />
+
+              <!-- Date Filter -->
+              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
 
               <!-- Add Button -->
               <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
@@ -33,8 +37,8 @@
 
           <div class="card-body">
 
-            <div class="row mb-3 text-center">
-              <!-- Total Sales -->
+            <!-- Sales Summary -->
+            <div class="row mb-3 text-center" id="salesSummary">
               <div class="col-md-4">
                 <div class="card">
                   <div class="card-body">
@@ -43,8 +47,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Average Sale -->
               <div class="col-md-4">
                 <div class="card">
                   <div class="card-body">
@@ -53,8 +55,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Number of Sales -->
               <div class="col-md-4">
                 <div class="card">
                   <div class="card-body">
@@ -70,11 +70,11 @@
               <table class="table table-striped" id="salesTable">
                 <thead>
                   <tr>
-                    <th scope="col">Category</th>
-                    <th scope="col">Amount</th>
-                    <th scope="col">Date</th>
-                    <th scope="col">Description</th>
-                    <th scope="col">Actions</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="salesTableBody">
@@ -85,13 +85,15 @@
                     <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td>{{ object.description }}</td>
                     <td>
-                      <a href="{% url 'sales-edit' object.id %}" style="color: blue;" title="Edit">
+                      <a href="{% url 'sales-edit' object.id %}" class="text-primary" title="Edit">
                         <i class="la la-edit la-lg"></i>
                       </a>
                       &nbsp;&nbsp;
-                      <a href="#" data-toggle="modal" data-target="#deleteSaleModal{{ object.id }}" style="color: red;" title="Delete">
+                      <a href="#" data-toggle="modal" data-target="#deleteSaleModal{{ object.id }}" class="text-danger" title="Delete">
                         <i class="la la-trash la-lg"></i>
                       </a>
+
+                      <!-- Delete Modal -->
                       <div class="modal fade" id="deleteSaleModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered" role="document">
                           <div class="modal-content">
@@ -115,6 +117,7 @@
                           </div>
                         </div>
                       </div>
+
                     </td>
                   </tr>
                   {% empty %}
@@ -133,7 +136,6 @@
     </div>
   </div>
 </div>
-
 
 <script src="{% static 'js/sales_search.js' %}"></script>
 {% endblock %}

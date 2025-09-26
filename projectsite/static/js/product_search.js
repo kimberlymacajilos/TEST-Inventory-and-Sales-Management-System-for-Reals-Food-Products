@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const searchInput = document.getElementById("searchInput");
     const searchForm = document.getElementById("searchForm");
     const inventoryTableBody = document.getElementById("inventoryTableBody");
-    const pagination = document.querySelector(".pagination");
+    const paginationContainer = document.getElementById("paginationContainer");
 
     // Prevent normal form submission
     searchForm.addEventListener("submit", function(e) {
@@ -132,10 +132,14 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Fetch inventory data
-    function fetchInventory(query = "") {
-        let url = "/product-inventory/";
-        if (query) {
+    function fetchInventory(query = "", pageUrl = null) {
+        let url = pageUrl || "/product-inventory/";
+        if (query && !pageUrl) {
             url += `?q=${encodeURIComponent(query)}`;
+        } else if (query && pageUrl) {
+            // Preserve query when using pagination
+            const separator = pageUrl.includes("?") ? "&" : "?";
+            url = pageUrl + separator + "q=" + encodeURIComponent(query);
         }
 
         fetch(url)
@@ -150,13 +154,36 @@ document.addEventListener("DOMContentLoaded", function() {
                     inventoryTableBody.innerHTML = newRows.innerHTML;
                 }
 
-                // Replace pagination
-                const newPagination = doc.querySelector(".pagination");
-                if (newPagination && pagination) {
-                    pagination.innerHTML = newPagination.innerHTML;
+                // Replace pagination and rebind events
+                const newPagination = doc.querySelector("#paginationContainer");
+                if (newPagination && paginationContainer) {
+                    paginationContainer.innerHTML = newPagination.innerHTML;
+                    bindPaginationEvents(); // rebind click handlers
                 }
             })
             .catch(err => console.error("Error fetching inventory:", err));
     }
+
+    // Intercept pagination clicks
+    function bindPaginationEvents() {
+        const links = paginationContainer.querySelectorAll("a.page-link");
+        links.forEach(link => {
+            link.addEventListener("click", function(e) {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                const href = link.getAttribute("href");
+
+                // Ensure correct base URL for relative links like "?page=2"
+                const baseUrl = window.location.pathname; // "/product-inventory/"
+                const pageUrl = href.startsWith("?") ? baseUrl + href : href;
+
+                fetchInventory(query, pageUrl);
+            });
+        });
+    }
+
+    // Initial bind
+    bindPaginationEvents();
 });
+
 

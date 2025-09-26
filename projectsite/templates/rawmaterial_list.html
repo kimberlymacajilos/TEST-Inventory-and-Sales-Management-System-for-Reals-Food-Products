@@ -16,7 +16,6 @@
                         <div class="pull-right">
                             <a href="{% url 'rawmaterials-add' %}" class="btn btn-success btn-rounded">Add Raw Material</a>
                         </div>
-                        <a href="{% url 'rawmaterials-add' %}" class="btn btn-success btn-rounded">Add Raw Material</a>
                     </div>
 
                     <div class="card-body">
@@ -43,7 +42,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="rawMaterialTableBody">
-                                    {% for material in rawmaterials  %}
+                                    {% for material in rawmaterials %}
                                     <tr>
                                         <td>{{ material.name }}</td>
                                         <td>{{ material.unit.unit_name }}</td>
@@ -51,14 +50,18 @@
                                         <td>{{ material.expiration_date }}</td>
                                         <td>{{ material.created_by_admin.username }}</td>
                                         <td>
-                                            <a href="{% url 'rawmaterials-edit' object.id %}" style="color: blue;" title="Edit">
+                                            <!-- Edit -->
+                                            <a href="{% url 'rawmaterials-edit' material.id %}" style="color: blue;" title="Edit">
                                                 <i class="la la-edit la-lg"></i>
                                             </a>
                                             &nbsp;&nbsp;
-                                            <a href="#" data-toggle="modal" data-target="#deleteRawMaterialModal{{ object.id }}" style="color: red;" title="Delete">
+                                            <!-- Delete -->
+                                            <a href="#" data-toggle="modal" data-target="#deleteRawMaterialModal{{ material.id }}" style="color: red;" title="Delete">
                                                 <i class="la la-trash la-lg"></i>
                                             </a>
-                                            <div class="modal fade" id="deleteRawMaterialModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+
+                                            <!-- Delete Modal -->
+                                            <div class="modal fade" id="deleteRawMaterialModal{{ material.id }}" tabindex="-1" role="dialog" aria-hidden="true">
                                                 <div class="modal-dialog modal-dialog-centered" role="document">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
@@ -69,10 +72,10 @@
                                                         </div>
                                                         <div class="modal-body">
                                                             Are you sure you want to delete raw material:
-                                                            <strong>{{ object.name }}</strong> ({{ object.size }} {{ object.unit }})?
+                                                            <strong>{{ material.name }}</strong> ({{ material.size }} {{ material.unit.unit_name }})?
                                                         </div>
                                                         <div class="modal-footer">
-                                                            <form method="post" action="{% url 'rawmaterials-delete' object.id %}">
+                                                            <form method="post" action="{% url 'rawmaterials-delete' material.id %}">
                                                                 {% csrf_token %}
                                                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                                                                 <button type="submit" class="btn btn-danger">Delete</button>
@@ -82,10 +85,6 @@
                                                 </div>
                                             </div>
                                         </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="6" class="text-center">No raw materials found.</td>
                                     </tr>
                                     {% empty %}
                                     <tr>

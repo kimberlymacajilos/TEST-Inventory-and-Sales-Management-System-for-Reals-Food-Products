@@ -19,7 +19,6 @@
                                            class="form-control"
                                            placeholder="Search product/stock..."
                                            value="{{ request.GET.q }}">
-                                    <!-- Removed the button for automatic search -->
                                 </div>
                             </form>
                         </div>
@@ -62,7 +61,9 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                        {% include 'includes/pagination.html' %}
+                        <div id="paginationContainer">
+                            {% include 'includes/pagination.html' %}
+                        </div>
                     </div>
                 </div>
             </div>

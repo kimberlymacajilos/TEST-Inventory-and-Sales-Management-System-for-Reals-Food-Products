@@ -15,27 +15,34 @@
               <div class="card-category">Page Subtitle</div>
             </div>
 
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
-
-              <select id="itemTypeFilter" class="form-control" style="width:160px;">
+            <form method="get" class="d-flex align-items-center" style="gap:0.5rem;">
+              
+              <select id="itemTypeFilter" name="item_type" class="form-control" style="width:160px;">
                 <option value="">All Types</option>
                 {% for obj in object_list %}
-                  <option value="{{ obj.get_item_type_display }}">{{ obj.get_item_type_display }}</option>
+                  <option value="{{ obj.item_type }}" {% if request.GET.item_type == obj.item_type %}selected{% endif %}>
+                    {{ obj.get_item_type_display }}
+                  </option>
                 {% endfor %}
               </select>
 
-              <select id="reasonFilter" class="form-control" style="width:160px;">
+              <select id="reasonFilter" name="reason" class="form-control" style="width:160px;">
                 <option value="">All Reasons</option>
                 {% for obj in object_list %}
-                  <option value="{{ obj.get_reason_display }}">{{ obj.get_reason_display }}</option>
+                  <option value="{{ obj.reason }}" {% if request.GET.reason == obj.reason %}selected{% endif %}>
+                    {{ obj.get_reason_display }}
+                  </option>
                 {% endfor %}
               </select>
 
-              <input id="dateFilter" class="form-control" style="width:180px;" placeholder="Date (YYYY / YYYY-MM / MM / YYYY-MM-DD)" />
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search item id / user..." />
+              <input type="month" id="dateFilter" name="date" class="form-control" style="width:180px;"
+                     value="{{ request.GET.date|default:'' }}" />
 
+              <input id="searchInput" name="search" class="form-control" style="width:220px;"
+                     placeholder="Search item id / user..."
+                     value="{{ request.GET.q|default:'' }}" />
               <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
-            </div>
+            </form>
           </div>
 
           <div class="card-body">
@@ -56,7 +63,7 @@
                   <tr>
                     <td>{{ object.date|date:"Y-m-d H:i" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
-                    <td>{{ object.get_item_display  }}</td>
+                    <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity }}</td>
                     <td>{{ object.get_reason_display }}</td>
                     <td>{{ object.created_by_admin.username }}</td>

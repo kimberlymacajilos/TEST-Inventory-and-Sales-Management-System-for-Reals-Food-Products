@@ -68,13 +68,17 @@ from realsproj.models import (
     ExpensesSummary,
 )
 
-from django.db.models import Q
+from django.db.models import Q, CharField
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.contrib.auth.forms import UserCreationForm
+from datetime import datetime
+from django.db.models.functions import Cast
+
 
 
 @method_decorator(login_required, name='dispatch')
@@ -266,16 +270,30 @@ class SalesList(ListView):
     def get_queryset(self):
         qs = Sales.objects.select_related("created_by_admin").order_by("-date")
 
+        # --- Search filter ---
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
-                Q(item__icontains=query) |
-                Q(quantity__icontains=query) |
+                Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+
+        # --- Category filter ---
+        category = self.request.GET.get("category", "").strip()
+        if category:
+            qs = qs.filter(category__iexact=category)
+
+        # --- Month filter (YYYY-MM) ---
+        month = self.request.GET.get("month", "").strip()
+        if month:
+            try:
+                year, month_num = month.split("-")
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass  # ignore invalid month
 
         self._full_queryset = qs
         return qs
@@ -292,7 +310,6 @@ class SalesList(ListView):
         )
 
         return context
-
 
 class SalesCreateView(CreateView):
     model = Sales
@@ -416,14 +433,31 @@ class ProductInventoryList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product")
+        queryset = super().get_queryset().select_related(
+            "product",
+            "product__product_type",
+            "product__variant",
+            "product__size",
+            "product__size_unit",
+            "unit",   # direct unit in ProductInventory
+        )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            queryset = queryset.annotate(
+                total_stock_str=Cast("total_stock", CharField()),
+                restock_threshold_str=Cast("restock_threshold", CharField()),
+            )
+
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |  # comes from Products
-                Q(total_stock__icontains=query) |           # comes from ProductInventory
-                Q(restock_threshold__icontains=query)       # comes from ProductInventory
+                Q(product__description__icontains=q) |
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
+                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
+                Q(unit__unit_name__icontains=q) |                # ✅ correct
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
         return queryset.order_by("product_id")
@@ -553,7 +587,46 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Withdrawals.objects.all().order_by('-date')
+        queryset = Withdrawals.objects.all().order_by('-date')
+        request = self.request
+
+        # ✅ Search across multiple fields
+        q = request.GET.get("q")
+        if q:
+            filters = (
+                Q(created_by_admin__username__icontains=q) |
+                Q(reason__icontains=q) |
+                Q(item_type__icontains=q)
+            )
+            if q.isdigit():
+                filters |= Q(item_id=q)  # numeric search matches exact item_id
+            queryset = queryset.filter(filters)
+
+        # ✅ Dropdown filters
+        item_type = request.GET.get("item_type")
+        if item_type:
+            queryset = queryset.filter(item_type=item_type)
+
+        reason = request.GET.get("reason")
+        if reason:
+            queryset = queryset.filter(reason=reason)
+
+        # ✅ Date filter
+        date_val = request.GET.get("date")
+        if date_val:
+            try:
+                if len(date_val) == 7:  # YYYY-MM
+                    year, month = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month)
+                elif len(date_val) == 10:  # YYYY-MM-DD
+                    year, month, day = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month, date__day=day)
+                elif len(date_val) == 4:  # YYYY
+                    queryset = queryset.filter(date__year=int(date_val))
+            except ValueError:
+                pass  # ignore invalid formats
+
+        return queryset
     
 
 class WithdrawItemView(View):
