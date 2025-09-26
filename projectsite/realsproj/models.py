@@ -185,8 +185,10 @@ class HistoryLog(models.Model):
                 return f"{rm.name} ({rm.unit.unit_name}) - ₱{rm.price_per_unit}"
 
             elif self.entity_type == "product_batch":
-                pb = ProductBatches.objects.select_related("product").get(pk=self.entity_id)
-                return f"{pb.product.product_type.name} - {pb.product.variant.name}"
+                pb = ProductBatches.objects.select_related(
+                    "product__product_type", "product__variant", "product__size", "product__size_unit"
+                ).get(pk=self.entity_id)
+                return f"{pb.product.product_type.name} - {pb.product.variant.name} ({pb.product.size.size_label if pb.product.size else ''} {pb.product.size_unit.unit_name})"
 
             elif self.entity_type == "raw_material_batch":
                 rb = RawMaterialBatches.objects.select_related("material").get(pk=self.entity_id)
@@ -194,17 +196,20 @@ class HistoryLog(models.Model):
 
             elif self.entity_type == "expense":
                 e = Expenses.objects.get(pk=self.entity_id)
-                return f"{e.category}" 
+                return f"{e.category}"
 
             elif self.entity_type == "sale":
                 s = Sales.objects.get(pk=self.entity_id)
                 return f"{s.category}"
 
+            elif self.entity_type == "withdrawal":
+                w = Withdrawals.objects.get(pk=self.entity_id)
+                return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
+
             else:
                 return f"Entity #{self.entity_id}"
         except Exception:
             return f"Entity #{self.entity_id}"
-
 
     def get_details_display(self):
         """Pretty-print before/after changes with human-readable names and clean formatting."""
@@ -213,40 +218,72 @@ class HistoryLog(models.Model):
                 return ""
 
             def humanize_field(key, value):
-                """Convert FK ids into readable names."""
+                """Convert FK ids or choice fields into readable names."""
                 if value is None:
                     return None
+
+                # 🔹 Choice fields for Withdrawals
+                if key == "reason":
+                    return dict(Withdrawals.REASON_CHOICES).get(value, value)
+                if key == "sales_channel":
+                    return dict(Withdrawals.SALES_CHANNEL_CHOICES).get(value, value)
+                if key == "price_type":
+                    return dict(Withdrawals.PRICE_TYPE_CHOICES).get(value, value)
+                if key == "item_type":
+                    return dict(Withdrawals.ITEM_TYPE_CHOICES).get(value, value)
+
+                # 🔹 Product relations
+                if key == "product_id":
+                    try:
+                        product = Products.objects.select_related("product_type", "variant", "size_unit", "size").get(id=value)
+                        return str(product)
+                    except Products.DoesNotExist:
+                        return f"Product #{value}"
 
                 if key == "variant_id":
                     try:
                         return ProductVariants.objects.get(id=value).name
                     except ProductVariants.DoesNotExist:
                         return f"Variant #{value}"
-                elif key == "product_type_id":
+
+                if key == "product_type_id":
                     try:
                         return ProductTypes.objects.get(id=value).name
                     except ProductTypes.DoesNotExist:
                         return f"ProductType #{value}"
-                elif key == "size_id":
+
+                if key == "size_id":
                     try:
                         return Sizes.objects.get(id=value).size_label
                     except Sizes.DoesNotExist:
                         return f"Size #{value}"
-                elif key == "size_unit_id":
+
+                if key in ("size_unit_id", "unit_id"):
                     try:
                         return SizeUnits.objects.get(id=value).unit_name
                     except SizeUnits.DoesNotExist:
                         return f"Unit #{value}"
-                elif key == "srp_price_id":
+
+                # 🔹 Raw material relation
+                if key == "material_id":
+                    try:
+                        return RawMaterials.objects.get(id=value).name
+                    except RawMaterials.DoesNotExist:
+                        return f"Material #{value}"
+
+                # 🔹 Price lookups
+                if key == "srp_price_id":
                     try:
                         return str(SrpPrices.objects.get(id=value))
                     except SrpPrices.DoesNotExist:
                         return f"SRP #{value}"
-                elif key == "unit_price_id":
+
+                if key == "unit_price_id":
                     try:
                         return str(UnitPrices.objects.get(id=value))
                     except UnitPrices.DoesNotExist:
                         return f"Unit Price #{value}"
+
                 return value
 
             ignore_fields = [
@@ -260,8 +297,11 @@ class HistoryLog(models.Model):
                 "description",
             ]
 
+            # hide date changes for expenses & sales
+            if self.entity_type in ("expense", "sale"):
+                ignore_fields.append("date")
+
             def format_key(key):
-                """Format field name for display (capitalize & remove _id)."""
                 return key.replace("_id", "").replace("_", " ").title()
 
             if "before" in self.details and "after" in self.details:
@@ -323,6 +363,28 @@ class Notifications(models.Model):
         db_table = 'notifications'
 
     @property
+    def css_class(self):
+        """Return CSS class for background color of notification icon."""
+        mapping = {
+            "EXPIRATION_ALERT": "notif-warning",
+            "LOW_STOCK": "notif-info",
+            "OUT_OF_STOCK": "notif-danger",
+            "STOCK_HEALTHY": "notif-info",
+        }
+        return mapping.get(self.notification_type.upper(), "notif-info")
+
+    @property
+    def icon_class(self):
+        """Return icon class (using Line Awesome)."""
+        mapping = {
+            "EXPIRATION_ALERT": "la la-hourglass-half",
+            "LOW_STOCK": "la la-arrow-down",
+            "OUT_OF_STOCK": "la la-exclamation-circle",
+            "STOCK_HEALTHY": "la la-check-circle",
+        }
+        return mapping.get(self.notification_type.upper(), "la la-bell")
+
+    @property
     def formatted_message(self):
         """Return a clean, human-readable notification message without 'Product:' or 'Raw Material:'."""
         notif_type = self.notification_type.upper()
@@ -343,7 +405,6 @@ class Notifications(models.Model):
             except RawMaterials.DoesNotExist:
                 item_name = f"Unknown Raw Material (ID {self.item_id})"
 
-        # Build message
         if notif_type == "EXPIRATION_ALERT":
             return f"{item_name} {self._expiration_message()}"
         elif notif_type == "LOW_STOCK":
@@ -353,9 +414,7 @@ class Notifications(models.Model):
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
 
-        # Default fallback
         return f"{notif_type}: {item_name}"
-
 
     def _expiration_message(self):
         """Helper to return expiration timing message based on timestamp."""
@@ -671,7 +730,6 @@ class Withdrawals(models.Model):
         db_column="created_by_admin_id"
     )
 
-    # ✅ add these fields so Django ORM can accept them
     SALES_CHANNEL_CHOICES = [
         ('ORDER', 'Order'),
         ('CONSIGNMENT', 'Consignment'),
@@ -697,7 +755,7 @@ class Withdrawals(models.Model):
     )
 
     class Meta:
-        managed = False   # leave this since DB is already created
+        managed = False  
         db_table = 'withdrawals'
 
     def __str__(self):
