@@ -177,7 +177,6 @@ class ProductCreateView(CreateView):
     success_url = reverse_lazy('products')
 
     def form_valid(self, form):
-        # ✅ map Django User -> AuthUser
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
         return super().form_valid(form)
@@ -203,6 +202,11 @@ class RawMaterialsCreateView(CreateView):
     form_class = RawMaterialsForm
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -277,6 +281,11 @@ class SalesCreateView(CreateView):
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SalesUpdateView(UpdateView):
     model = Sales
     form_class = SalesForm
@@ -327,6 +336,11 @@ class ExpensesCreateView(CreateView):
     form_class = ExpensesForm
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class ExpensesUpdateView(UpdateView):
     model = Expenses
