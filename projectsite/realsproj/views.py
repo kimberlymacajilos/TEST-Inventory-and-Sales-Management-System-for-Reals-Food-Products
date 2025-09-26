@@ -184,7 +184,6 @@ class ProductsUpdateView(UpdateView):
 
 class ProductsDeleteView(DeleteView):
     model = Products
-    template_name = 'prod_delete.html'
     success_url = reverse_lazy('products')
 
 class RawMaterialsList(ListView):
@@ -207,7 +206,6 @@ class RawMaterialsUpdateView(UpdateView):
 
 class RawMaterialsDeleteView(DeleteView):
     model = RawMaterials
-    template_name = 'rawmaterial_delete.html'
     success_url = reverse_lazy('rawmaterials')
 
 class HistoryLogList(ListView):
@@ -281,7 +279,6 @@ class SalesUpdateView(UpdateView):
 
 class SalesDeleteView(DeleteView):
     model = Sales
-    template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
 
@@ -335,7 +332,6 @@ class ExpensesUpdateView(UpdateView):
 
 class ExpensesDeleteView(DeleteView):
     model = Expenses
-    template_name = 'expenses_delete.html'
     success_url = reverse_lazy('expenses')
 
 class ProductBatchList(ListView):
@@ -375,7 +371,6 @@ class ProductBatchUpdateView(UpdateView):
 
 class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
-    template_name = 'prodbatch_delete.html'
     success_url = reverse_lazy('product-batch')
 
 class ProductInventoryList(ListView):
@@ -431,9 +426,9 @@ class RawMaterialBatchUpdateView(UpdateView):
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
     success_url = reverse_lazy('rawmaterial-batch') 
+
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
-    template_name = 'rawmatbatch_delete.html'
     success_url = reverse_lazy('rawmaterial-batch')
 
 
