@@ -26,7 +26,10 @@ class ProductsForm(forms.ModelForm):
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
+        widgets = {
+            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 class HistoryLogForm(ModelForm):
     class Meta:
@@ -36,7 +39,7 @@ class HistoryLogForm(ModelForm):
 class SalesForm(ModelForm):
     class Meta:
         model = Sales
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -44,7 +47,7 @@ class SalesForm(ModelForm):
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
