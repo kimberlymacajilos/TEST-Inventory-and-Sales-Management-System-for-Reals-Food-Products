@@ -120,7 +120,6 @@ class ProductBatchForm(ModelForm):
         widgets = {
             "batch_date": forms.DateInput(attrs={"type": "date"}),
             "manufactured_date": forms.DateInput(attrs={"type": "date"}),
-            "expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
 
 
@@ -242,7 +241,6 @@ class NotificationsForm(forms.Form):
 class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
     deduct_raw_material = forms.BooleanField(
         required=False,
         initial=True,
