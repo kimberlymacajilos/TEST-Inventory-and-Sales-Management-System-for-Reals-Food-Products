@@ -626,7 +626,7 @@ class NotificationsList(ListView):
         return super().get(request, *args, **kwargs)
 
 
-class BulkProductBatchCreateView(LoginRequiredMixin, View):
+class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
 
     def get(self, request):
@@ -638,7 +638,6 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            expiration_date = form.cleaned_data.get('expiration_date')
             deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
@@ -651,7 +650,6 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
                         quantity=qty,
                         batch_date=batch_date,
                         manufactured_date=manufactured_date,
-                        expiration_date=expiration_date,
                         created_by_admin=auth_user,
                         deduct_raw_material=deduct_raw_material
                     )

@@ -454,9 +454,14 @@ class ProductBatches(models.Model):
     product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
     manufactured_date = models.DateTimeField(default=timezone.now)
-    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    expiration_date = models.DateField(blank=True, null=True)
+    created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
+
+    expiration_date = models.GeneratedField(
+        expression="manufactured_date + interval '1 year'",
+        output_field=models.DateField(),
+        db_persist=True,
+    )
 
     class Meta:
         managed = False
