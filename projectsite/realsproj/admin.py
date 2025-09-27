@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Expenses, HistoryLog, HistoryLogTypes, ProductBatches, ProductInventory, ProductRecipes, ProductTypes, ProductVariants, Products, RawMaterialBatches, RawMaterialInventory, RawMaterials, Sales, SizeUnits, Sizes, SrpPrices, UnitPrices, StockChanges, Notifications, Withdrawals, SalesSummary, ExpensesSummary, UserProfile
+from .models import Expenses, HistoryLog, HistoryLogTypes, ProductBatches, ProductInventory, ProductRecipes, ProductTypes, ProductVariants, Products, RawMaterialBatches, RawMaterialInventory, RawMaterials, Sales, SizeUnits, Sizes, SrpPrices, UnitPrices, StockChanges, Notifications, Withdrawals, SalesSummary, ExpensesSummary
 # Register your models here.
 
 admin.site.register(Expenses)
@@ -24,4 +24,3 @@ admin.site.register(Notifications)
 admin.site.register(Withdrawals)
 admin.site.register(SalesSummary)
 admin.site.register(ExpensesSummary)
-admin.site.register(UserProfile)

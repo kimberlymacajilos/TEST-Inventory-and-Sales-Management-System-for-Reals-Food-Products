@@ -143,15 +143,14 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+
 class ProductsList(ListView):
     model = Products
     context_object_name = 'products'
     template_name = "prod_list.html"
     paginate_by = 10
-    
 
     def get_queryset(self):
-        # Preload related FKs for performance
         queryset = (
             super()
             .get_queryset()
@@ -163,11 +162,63 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(description__icontains=query) |
                 Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)  
+                Q(variant__name__icontains=query)
             )
+        product_type = self.request.GET.get("product_type")
+        variant = self.request.GET.get("variant")
+        size = self.request.GET.get("size")
+        date_created = self.request.GET.get("date_created")
+
+        if product_type:
+            queryset = queryset.filter(product_type__name__icontains=product_type)
+        if variant:
+            queryset = queryset.filter(variant__name__icontains=variant)
+        if size:
+            queryset = queryset.filter(size__size_label__icontains=size)
+        if date_created:
+            date_created = date_created.replace("/", "-").strip()
+            parts = date_created.split("-")
+
+            year, month, day = None, None, None
+
+            if len(parts) == 3:
+                if len(parts[0]) == 4:
+                    year, month, day = parts
+                else:
+                    month, day, year = parts
+            elif len(parts) == 2:
+                if len(parts[0]) == 4:
+                    year, month = parts
+                else:
+                    month, year = parts
+            elif len(parts) == 1:
+                if len(parts[0]) == 4: 
+                    year = parts[0]
+                elif len(parts[0]) <= 2:
+                    month = parts[0]
+
+            filters = {}
+            if year and year.isdigit():
+                filters["date_created__year"] = int(year)
+            if month and month.isdigit():
+                filters["date_created__month"] = int(month)
+            if day and day.isdigit():
+                filters["date_created__day"] = int(day)
+
+            if filters:
+                queryset = queryset.filter(**filters)
 
         return queryset
 
+    def get_paginate_by(self, queryset):
+        if self.request.GET:  
+            return None
+        return self.paginate_by
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query_params"] = self.request.GET
+        return context
 
 
 class ProductCreateView(CreateView):
