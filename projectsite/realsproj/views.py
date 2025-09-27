@@ -16,6 +16,7 @@ from decimal import Decimal
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -359,22 +360,35 @@ class ProductBatchList(ListView):
     template_name = "prodbatch_list.html"
     paginate_by = 10
 
-
     def get_queryset(self):
         queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
-        query = self.request.GET.get("q", "").strip()
 
+        # text search
+        query = self.request.GET.get("q", "").strip()
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |   # product description from Products
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(manufactured_date__icontains=query) |      # manufactured_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(product__description__icontains=query) |
+                Q(batch_date__icontains=query) |
+                Q(manufactured_date__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(quantity__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
             )
 
+        # calendar filters
+        batch_date = self.request.GET.get("batch_date")
+        manufactured_date = self.request.GET.get("manufactured_date")
+        expiration_date = self.request.GET.get("expiration_date")
+
+        if batch_date:
+            queryset = queryset.filter(batch_date=batch_date)
+        if manufactured_date:
+            queryset = queryset.filter(manufactured_date=manufactured_date)
+        if expiration_date:
+            queryset = queryset.filter(expiration_date=expiration_date)
+
         return queryset
+
     
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
@@ -683,6 +697,39 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
             return redirect('rawmaterial-batch')
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
+
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def profile_view(request):
+    return render(request, "profile.html")
+
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+
+@login_required
+def edit_profile(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+
+        user = request.user
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")  # balik sa profile page
+
+    return render(request, "editprofile.html")
+
 
 
 def best_sellers_api(request):
