@@ -4,59 +4,63 @@
 {% block title %}My Profile{% endblock %}
 
 {% block content %}
-    <link rel="stylesheet" href="{% static 'css/profile.css' %}">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
 
-    <div class="edit-page">
-        <div class="profile-header">
-            <div class="edit-button-container">
-                <a href="{% url 'edit_profile' %}" class="btn btn-primary">Edit Profile</a>
+<div class="container light-style flex-grow-1 container-p-y">
+    <h2 class="font-weight-bold py-3 mb-4">
+        My Profile
+    </h2>
+
+    <div class="card overflow-hidden">
+        <div class="row no-gutters row-bordered row-border-light">
+            <div class="col-md-3 pt-0">
+                <div class="list-group list-group-flush account-settings-links">
+                    <a class="list-group-item list-group-item-action active" href="#account-general">General</a>
+                    <a class="list-group-item list-group-item-action" href="#account-change-password">Change Password</a>
+                </div>
             </div>
-        </div>
-        <div class="profile-info">
 
-            <!-- Edit Button Container -->
-            </div>
+            <div class="col-md-9">
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="account-general">
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <p>{{ user.username }}</p>  <!-- Display the username without allowing changes -->
+                            </div>
 
-            <div class="profile-form">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" value="{{ request.user.username }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" value="{{ request.user.email }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="first-name">First Name</label>
-                    <input type="text" id="first-name" name="first-name" value="{{ request.user.first_name }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="last-name">Last Name</label>
-                    <input type="text" id="last-name" name="last-name" value="{{ request.user.last_name }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" value="********" readonly>
+                            <div class="form-group">
+                                <label class="form-label">First Name</label>
+                                <p>{{ user.first_name }}</p>  <!-- Display the first name without allowing changes -->
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Last Name</label>
+                                <p>{{ user.last_name }}</p>  <!-- Display the last name without allowing changes -->
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">E-mail</label>
+                                <p>{{ user.email }}</p>  <!-- Display the email without allowing changes -->
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="account-change-password">
+                            <p>Password change is not allowed here.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        const imageInput = document.getElementById("image-upload");
-        const profileImage = document.getElementById("profile-img");
+    <!-- Edit Profile Button -->
+    <div class="text-right mt-3">
+        <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary">Edit Profile</a>
+    </div>
+</div>
 
-        imageInput.addEventListener("change", function(event) {
-            const file = event.target.files[0];
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    profileImage.src = e.target.result;
-                    profileImage.style.display = "block"; // Show the image after upload
-                };
-                reader.readAsDataURL(file); // Converts the image file to a URL
-            }
-        });
-    </script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

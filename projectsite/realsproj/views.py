@@ -17,7 +17,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .forms import CustomUserCreationForm
@@ -77,6 +77,7 @@ from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 from django.contrib.auth.models import User
+from .forms import CustomUserChangeForm
 
 
 @method_decorator(login_required, name='dispatch')
@@ -709,27 +710,6 @@ def profile_view(request):
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-
-@login_required
-def edit_profile(request):
-    if request.method == "POST":
-        username = request.POST.get("username")
-        first_name = request.POST.get("first_name")
-        last_name = request.POST.get("last_name")
-        email = request.POST.get("email")
-
-        user = request.user
-        user.username = username
-        user.first_name = first_name
-        user.last_name = last_name
-        user.email = email
-        user.save()
-
-        messages.success(request, "Profile updated successfully!")
-        return redirect("profile")  # balik sa profile page
-
-    return render(request, "editprofile.html")
-
 
 
 def best_sellers_api(request):

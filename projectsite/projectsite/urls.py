@@ -113,6 +113,7 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
 
+
 ]
 
 if settings.DEBUG: 

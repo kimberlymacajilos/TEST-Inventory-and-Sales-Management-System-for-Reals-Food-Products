@@ -80,23 +80,13 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'reals_local',
-#        'USER': 'postgres',
-#        'PASSWORD': 'root',
-#        'HOST': 'localhost',
-#        'PORT': '5432',
-#    }
-#}
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'admin',
+        'PASSWORD': 'reals',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -111,6 +101,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min-length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
