@@ -173,13 +173,22 @@ class ProductsList(ListView):
 class ProductCreateView(CreateView):
     model = Products
     form_class = ProductsForm
-    template_name = 'prod_add.html'
-    success_url = reverse_lazy('products')
+    template_name = "prod_add.html"
+    success_url = reverse_lazy("products")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["product_types"] = ProductTypes.objects.all()
+        context["variants"] = ProductVariants.objects.all()
+        context["sizes"] = Sizes.objects.all()
+        context["size_units"] = SizeUnits.objects.all()
+        return context
 
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
         return super().form_valid(form)
+
     
 class ProductsUpdateView(UpdateView):
     model = Products

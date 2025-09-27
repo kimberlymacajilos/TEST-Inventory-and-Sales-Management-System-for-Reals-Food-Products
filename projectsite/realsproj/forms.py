@@ -8,20 +8,80 @@ from django.core.exceptions import ValidationError
 
 
 class ProductsForm(forms.ModelForm):
+    product_type_name = forms.CharField(
+        label="Product Type",
+        widget=forms.TextInput(attrs={"list": "product_types"})
+    )
+    variant_name = forms.CharField(
+        label="Product Variant",
+        widget=forms.TextInput(attrs={"list": "variants"})
+    )
+    size_label = forms.CharField(
+        label="Size",
+        widget=forms.TextInput(attrs={"list": "sizes"}), required=False
+    )
+    size_unit_name = forms.CharField(
+        label="Size Unit",
+        widget=forms.TextInput(attrs={"list": "size_units"})
+    )
+    unit_price_value = forms.DecimalField(
+        label="Unit Price",
+        widget=forms.NumberInput(attrs={"step": "0.01"})
+    )
+    srp_price_value = forms.DecimalField(
+        label="SRP Price",
+        widget=forms.NumberInput(attrs={"step": "0.01"})
+    )
+
     class Meta:
         model = Products
-        exclude = ['created_by_admin'] 
-        widgets = {
-            'date_created': forms.DateTimeInput(
-                attrs={'type': 'datetime-local'},
-                format='%Y-%m-%dT%H:%M'
-            ),
-        }
+        exclude = ["created_by_admin", "date_created", "product_type", "variant", "size", "size_unit", "unit_price", "srp_price"]
 
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            if self.instance and self.instance.pk:
-                self.fields['date_created'].initial = self.instance.date_created.strftime('%Y-%m-%dT%H:%M')
+    def clean_product_type_name(self):
+        name = self.cleaned_data["product_type_name"].strip()
+        obj, created = ProductTypes.objects.get_or_create(name__iexact=name, defaults={"name": name})
+        return obj
+
+    def clean_variant_name(self):
+        name = self.cleaned_data["variant_name"].strip()
+        obj, created = ProductVariants.objects.get_or_create(name__iexact=name, defaults={"name": name})
+        return obj
+
+    def clean_size_label(self):
+        label = self.cleaned_data["size_label"].strip()
+        if not label:
+            return None
+        obj, created = Sizes.objects.get_or_create(size_label__iexact=label, defaults={"size_label": label})
+        return obj
+
+    def clean_size_unit_name(self):
+        name = self.cleaned_data["size_unit_name"].strip()
+        obj, created = SizeUnits.objects.get_or_create(unit_name__iexact=name, defaults={"unit_name": name})
+        return obj
+
+    def clean_unit_price_value(self):
+        value = self.cleaned_data["unit_price_value"]
+        obj, created = UnitPrices.objects.get_or_create(unit_price=value, defaults={"unit_price": value})
+        return obj
+
+    def clean_srp_price_value(self):
+        value = self.cleaned_data["srp_price_value"]
+        obj, created = SrpPrices.objects.get_or_create(srp_price=value, defaults={"srp_price": value})
+        return obj
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.product_type = self.cleaned_data["product_type_name"]
+        instance.variant = self.cleaned_data["variant_name"]
+        instance.size = self.cleaned_data.get("size_label")
+        instance.size_unit = self.cleaned_data["size_unit_name"]
+        instance.unit_price = self.cleaned_data["unit_price_value"]
+        instance.srp_price = self.cleaned_data["srp_price_value"]
+
+        if commit:
+            instance.save()
+        return instance
+
 
 class RawMaterialsForm(ModelForm):
     class Meta:
@@ -154,7 +214,6 @@ class UnifiedWithdrawForm(forms.Form):
     ]
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
 
-    # New fields
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
     price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
 
@@ -173,7 +232,6 @@ class UnifiedWithdrawForm(forms.Form):
                 self.add_error("price_type", "This field is required when reason is SOLD.")
 
         return cleaned_data
-
 
 
 class NotificationsForm(forms.Form):
