@@ -177,6 +177,11 @@ class ProductCreateView(CreateView):
     template_name = 'prod_add.html'
     success_url = reverse_lazy('products')
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+    
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
@@ -185,7 +190,6 @@ class ProductsUpdateView(UpdateView):
 
 class ProductsDeleteView(DeleteView):
     model = Products
-    template_name = 'prod_delete.html'
     success_url = reverse_lazy('products')
 
 class RawMaterialsList(ListView):
@@ -200,6 +204,11 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
     form_class = RawMaterialsForm
@@ -208,7 +217,6 @@ class RawMaterialsUpdateView(UpdateView):
 
 class RawMaterialsDeleteView(DeleteView):
     model = RawMaterials
-    template_name = 'rawmaterial_delete.html'
     success_url = reverse_lazy('rawmaterials')
 
 class HistoryLogList(ListView):
@@ -274,6 +282,11 @@ class SalesCreateView(CreateView):
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SalesUpdateView(UpdateView):
     model = Sales
     form_class = SalesForm
@@ -282,7 +295,6 @@ class SalesUpdateView(UpdateView):
 
 class SalesDeleteView(DeleteView):
     model = Sales
-    template_name = 'sales_delete.html'
     success_url = reverse_lazy('sales')
 
 
@@ -293,40 +305,43 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
+        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
-        self._full_queryset = qs
-        return qs
+        self.filtered_queryset = queryset
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
-
-        context["expenses_summary"] = full_qs.aggregate(
+        summary = self.filtered_queryset.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
 
-        return context
+        context["expenses_summary"] = summary
 
+        return context
 
 class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class ExpensesUpdateView(UpdateView):
     model = Expenses
@@ -336,7 +351,6 @@ class ExpensesUpdateView(UpdateView):
 
 class ExpensesDeleteView(DeleteView):
     model = Expenses
-    template_name = 'expenses_delete.html'
     success_url = reverse_lazy('expenses')
 
 class ProductBatchList(ListView):
@@ -376,7 +390,6 @@ class ProductBatchUpdateView(UpdateView):
 
 class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
-    template_name = 'prodbatch_delete.html'
     success_url = reverse_lazy('product-batch')
 
 class ProductInventoryList(ListView):
@@ -432,9 +445,9 @@ class RawMaterialBatchUpdateView(UpdateView):
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
     success_url = reverse_lazy('rawmaterial-batch') 
+
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
-    template_name = 'rawmatbatch_delete.html'
     success_url = reverse_lazy('rawmaterial-batch')
 
 

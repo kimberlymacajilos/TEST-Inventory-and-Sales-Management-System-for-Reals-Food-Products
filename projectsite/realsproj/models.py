@@ -13,6 +13,8 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.db.models import Q
 from datetime import timedelta
+from django.utils.safestring import mark_safe
+import json
 
 
 class AuthGroup(models.Model):
@@ -162,10 +164,177 @@ class HistoryLog(models.Model):
     admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     log_type = models.ForeignKey('HistoryLogTypes', models.DO_NOTHING)
     log_date = models.DateTimeField()
+    entity_type = models.CharField(max_length=50)
+    entity_id = models.BigIntegerField()
+    details = models.JSONField(null=True, blank=True)
 
     class Meta:
         managed = False
         db_table = 'history_log'
+
+    def get_entity_display(self):
+        try:
+            if self.entity_type == "product":
+                p = Products.objects.select_related(
+                    "product_type", "variant", "size_unit", "size"
+                ).get(pk=self.entity_id)
+                return f"{p.product_type.name} - {p.variant.name} ({p.size.size_label if p.size else ''} {p.size_unit.unit_name})"
+
+            elif self.entity_type == "raw_material":
+                rm = RawMaterials.objects.select_related("unit").get(pk=self.entity_id)
+                return f"{rm.name} ({rm.unit.unit_name}) - ₱{rm.price_per_unit}"
+
+            elif self.entity_type == "product_batch":
+                pb = ProductBatches.objects.select_related(
+                    "product__product_type", "product__variant", "product__size", "product__size_unit"
+                ).get(pk=self.entity_id)
+                return f"{pb.product.product_type.name} - {pb.product.variant.name} ({pb.product.size.size_label if pb.product.size else ''} {pb.product.size_unit.unit_name})"
+
+            elif self.entity_type == "raw_material_batch":
+                rb = RawMaterialBatches.objects.select_related("material").get(pk=self.entity_id)
+                return f"{rb.material.name}"
+
+            elif self.entity_type == "expense":
+                e = Expenses.objects.get(pk=self.entity_id)
+                return f"{e.category}"
+
+            elif self.entity_type == "sale":
+                s = Sales.objects.get(pk=self.entity_id)
+                return f"{s.category}"
+
+            elif self.entity_type == "withdrawal":
+                w = Withdrawals.objects.get(pk=self.entity_id)
+                return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
+
+            else:
+                return f"Entity #{self.entity_id}"
+        except Exception:
+            return f"Entity #{self.entity_id}"
+
+    def get_details_display(self):
+        """Pretty-print before/after changes with human-readable names and clean formatting."""
+        try:
+            if not self.details:
+                return ""
+
+            def humanize_field(key, value):
+                """Convert FK ids or choice fields into readable names."""
+                if value is None:
+                    return None
+
+                # 🔹 Choice fields for Withdrawals
+                if key == "reason":
+                    return dict(Withdrawals.REASON_CHOICES).get(value, value)
+                if key == "sales_channel":
+                    return dict(Withdrawals.SALES_CHANNEL_CHOICES).get(value, value)
+                if key == "price_type":
+                    return dict(Withdrawals.PRICE_TYPE_CHOICES).get(value, value)
+                if key == "item_type":
+                    return dict(Withdrawals.ITEM_TYPE_CHOICES).get(value, value)
+
+                # 🔹 Product relations
+                if key == "product_id":
+                    try:
+                        product = Products.objects.select_related("product_type", "variant", "size_unit", "size").get(id=value)
+                        return str(product)
+                    except Products.DoesNotExist:
+                        return f"Product #{value}"
+
+                if key == "variant_id":
+                    try:
+                        return ProductVariants.objects.get(id=value).name
+                    except ProductVariants.DoesNotExist:
+                        return f"Variant #{value}"
+
+                if key == "product_type_id":
+                    try:
+                        return ProductTypes.objects.get(id=value).name
+                    except ProductTypes.DoesNotExist:
+                        return f"ProductType #{value}"
+
+                if key == "size_id":
+                    try:
+                        return Sizes.objects.get(id=value).size_label
+                    except Sizes.DoesNotExist:
+                        return f"Size #{value}"
+
+                if key in ("size_unit_id", "unit_id"):
+                    try:
+                        return SizeUnits.objects.get(id=value).unit_name
+                    except SizeUnits.DoesNotExist:
+                        return f"Unit #{value}"
+
+                # 🔹 Raw material relation
+                if key == "material_id":
+                    try:
+                        return RawMaterials.objects.get(id=value).name
+                    except RawMaterials.DoesNotExist:
+                        return f"Material #{value}"
+
+                # 🔹 Price lookups
+                if key == "srp_price_id":
+                    try:
+                        return str(SrpPrices.objects.get(id=value))
+                    except SrpPrices.DoesNotExist:
+                        return f"SRP #{value}"
+
+                if key == "unit_price_id":
+                    try:
+                        return str(UnitPrices.objects.get(id=value))
+                    except UnitPrices.DoesNotExist:
+                        return f"Unit Price #{value}"
+
+                return value
+
+            ignore_fields = [
+                "id",
+                "created_by_admin_id",
+                "date_created",
+                "expiration_date",
+                "manufactured_date",
+                "batch_date",
+                "received_date",
+                "description",
+            ]
+
+            # hide date changes for expenses & sales
+            if self.entity_type in ("expense", "sale"):
+                ignore_fields.append("date")
+
+            def format_key(key):
+                return key.replace("_id", "").replace("_", " ").title()
+
+            if "before" in self.details and "after" in self.details:
+                diffs = []
+                before, after = self.details["before"], self.details["after"]
+                for key in after.keys():
+                    if key in ignore_fields:
+                        continue
+                    b, a = humanize_field(key, before.get(key)), humanize_field(key, after.get(key))
+                    if b != a:
+                        diffs.append(f"{format_key(key)}: {b} → {a}")
+                return " | ".join(diffs) if diffs else "No changes"
+
+            elif "after" in self.details:
+                after = self.details["after"]
+                summary = ", ".join(
+                    f"{format_key(k)}: {humanize_field(k, v)}"
+                    for k, v in after.items() if k not in ignore_fields
+                )
+                return summary
+
+            elif "before" in self.details:
+                before = self.details["before"]
+                summary = ", ".join(
+                    f"{format_key(k)}: {humanize_field(k, v)}"
+                    for k, v in before.items() if k not in ignore_fields
+                )
+                return summary
+
+            return json.dumps(self.details)
+
+        except Exception:
+            return str(self.details)
 
 
 class HistoryLogTypes(models.Model):
@@ -187,60 +356,96 @@ class Notifications(models.Model):
     notification_type = models.CharField(max_length=20)
     notification_timestamp = models.DateTimeField()
     is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True) 
-    
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         managed = False
         db_table = 'notifications'
 
     @property
     def css_class(self):
-        notif_type = self.notification_type.upper()
-        if notif_type == "LOW_STOCK":
-            return "notif-warning"
-        return "notif-info"
+        """Return CSS class for background color of notification icon."""
+        mapping = {
+            "EXPIRATION_ALERT": "notif-warning",
+            "LOW_STOCK": "notif-info",
+            "OUT_OF_STOCK": "notif-danger",
+            "STOCK_HEALTHY": "notif-info",
+        }
+        return mapping.get(self.notification_type.upper(), "notif-info")
 
     @property
     def icon_class(self):
-        notif_type = self.notification_type.upper()
-        if notif_type == "LOW_STOCK":
-            return "la la-exclamation-circle"
-        return "la la-info-circle"
+        """Return icon class (using Line Awesome)."""
+        mapping = {
+            "EXPIRATION_ALERT": "la la-hourglass-half",
+            "LOW_STOCK": "la la-arrow-down",
+            "OUT_OF_STOCK": "la la-exclamation-circle",
+            "STOCK_HEALTHY": "la la-check-circle",
+        }
+        return mapping.get(self.notification_type.upper(), "la la-bell")
 
     @property
     def formatted_message(self):
+        """Return a clean, human-readable notification message without 'Product:' or 'Raw Material:'."""
         notif_type = self.notification_type.upper()
 
+        item_name = "Unknown Item"
         if self.item_type.upper() == "PRODUCT":
             try:
-                product = Products.objects.get(pk=self.item_id)
-                product_name = str(product)
+                from .models import Products
+                product = Products.objects.get(id=self.item_id)
+                item_name = str(product)
             except Products.DoesNotExist:
-                product_name = "Unknown Product"
-
-            if notif_type == "LOW_STOCK":
-                return f"LOW STOCK: {product_name}"
-            elif notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {product_name}"
-            elif notif_type == "STOCK_HEALTHY":
-                return f"Stock back to healthy: {product_name}"
-
+                item_name = f"Unknown Product (ID {self.item_id})"
         elif self.item_type.upper() == "RAW_MATERIAL":
             try:
-                material = RawMaterials.objects.get(pk=self.item_id)
-                material_name = str(material)
+                from .models import RawMaterials
+                material = RawMaterials.objects.get(id=self.item_id)
+                item_name = str(material)
             except RawMaterials.DoesNotExist:
-                material_name = "Unknown Raw Material"
+                item_name = f"Unknown Raw Material (ID {self.item_id})"
 
-            if notif_type == "LOW_STOCK":
-                return f"LOW STOCK: {material_name}"
-            elif notif_type == "OUT_OF_STOCK":
-                return f"OUT OF STOCK: {material_name}"
-            elif notif_type == "STOCK_HEALTHY":
-                return f"Stock back to healthy: {material_name}"
+        if notif_type == "EXPIRATION_ALERT":
+            return f"{item_name} {self._expiration_message()}"
+        elif notif_type == "LOW_STOCK":
+            return f"LOW STOCK: {item_name}"
+        elif notif_type == "OUT_OF_STOCK":
+            return f"OUT OF STOCK: {item_name}"
+        elif notif_type == "STOCK_HEALTHY":
+            return f"Stock back to healthy: {item_name}"
 
-        # fallback
-        return f"{self.notification_type.upper()} ({self.item_type.title()})"
+        return f"{notif_type}: {item_name}"
+
+    def _expiration_message(self):
+        """Helper to return expiration timing message based on timestamp."""
+        from datetime import date
+        today = date.today()
+
+        try:
+            if self.item_type.upper() == "PRODUCT":
+                from .models import ProductBatches
+                batch = ProductBatches.objects.filter(product_id=self.item_id).order_by('expiration_date').first()
+            else:
+                from .models import RawMaterialBatches
+                batch = RawMaterialBatches.objects.filter(material_id=self.item_id).order_by('expiration_date').first()
+
+            if not batch or not batch.expiration_date:
+                return "has unknown expiration date"
+
+            delta_days = (batch.expiration_date - today).days
+            if delta_days > 30:
+                return f"will expire in more than a month ({batch.expiration_date})"
+            elif 7 < delta_days <= 30:
+                return f"will expire in a month ({batch.expiration_date})"
+            elif 1 <= delta_days <= 7:
+                return f"will expire in a week ({batch.expiration_date})"
+            elif delta_days == 0:
+                return "expires today"
+            else:
+                return f"has expired ({batch.expiration_date})"
+
+        except Exception:
+            return "has unknown expiration date"
 
 
 class ProductBatches(models.Model):
@@ -359,7 +564,6 @@ class RawMaterials(models.Model):
     unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    expiration_date = models.DateField(blank=True, null=True)
     size = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
@@ -525,7 +729,6 @@ class Withdrawals(models.Model):
         db_column="created_by_admin_id"
     )
 
-    # ✅ add these fields so Django ORM can accept them
     SALES_CHANNEL_CHOICES = [
         ('ORDER', 'Order'),
         ('CONSIGNMENT', 'Consignment'),
@@ -551,7 +754,7 @@ class Withdrawals(models.Model):
     )
 
     class Meta:
-        managed = False   # leave this since DB is already created
+        managed = False  
         db_table = 'withdrawals'
 
     def __str__(self):

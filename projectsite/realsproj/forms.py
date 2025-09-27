@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
-        fields = '__all__'
+        exclude = ['created_by_admin'] 
         widgets = {
             'date_created': forms.DateTimeInput(
                 attrs={'type': 'datetime-local'},
@@ -26,7 +26,10 @@ class ProductsForm(forms.ModelForm):
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
+        widgets = {
+            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 class HistoryLogForm(ModelForm):
     class Meta:
@@ -36,7 +39,7 @@ class HistoryLogForm(ModelForm):
 class SalesForm(ModelForm):
     class Meta:
         model = Sales
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -44,7 +47,7 @@ class SalesForm(ModelForm):
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
-        fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -53,12 +56,11 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
-        fields = ["batch_date", "manufactured_date", "expiration_date", "deduct_raw_material"]
+        fields = "__all__"   
         widgets = {
-            'batch_date': forms.DateInput(attrs={'type': 'date'}),
-            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
-            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
-            
+            "batch_date": forms.DateInput(attrs={"type": "date"}),
+            "manufactured_date": forms.DateInput(attrs={"type": "date"}),
+            "expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
 
 
