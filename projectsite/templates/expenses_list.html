@@ -22,11 +22,12 @@
                             <!-- Category Filter -->
                             <select id="categoryFilter" class="form-control" style="width:150px;">
                                 <option value="">All Categories</option>
-                                {% for object in object_list|dictsort:"category" %}
-                                    <option value="{{ object.category }}">{{ object.category }}</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>
+                                        {{ cat }}
+                                    </option>
                                 {% endfor %}
                             </select>
-
                             <!-- Date Filter -->
                             <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
 

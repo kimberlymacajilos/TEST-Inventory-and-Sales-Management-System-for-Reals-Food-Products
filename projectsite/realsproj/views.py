@@ -308,6 +308,8 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
+        categories = Sales.objects.values_list('category', flat=True).distinct()
+        context['categories'] = categories
 
         return context
 
@@ -369,6 +371,9 @@ class ExpensesList(ListView):
         )
 
         context["expenses_summary"] = summary
+            # Unique categories for dropdown
+        categories = Expenses.objects.values_list('category', flat=True).distinct()
+        context["categories"] = categories
         return context
     
 class ExpensesCreateView(CreateView):
