@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
 <div class="content">
   <div class="container-fluid">
     <h4 class="page-title">Bulk Add Product Batches</h4>
@@ -21,10 +22,11 @@
               <label>Manufactured Date</label>
               {{ form.manufactured_date }}
             </div>
-            <div class="form-group col-md-6 form-check">
+            <div class="form-check">
               {{ form.deduct_raw_material }}
               <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
-                {{ form.deduct_raw_material.label }}
+                <span class="custom-checkbox"></span>
+                Deduct Raw Materials
               </label>
             </div>
           </div>

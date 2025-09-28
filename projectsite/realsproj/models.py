@@ -457,7 +457,7 @@ class ProductBatches(models.Model):
     created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
 
-    expiration_date = models.GeneratedField(
+    expiration_date = models.GeneratedField( 
         expression="manufactured_date + interval '1 year'",
         output_field=models.DateField(),
         db_persist=True,

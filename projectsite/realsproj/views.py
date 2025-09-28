@@ -210,16 +210,10 @@ class ProductsList(ListView):
 
         return queryset
 
-    def get_paginate_by(self, queryset):
-        if self.request.GET:  
-            return None
-        return self.paginate_by
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
-
 
 class ProductCreateView(CreateView):
     model = Products
@@ -233,23 +227,37 @@ class ProductCreateView(CreateView):
         context["variants"] = ProductVariants.objects.all()
         context["sizes"] = Sizes.objects.all()
         context["size_units"] = SizeUnits.objects.all()
+        context["unit_prices"] = UnitPrices.objects.all()
+        context["srp_prices"] = SrpPrices.objects.all()
         return context
 
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Product added successfully.")
+        return response
 
-    
+
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
-    template_name = 'prod_edit.html'
-    success_url = reverse_lazy('products')
+    template_name = "prod_edit.html"
+    success_url = reverse_lazy("products")
+    
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Product updated successfully.")
+        return response
+
 
 class ProductsDeleteView(DeleteView):
     model = Products
-    success_url = reverse_lazy('products')
+    success_url = reverse_lazy("products")
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Product deleted successfully.")
+        return super().get_success_url()
+
 
 class RawMaterialsList(ListView):
     model = RawMaterials
@@ -266,7 +274,9 @@ class RawMaterialsCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Raw Material created successfully.")
+        return response
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -274,9 +284,20 @@ class RawMaterialsUpdateView(UpdateView):
     template_name = 'rawmaterial_edit.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Raw Material updated successfully.")
+        return response
+
+
+
 class RawMaterialsDeleteView(DeleteView):
     model = RawMaterials
     success_url = reverse_lazy('rawmaterials')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Raw Material deleted successfully.")
+        return super().get_success_url()
 
 class HistoryLogList(ListView):
     model = HistoryLog
@@ -340,11 +361,13 @@ class SalesCreateView(CreateView):
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-
+    
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Sale recorded successfully.")
+        return response
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -352,9 +375,18 @@ class SalesUpdateView(UpdateView):
     template_name = 'sales_edit.html'
     success_url = reverse_lazy('sales')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Sale updated successfully.")
+        return response
+
 class SalesDeleteView(DeleteView):
     model = Sales
     success_url = reverse_lazy('sales')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Sale deleted successfully.")
+        return super().get_success_url()
 
 
 class ExpensesList(ListView):
@@ -400,7 +432,10 @@ class ExpensesCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Expense recorded successfully.")
+        return response
+
 
 class ExpensesUpdateView(UpdateView):
     model = Expenses
@@ -408,9 +443,19 @@ class ExpensesUpdateView(UpdateView):
     template_name = 'expenses_edit.html'
     success_url = reverse_lazy('expenses')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Expense updated successfully.")
+        return response
+
 class ExpensesDeleteView(DeleteView):
     model = Expenses
     success_url = reverse_lazy('expenses')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Expense deleted successfully.")
+        return super().get_success_url()
+
 
 class ProductBatchList(ListView):
     model = ProductBatches
@@ -425,16 +470,17 @@ class ProductBatchList(ListView):
 
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |   # product description from Products
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(manufactured_date__icontains=query) |      # manufactured_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(product__description__icontains=query) |
+                Q(batch_date__icontains=query) |           
+                Q(manufactured_date__icontains=query) |     
+                Q(expiration_date__icontains=query) |     
+                Q(quantity__icontains=query) |              
+                Q(created_by_admin__username__icontains=query)  
             )
 
         return queryset
     
+
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
     form_class = ProductBatchForm
@@ -447,9 +493,23 @@ class ProductBatchUpdateView(UpdateView):
     template_name = 'prodbatch_edit.html'
     success_url = reverse_lazy('product-batch')
 
+    def form_valid(self, form):
+        messages.success(self.request, "✅ Product Batch updated successfully.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Failed to update Product Batch. Please check the form.")
+        return super().form_invalid(form)
+
+
 class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
-    success_url = reverse_lazy('product-batch')
+    success_url = reverse_lazy("product-batch")
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Product Batch deleted successfully.")
+        return super().get_success_url()
+    
 
 class ProductInventoryList(ListView):
     model = ProductInventory
@@ -638,8 +698,15 @@ class WithdrawItemView(View):
                         price_type=price_type if reason == "SOLD" else None,
                     )
                     withdrawals_made += 1
-            
+
+        if withdrawals_made > 0:
+            messages.success(request, f"{withdrawals_made} withdrawal(s) recorded successfully.")
+
+        for error in errors:
+            messages.error(request, error)
+
         return redirect("withdrawals")
+
     
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
@@ -689,25 +756,41 @@ class BulkProductBatchCreateView(View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
+            deduct_raw_material = form.cleaned_data['deduct_raw_material']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
-            for product_info in form.products:
-                product = product_info['product']
-                qty = form.cleaned_data.get(f'product_{product.id}_qty')
-                if qty:
-                    ProductBatches.objects.create(
-                        product=product,
-                        quantity=qty,
-                        batch_date=batch_date,
-                        manufactured_date=manufactured_date,
-                        created_by_admin=auth_user,
-                        deduct_raw_material=deduct_raw_material
-                    )
+            try:
+                added_any = False
+                for product_info in form.products:
+                    product = product_info['product']
+                    qty = form.cleaned_data.get(f'product_{product.id}_qty')
+                    if qty:
+                        ProductBatches.objects.create(
+                            product=product,
+                            quantity=qty,
+                            batch_date=batch_date,
+                            manufactured_date=manufactured_date,
+                            created_by_admin=auth_user,
+                            deduct_raw_material=deduct_raw_material
+                        )
+                        added_any = True
 
-            return redirect('product-batch')
+                if added_any:
+                    messages.success(request, "✅ Product Batch added successfully.")
+                else:
+                    messages.warning(request, "⚠️ No product quantities were entered.")
+
+                return redirect("product-batch")
+
+            except Exception as e:
+                messages.error(
+                    request,
+                    f"❌ Product Batch not added: insufficient raw materials."
+                )
+                return redirect("product-batch")
 
         return render(request, self.template_name, {'form': form, 'products': form.products})
+
 
 class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     template_name = "rawmatbatch_add.html"
