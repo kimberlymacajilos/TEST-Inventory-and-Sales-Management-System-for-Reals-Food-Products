@@ -1,175 +1,99 @@
-/* Profile Page */
-.profile-page {
-    position: relative;
-    display: flex;
-    flex-direction: column; /* Stack everything vertically */
-    padding: 20px;
-    min-height: 100vh;
-
-}
-
-/* Profile Header */
-.profile-header {
-    display: flex;
-    justify-content: flex-start; /* Align profile image to the left */
-    align-items: center;
-    position: relative; /* Make it relative for positioning the Edit button */
-    width: 100%;
-    margin-bottom: 10px;
+body {
+    background: #f5f5f5;
     margin-top: 20px;
-
 }
 
-/* Circular container for profile image */
-.profile-img-container {
-    margin-top: 50px;
-    margin-left: 30px;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
+.ui-w-80 {
+    width : 80px !important;
+    height: auto;
+}
+
+.btn-default {
+    border-color: rgba(24, 28, 33, 0.1);
+    background  : rgba(0, 0, 0, 0);
+    color       : #4E5155;
+}
+
+label.btn {
+    margin-bottom: 0;
+}
+
+.btn-outline-primary {
+    border-color: #26B4FF;
+    background  : transparent;
+    color       : #26B4FF;
+}
+
+.btn {
+    cursor: pointer;
+}
+
+.text-light {
+    color: #babbbc !important;
+}
+
+
+.card {
+    background-clip: padding-box;
+    box-shadow     : 0 1px 4px rgba(24, 28, 33, 0.012);
+}
+
+.row-bordered {
     overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 2px solid #007bff;
 }
 
-/* Edit Profile Button */
-.edit-button-container {
-    position: absolute;
-    top: 100px;
-    right: 0;
-    margin: 10px 20px; /* Add some spacing around the button */
+.account-settings-fileinput {
+    position  : absolute;
+    visibility: hidden;
+    width     : 1px;
+    height    : 1px;
+    opacity   : 0;
 }
 
-.edit-button-container a {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    display: inline-block;
+.account-settings-links .list-group-item.active {
+    font-weight: bold !important;
 }
 
-/* Profile Info Section (Form and Email) */
-.profile-info {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+html:not(.dark-style) .account-settings-form-group-item.active {
+    background: transparent !important;
 }
 
-/* Image Upload Section (optional) */
-.upload-section {
-    margin-bottom: 10px;
-    margin-left: 30px;
-
+.account-settings-multiselect~.select2-container {
+    width: 100% !important;
 }
 
-.upload-label {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
-    display: block;
-    margin-bottom: 10px;
+.light-style .account-settings-links .form-group-item {
+    padding     : 0.85rem 1.5rem;
+    border-color: rgba(24, 28, 33, 0.03) !important;
 }
 
-#image-upload {
-    padding: 5px;
-    font-size: 14px;
+.light-style .account-settings-links .form-group-item.active {
+    color: #4e5155 !important;
 }
 
-/* Profile Form */
-.profile-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 20px;
-    border-radius: 8px;
+.material-style .account-settings-links .form-group-item {
+    padding     : 0.85rem 1.5rem;
+    border-color: rgba(24, 28, 33, 0.03) !important;
 }
 
-/* Form Styling */
-.form-group {
-    margin-bottom: 20px;
+.material-style .account-settings-links .list-group-item.active {
+    color: #4e5155 !important;
 }
 
-.form-group label {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
+.dark-style .account-settings-links .list-group-item {
+    padding     : 0.85rem 1.5rem;
+    border-color: rgba(255, 255, 255, 0.03) !important;
 }
 
-.form-group input {
-    padding: 10px;
-    font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    width: 100%;
-    background-color: #f9f9f9;
-    cursor: not-allowed; /* Initially set to not-allowed for profile page */
+.dark-style .account-settings-links .list-group-item.active {
+    color: #fff !important;
 }
 
-.form-group input:focus {
-    border-color: #007bff;
-    outline: none;
+.light-style .account-settings-links .list-group-item.active {
+    color: #4E5155 !important;
 }
 
-/* Pop-up message container at the top */
-#popup-messages {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  max-width: 400px;
-  width: 100%;
-  padding: 10px;
-  border-radius: 5px;
-  font-size: 16px;
-  color: white;
-  text-align: center;
-  display: none;  /* Hidden by default, shown via JS */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Add this to your profile.css or wherever you'd like to style the alerts */
-.alert {
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 15px;
-    font-size: 1rem;
-    text-align: center;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
-}
-
-/* Responsiveness for smaller screens */
-@media (max-width: 768px) {
-    .profile-page {
-        flex-direction: column; /* Stack profile image and form vertically on mobile */
-        align-items: center;
-    }
-
-    .profile-header, .profile-info {
-        width: 100%; /* Make form and header take full width on mobile */
-        margin-bottom: 20px; /* Add space between profile image and form */
-    }
-
-    .edit-button-container {
-        position: static; /* Remove absolute positioning on smaller screens */
-        margin-top: 10px;
-        justify-content: center;
-    }
-}
-
-/* End of Profile Page */
-
-/* Edit Profile Page Modifications - Specific CSS */
-.edit-page .form-group input {
-    cursor: text; /* Text cursor for editable fields in the Edit Profile page */
-    background-color: #fff; /* Editable fields should have normal white background */
-    border: 1px solid #007bff; /* Highlight border for editable fields */
+.light-style .account-settings-links .list-group-item {
+    padding     : 0.85rem 1.5rem;
+    border-color: rgba(24, 28, 33, 0.03) !important;
 }

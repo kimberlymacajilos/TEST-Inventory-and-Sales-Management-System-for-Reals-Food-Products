@@ -23,6 +23,8 @@ from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -800,32 +802,87 @@ def profile_view(request):
 
 @login_required
 def edit_profile(request):
-    user = request.user  # Get the currently logged-in user
+    user = request.user
 
     if request.method == "POST":
-       # Get the updated data from the form
+        # --- General fields ---
         username = request.POST.get("username")
         first_name = request.POST.get("first_name")
         last_name = request.POST.get("last_name")
         email = request.POST.get("email")
 
-        # Check if the email is already taken by another user (excluding the current user)
+        # --- Password fields (read early) ---
+        current_password = (request.POST.get("current_password") or "").strip()
+        new_password = (request.POST.get("new_password") or "").strip()
+        repeat_new_password = (request.POST.get("repeat_new_password") or "").strip()
+
+        # ===== HARD GUARDS: block partial password inputs =====
+        if current_password and not (new_password or repeat_new_password):
+            messages.error(request, "To change your password, please enter both New Password and Repeat New Password.")
+            form = UserChangeForm(request.POST, instance=user)
+            return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+        if (new_password or repeat_new_password) and not current_password:
+            messages.error(request, "Please enter your Current Password to change your password.")
+            form = UserChangeForm(request.POST, instance=user)
+            return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+        if new_password and not repeat_new_password:
+            messages.error(request, "Please repeat your new password.")
+            form = UserChangeForm(request.POST, instance=user)
+            return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+        if repeat_new_password and not new_password:
+            messages.error(request, "Please enter a new password.")
+            form = UserChangeForm(request.POST, instance=user)
+            return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+        # ===== Full password change flow (all three provided) =====
+        password_change_requested = False
+        if current_password and new_password and repeat_new_password:
+            if not user.check_password(current_password):
+                messages.error(request, "Current password is incorrect.")
+                form = UserChangeForm(request.POST, instance=user)
+                return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+            if new_password != repeat_new_password:
+                messages.error(request, "New passwords do not match.")
+                form = UserChangeForm(request.POST, instance=user)
+                return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+            try:
+                validate_password(new_password, user=user)
+            except ValidationError as e:
+                for msg in e.messages:
+                    messages.error(request, msg)
+                form = UserChangeForm(request.POST, instance=user)
+                return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
+
+            password_change_requested = True
+
+        # --- Email uniqueness (exclude self) ---
         if User.objects.exclude(id=user.id).filter(email=email).exists():
             messages.error(request, "This email address is already in use by another account.")
-            return redirect("edit_profile")  # Redirect back to the edit profile page
+            form = UserChangeForm(request.POST, instance=user)
+            return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
 
-        # Update the user's fields
+        # --- Apply profile changes ---
         user.username = username
         user.first_name = first_name
         user.last_name = last_name
         user.email = email
-
-        # Save the updated user object to the database
         user.save()
 
-        messages.success(request, "Profile updated successfully!")
-        return redirect("profile")  # Redirect to profile page after saving
-    else:
-        form = UserChangeForm(instance=user)  # Pre-fill the form with current user data
+        # --- Apply password change if requested ---
+        if password_change_requested:
+            user.set_password(new_password)
+            user.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, "Password updated successfully.")
 
-    return render(request, "editprofile.html", {"form": form})
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")
+
+    # GET
+    form = UserChangeForm(instance=user)
+    return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
