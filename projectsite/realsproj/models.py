@@ -570,6 +570,7 @@ class RawMaterials(models.Model):
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     size = models.DecimalField(max_digits=10, decimal_places=2)
+    date_created = models.DateTimeField(default=timezone.now)
 
     class Meta:
         managed = False

@@ -19,11 +19,17 @@
 
                     <div class="card-body">
                         <!-- Search -->
-                        <div class="row mb-3">
-                            <div class="col-md-4">
+                        <form class="row mb-4" id="filterForm">
+                            <div class="col-md-3">
                                 <input type="text" id="searchInput" class="form-control" placeholder="Search raw materials...">
-                        </div>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
+                            </div>
+                        </form>
                     </div>
+
+                    <div class="card-body">
                         <!-- Table -->
                         <div class="table-responsive">
                             <table class="table table-striped">
@@ -33,7 +39,7 @@
                                         <th scope="col">Size</th>
                                         <th scope="col">Unit</th>
                                         <th scope="col">Price Per Unit</th>
-                                        <th scope="col">Expiration Date</th>
+                                        <th scope="col">Date Created</th>
                                         <th scope="col">Actions</th>
                                     </tr>
                                 </thead>
@@ -44,7 +50,7 @@
                                         <td>{{ object.size }}</td>
                                         <td>{{ object.unit }}</td>
                                         <td>{{ object.price_per_unit }}</td>
-                                        <td>{{ object.expiration_date }}</td>
+                                        <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                         <td>
                                             <a href="{% url 'rawmaterials-edit' object.id %}" style="color: blue;" title="Edit">
                                                 <i class="la la-edit la-lg"></i>
@@ -103,6 +109,42 @@
         rows.forEach(function(row) {
             row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
         });
-    });
+});
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filterForm');
+    const dateFilter = document.getElementById('rawDateFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    if (!filterForm) {
+        console.warn('filterForm not found');
+        return;
+    }
+
+    if (dateFilter) {
+        dateFilter.addEventListener('change', function () {
+            console.log('Auto-submitting month:', this.value);
+            filterForm.submit();
+        });
+    }
+
+    let typingTimer;
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function (e) {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function () {
+                console.log('Auto-submitting search:', searchInput.value);
+                filterForm.submit();
+            }, 500);
+        });
+
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                filterForm.submit();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

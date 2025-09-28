@@ -86,7 +86,7 @@ class ProductsForm(forms.ModelForm):
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'date_created'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }

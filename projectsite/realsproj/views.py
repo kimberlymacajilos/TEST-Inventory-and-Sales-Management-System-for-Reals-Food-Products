@@ -268,15 +268,28 @@ class RawMaterialsList(ListView):
     def get_queryset(self):
         queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
         query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
 
         if query:
             queryset = queryset.filter(
                 Q(name__icontains=query) |
                 Q(unit__unit_name__icontains=query) |
                 Q(price_per_unit__icontains=query) |
-                Q(expiration_date__icontains=query) |
+                Q(date_created__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+        
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(date_created__year=parsed_date.year, date_created__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
+
+        return queryset
 
         return queryset
 
