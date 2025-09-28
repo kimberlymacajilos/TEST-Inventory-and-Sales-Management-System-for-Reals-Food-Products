@@ -15,9 +15,18 @@
             </div>
 
             <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <input id="searchInput" class="form-control" style="width:260px;" placeholder="Search raw material batches..." />
               <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
             </div>
+          </div>
+          <div class="card-body">
+            <form class="row mb-4" id="filterForm">
+              <div class="col-md-3">
+                <input type="text" id="searchInput" class="form-control" name= "q" style="width:260px;" placeholder="Search raw material batches..." value="{{ request.GET.q }}"/>
+              </div>
+              <div class="col-md-3">
+                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
+              </div>
+            </form>
           </div>
 
           <div class="card-body">
@@ -92,48 +101,51 @@
 </div>
 
 <script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const tbody = document.getElementById('batchTableBody');
-  const table = document.getElementById('batchTable');
+    document.getElementById("searchInput").addEventListener("keyup", function() {
+        var search = this.value.toLowerCase();
+        var rows = document.querySelectorAll("#batchTable tbody tr");
 
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No batches found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const text = normalize(row.textContent);
-      const match = q === '' || text.includes(q);
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? "" : "none";
     });
 
-    showNoResults(visible === 0);
-  }
+});
 
-  // Attach
-  searchInput.addEventListener('keyup', filterRows);
+    document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filterForm');
+    const dateFilter = document.getElementById('rawDateFilter');
+    const searchInput = document.getElementById('searchInput');
 
-  // Run initially (in case browser autocompleted)
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
+    if (!filterForm) {
+        console.warn('filterForm not found');
+        return;
+    }
+
+    if (dateFilter) {
+        dateFilter.addEventListener('change', function () {
+            console.log('Auto-submitting month:', this.value);
+            filterForm.submit();
+        });
+    }
+
+    let typingTimer;
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function (e) {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function () {
+                console.log('Auto-submitting search:', searchInput.value);
+                filterForm.submit();
+            }, 500);
+        });
+
+      searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                filterForm.submit();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

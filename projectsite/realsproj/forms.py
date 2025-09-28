@@ -8,25 +8,86 @@ from django.core.exceptions import ValidationError
 
 
 class ProductsForm(forms.ModelForm):
+    product_type = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'product_type-options'}))
+    variant = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'variant-options'}))
+    size = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'size-options'}), required=False)
+    size_unit = forms.ModelChoiceField(
+        queryset=SizeUnits.objects.all(), empty_label="Select unit")
+    unit_price = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'unit_price-options'}))
+    srp_price = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'srp_price-options'}))
+    description = forms.CharField(widget=forms.Textarea, required=False)
+
     class Meta:
         model = Products
-        exclude = ['created_by_admin'] 
-        widgets = {
-            'date_created': forms.DateTimeInput(
-                attrs={'type': 'datetime-local'},
-                format='%Y-%m-%dT%H:%M'
-            ),
-        }
+        exclude = ['created_by_admin', 'date_created']
 
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            if self.instance and self.instance.pk:
-                self.fields['date_created'].initial = self.instance.date_created.strftime('%Y-%m-%dT%H:%M')
+    def __init__(self, *args, **kwargs):
+        self.created_by_admin = kwargs.pop('created_by_admin', None)
+        super().__init__(*args, **kwargs)
+
+        if self.instance.pk:  # editing
+            self.fields['product_type'].initial = self.instance.product_type.name
+            self.fields['variant'].initial = self.instance.variant.name
+            self.fields['size'].initial = self.instance.size.size_label if self.instance.size else ''
+            self.fields['unit_price'].initial = self.instance.unit_price.unit_price
+            self.fields['srp_price'].initial = self.instance.srp_price.srp_price
+
+            # Prevent Django from showing raw IDs
+            self.initial['product_type'] = self.fields['product_type'].initial
+            self.initial['variant'] = self.fields['variant'].initial
+            self.initial['size'] = self.fields['size'].initial
+            self.initial['unit_price'] = self.fields['unit_price'].initial
+            self.initial['srp_price'] = self.fields['srp_price'].initial
+
+    def clean_product_type(self):
+        name = self.cleaned_data['product_type'].strip()
+        obj, created = ProductTypes.objects.get_or_create(
+            name=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
+        return obj
+
+    def clean_variant(self):
+        name = self.cleaned_data['variant'].strip()
+        obj, created = ProductVariants.objects.get_or_create(
+            name=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
+        return obj
+
+    def clean_size(self):
+        name = self.cleaned_data['size'].strip()
+        obj, created = Sizes.objects.get_or_create(
+            size_label=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
+        return obj
+
+    def clean_unit_price(self):
+        price = self.cleaned_data['unit_price'].strip()
+        obj, created = UnitPrices.objects.get_or_create(
+            unit_price=price,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
+        return obj
+
+    def clean_srp_price(self):
+        price = self.cleaned_data['srp_price'].strip()
+        obj, created = SrpPrices.objects.get_or_create(
+            srp_price=price,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
+        return obj
 
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'date_created'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -60,7 +121,6 @@ class ProductBatchForm(ModelForm):
         widgets = {
             "batch_date": forms.DateInput(attrs={"type": "date"}),
             "manufactured_date": forms.DateInput(attrs={"type": "date"}),
-            "expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
 
 
@@ -154,7 +214,6 @@ class UnifiedWithdrawForm(forms.Form):
     ]
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
 
-    # New fields
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
     price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
 
@@ -175,7 +234,6 @@ class UnifiedWithdrawForm(forms.Form):
         return cleaned_data
 
 
-
 class NotificationsForm(forms.Form):
     class Meta:
         model = Notifications
@@ -184,11 +242,13 @@ class NotificationsForm(forms.Form):
 class BulkProductBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
     deduct_raw_material = forms.BooleanField(
         required=False,
         initial=True,
-        label="Deduct Raw Materials"
+        label="Deduct Raw Materials",
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input',
+        })
     )
 
     def __init__(self, *args, **kwargs):

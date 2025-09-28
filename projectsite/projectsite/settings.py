@@ -86,7 +86,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'reals',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -151,8 +151,3 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "haideeventurillo11@gmail.com"
 EMAIL_HOST_PASSWORD = "jtus xkjd nvaz klug"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
-
-# Media files (user uploads)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'

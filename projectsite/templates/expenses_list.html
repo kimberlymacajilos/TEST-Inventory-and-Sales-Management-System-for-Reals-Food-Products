@@ -1,40 +1,45 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load humanize %}
+
 {% block content %}
 <div class="content">
-  <div class="container-fluid">
-    <h4 class="page-title">Expenses</h4>
-    <div class="row">
-      <div class="col-md-12">
-        <div class="card">
-          <!-- Header: title + filters + add button -->
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-              <div class="card-title">List of Expenses</div>
-              <div class="card-category">Page Subtitle</div>
-            </div>
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:150px;">
-                <option value="">All Categories</option>
-                {% for object in object_list|dictsort:"category" %}
-                  <option value="{{ object.category }}">{{ object.category }}</option>
-                {% endfor %}
-              </select>
+    <div class="container-fluid">
+        <h4 class="page-title">Expenses</h4>
 
-              <!-- Date Filter -->
-              <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
 
-              <!-- Search -->
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search expenses..." />
+                    <!-- Header: title + filters + add button -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="card-title">List of Expenses</div>
+                            <div class="card-category">Page Subtitle</div>
+                        </div>
 
-              <!-- Add Button -->
-              <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expense</a>
-            </div>
-          </div>
+                        <div class="d-flex align-items-center" style="gap:0.5rem;">
+                            <!-- Category Filter -->
+                            <select id="categoryFilter" class="form-control" style="width:150px;">
+                                <option value="">All Categories</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>
+                                        {{ cat }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <!-- Date Filter -->
+                            <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
 
-          <div class="card-body">
+                            <!-- Search -->
+                            <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search expenses..." />
+
+                            <!-- Add Button -->
+                            <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expense</a>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
 
             <div class="row mb-3 text-center">
               <!-- Total Expenses -->
@@ -132,90 +137,9 @@
             {% include 'includes/pagination.html' %}
           </div>
         </div>
-      </div>
+
     </div>
-  </div>
 </div>
 
-<script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const categoryFilter = document.getElementById('categoryFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('expensesTableBody');
-  const table = document.getElementById('expensesTable');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No expenses found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  // 🔹 Same structure as sales
-  function updateSummary(rows){
-    let total = 0, count = 0;
-    rows.forEach(row => {
-      if(row.style.display !== 'none'){
-        total += parseFloat(row.cells[1].textContent) || 0;
-        count++;
-      }
-    });
-    const avg = count ? (total / count).toFixed(2) : 0;
-
-    document.getElementById('summaryTotal').textContent = total;
-    document.getElementById('summaryAvg').textContent = avg;
-    document.getElementById('summaryCount').textContent = count;
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const selectedCategory = normalize(categoryFilter.value);
-    const selectedDate = dateFilter.value; // format: YYYY-MM
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const category = normalize(row.cells[0].textContent);
-      const amount = normalize(row.cells[1].textContent);
-      const date = (row.cells[2].textContent || '').trim().substring(0,7); // YYYY-MM
-      const description = normalize(row.cells[3].textContent);
-
-      let match = true;
-
-      if(q && !(category.includes(q) || amount.includes(q) || description.includes(q))) {
-        match = false;
-      }
-      if(selectedCategory && category !== selectedCategory) {
-        match = false;
-      }
-      if(selectedDate && date !== selectedDate) {
-        match = false;
-      }
-
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
-    });
-
-    showNoResults(visible === 0);
-    updateSummary(rows);
-  }
-
-  searchInput.addEventListener('keyup', filterRows);
-  categoryFilter.addEventListener('change', filterRows);
-  dateFilter.addEventListener('change', filterRows);
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
-</script>
+<script src="{% static 'js/expenses_search.js' %}"></script>
 {% endblock %}

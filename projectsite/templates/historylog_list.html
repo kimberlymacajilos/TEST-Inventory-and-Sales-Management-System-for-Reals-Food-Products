@@ -13,31 +13,28 @@
               <div class="card-title">List of History</div>
               <div class="card-category">All actions recorded by admins</div>
             </div>
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
+
+          </div>
+          <div class="card-body">
+            <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
               <select id="adminFilter" class="form-control" style="width:160px;">
                 <option value="">All Admins</option>
-                {% for object in object_list|dictsort:"admin.username" %}
-                  <option value="{{ object.admin.username }}">{{ object.admin.username }}</option>
+                {% for admin in admins %}
+                  <option value="{{ admin }}">{{ admin }}</option>
                 {% endfor %}
               </select>
-
               <!-- Log Filter -->
               <select id="logFilter" class="form-control" style="width:180px;">
                 <option value="">All Logs</option>
-                {% for object in object_list|dictsort:"log_type.category" %}
-                  <option value="{{ object.log_type.category }}">{{ object.log_type.category }}</option>
+                {% for log in logs %}
+                  <option value="{{ log }}">{{ log }}</option>
                 {% endfor %}
               </select>
-
               <!-- Date Filter -->
               <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
-
-              <!-- Search -->
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search history..." />
-            </div>
+            </form>
           </div>
-
           <!-- Table -->
           <div class="card-body">
             <div class="table-responsive">
@@ -74,12 +71,12 @@
 
 <script>
 (function () {
-  const searchInput = document.getElementById('searchInput');
   const adminFilter = document.getElementById('adminFilter');
   const logFilter = document.getElementById('logFilter');
   const dateFilter = document.getElementById('dateFilter');
   const tbody = document.getElementById('historyTableBody');
   const table = document.getElementById('historyTable');
+  const form = document.getElementById('filterForm'); 
 
   function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
 
@@ -99,10 +96,9 @@
   }
 
   function filterRows(){
-    const q = normalize(searchInput.value);
     const selectedAdmin = normalize(adminFilter.value);
     const selectedLog = normalize(logFilter.value);
-    const selectedDate = dateFilter.value; // format YYYY-MM
+    const selectedDate = dateFilter.value; 
 
     const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
     let visible = 0;
@@ -111,13 +107,10 @@
       const admin = normalize(row.cells[0].textContent);
       const log = normalize(row.cells[1].textContent);
       const entity = normalize(row.cells[2].textContent);
-      const date = (row.cells[4].textContent || '').trim().substring(0,7); // YYYY-MM
+      const date = (row.cells[4].textContent || '').trim().substring(0,7);
 
       let match = true;
 
-      if(q && !(admin.includes(q) || log.includes(q) || entity.includes(q) || date.includes(q))) {
-        match = false;
-      }
       if(selectedAdmin && admin !== selectedAdmin) {
         match = false;
       }
@@ -134,12 +127,15 @@
 
     showNoResults(visible === 0);
   }
-
-  searchInput.addEventListener('keyup', filterRows);
+  
   adminFilter.addEventListener('change', filterRows);
   logFilter.addEventListener('change', filterRows);
   dateFilter.addEventListener('change', filterRows);
+
+
   document.addEventListener('DOMContentLoaded', filterRows);
 })();
 </script>
+
+
 {% endblock %}

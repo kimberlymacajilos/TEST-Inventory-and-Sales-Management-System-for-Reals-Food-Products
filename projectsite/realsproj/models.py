@@ -454,9 +454,14 @@ class ProductBatches(models.Model):
     product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
     manufactured_date = models.DateTimeField(default=timezone.now)
-    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    expiration_date = models.DateField(blank=True, null=True)
+    created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
+
+    expiration_date = models.GeneratedField( 
+        expression="manufactured_date + interval '1 year'",
+        output_field=models.DateField(),
+        db_persist=True,
+    )
 
     class Meta:
         managed = False
@@ -565,6 +570,7 @@ class RawMaterials(models.Model):
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     size = models.DecimalField(max_digits=10, decimal_places=2)
+    date_created = models.DateTimeField(default=timezone.now)
 
     class Meta:
         managed = False
@@ -688,20 +694,6 @@ class UnitPrices(models.Model):
         return f"₱{self.unit_price}"
 
 
-class UserProfile(models.Model):
-    user = models.OneToOneField(AuthUser, on_delete=models.CASCADE)
-    profile_picture = models.ImageField(
-        upload_to='profile_pics/',
-        blank=True,
-        null=True,
-        default='profile_pics/default.png'
-    )
-
-    class Meta:
-        managed = False
-        db_table = 'user_profile' 
-
-
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
 
@@ -786,3 +778,14 @@ class Withdrawals(models.Model):
             except Products.DoesNotExist:
                 return Decimal(0)
         return Decimal(0)
+    
+
+    def get_queryset(self):
+        query = self.request.GET.get("q")
+        qs = Withdrawals.objects.all().order_by("-date")
+        if query:
+            qs = qs.filter(
+                Q(reason__icontains=query) |
+                Q(item_type__icontains=query)
+            )
+        return qs
