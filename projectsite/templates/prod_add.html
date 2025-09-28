@@ -12,14 +12,71 @@
 
                     <div class="col-md-6">
                     <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            {% csrf_token %} {% include 'includes/form.html' %}
+
+                        <form method="post">
+                            {% csrf_token %}
 
                             <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
+                                <label>Product Type</label>
+                                <input type="text" name="product_type" list="product_type-options" class="form-control">
+                                <datalist id="product_type-options">
+                                    {% for pt in product_types %}
+                                        <option value="{{ pt.name }}">
+                                    {% endfor %}
+                                </datalist>
                             </div>
+
+                            <div class="form-group">
+                                <label>Variant</label>
+                                <input type="text" name="variant" list="variant-options" class="form-control">
+                                <datalist id="variant-options">
+                                    {% for v in variants %}
+                                        <option value="{{ v.name }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Size</label>
+                                <input type="text" name="size" list="size-options" class="form-control">
+                                <datalist id="size-options">
+                                    {% for s in sizes %}
+                                        <option value="{{ s.size_label }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Size Unit</label>
+                                {{ form.size_unit }}
+                            </div>
+
+                            <div class="form-group">
+                                <label>Unit Price</label>
+                                <input type="text" name="unit_price" list="unit_price-options" class="form-control">
+                                <datalist id="unit_price-options">
+                                    {% for up in unit_prices %}
+                                        <option value="{{ up.unit_price }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label>SRP Price</label>
+                                <input type="text" name="srp_price" list="srp_price-options" class="form-control">
+                                <datalist id="srp_price-options">
+                                    {% for sp in srp_prices %}
+                                        <option value="{{ sp.srp_price }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Description</label>
+                                {{ form.description }}
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
                         </form>
                     </div>
                     </div>

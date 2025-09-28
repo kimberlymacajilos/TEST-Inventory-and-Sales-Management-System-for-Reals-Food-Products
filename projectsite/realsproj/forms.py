@@ -8,12 +8,67 @@ from django.core.exceptions import ValidationError
 
 
 class ProductsForm(forms.ModelForm):
+    product_type = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'product_type-options'}))
+    variant = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'variant-options'}))
+    size = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'size-options'}), required=False)
+    size_unit = forms.ModelChoiceField(
+        queryset=SizeUnits.objects.all(), empty_label="Select unit")
+    unit_price = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'unit_price-options'}))
+    srp_price = forms.CharField(
+        widget=forms.TextInput(attrs={'list': 'srp_price-options'}))
+    description = forms.CharField(widget=forms.Textarea, required=False)
+
     class Meta:
         model = Products
-        exclude = ['created_by_admin'] 
-        widgets = {
-            'date_added': forms.DateInput(attrs={'type': 'date'}),
-        }
+        exclude = ['created_by_admin', 'date_created']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance.pk:  # editing
+            self.fields['product_type'].initial = self.instance.product_type.name
+            self.fields['variant'].initial = self.instance.variant.name
+            self.fields['size'].initial = self.instance.size.size_label if self.instance.size else ''
+            self.fields['unit_price'].initial = self.instance.unit_price.unit_price
+            self.fields['srp_price'].initial = self.instance.srp_price.srp_price
+
+            # Prevent Django from showing raw IDs
+            self.initial['product_type'] = self.fields['product_type'].initial
+            self.initial['variant'] = self.fields['variant'].initial
+            self.initial['size'] = self.fields['size'].initial
+            self.initial['unit_price'] = self.fields['unit_price'].initial
+            self.initial['srp_price'] = self.fields['srp_price'].initial
+
+    def clean_product_type(self):
+        name = self.cleaned_data['product_type'].strip()
+        obj, _ = ProductTypes.objects.get_or_create(name=name)
+        return obj
+
+    def clean_variant(self):
+        name = self.cleaned_data['variant'].strip()
+        obj, _ = ProductVariants.objects.get_or_create(name=name)
+        return obj
+
+    def clean_size(self):
+        name = self.cleaned_data['size'].strip()
+        if not name:
+            return None
+        obj, _ = Sizes.objects.get_or_create(size_label=name)
+        return obj
+
+    def clean_unit_price(self):
+        price = self.cleaned_data['unit_price'].strip()
+        obj, _ = UnitPrices.objects.get_or_create(unit_price=price)
+        return obj
+
+    def clean_srp_price(self):
+        price = self.cleaned_data['srp_price'].strip()
+        obj, _ = SrpPrices.objects.get_or_create(srp_price=price)
+        return obj
 
 class RawMaterialsForm(ModelForm):
     class Meta:

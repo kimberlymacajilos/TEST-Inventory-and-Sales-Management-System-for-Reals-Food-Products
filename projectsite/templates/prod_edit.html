@@ -1,4 +1,6 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
 <div class="content">
     <div class="container-fluid">
         <h4 class="page-title">Products</h4>
@@ -11,21 +13,113 @@
                     </div>
 
                     <div class="col-md-6">
-                    <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            {% csrf_token %} {% include 'includes/form.html' %}
+                        <div class="card-body">
+                            <form action="" method="post" novalidate>
+                                {% csrf_token %}
 
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                                <!-- Product Type -->
+                                <div class="form-group">
+                                    <label for="product_type">Product type:</label>
+                                    <select id="product_type" name="product_type" class="form-control">
+                                        {% for pt in product_types %}
+                                            <option value="{{ pt.name }}"
+                                                {% if pt.name == form.initial.product_type %}selected{% endif %}>
+                                                {{ pt.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
-                            </div>
-                        </form>
-                    </div>
+
+                                <!-- Variant -->
+                                <div class="form-group">
+                                    <label for="variant">Variant:</label>
+                                    <select id="variant" name="variant" class="form-control">
+                                        {% for v in variants %}
+                                            <option value="{{ v.name }}"
+                                                {% if v.name == form.initial.variant %}selected{% endif %}>
+                                                {{ v.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Size -->
+                                <div class="form-group">
+                                    <label for="size">Size:</label>
+                                    <select id="size" name="size" class="form-control">
+                                        {% for s in sizes %}
+                                            <option value="{{ s.size_label }}"
+                                                {% if s.size_label == form.initial.size %}selected{% endif %}>
+                                                {{ s.size_label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Size Unit -->
+                                <div class="form-group">
+                                    {{ form.size_unit.label_tag }}
+                                    {{ form.size_unit }}
+                                </div>
+
+                                <!-- Unit Price -->
+                                <div class="form-group">
+                                    <label for="unit_price">Unit Price:</label>
+                                    <select id="unit_price" name="unit_price" class="form-control">
+                                        {% for u in unit_prices %}
+                                            <option value="{{ u.unit_price }}"
+                                                {% if u.unit_price == form.initial.unit_price %}selected{% endif %}>
+                                                {{ u.unit_price }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- SRP Price -->
+                                <div class="form-group">
+                                    <label for="srp_price">SRP Price:</label>
+                                    <select id="srp_price" name="srp_price" class="form-control">
+                                        {% for s in srp_prices %}
+                                            <option value="{{ s.srp_price }}"
+                                                {% if s.srp_price == form.initial.srp_price %}selected{% endif %}>
+                                                {{ s.srp_price }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="form-group">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="col-md-12 col-sm-3">
+                                        <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Select2 Assets -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#product_type').select2({ tags: true, width: '100%' });
+    $('#variant').select2({ tags: true, width: '100%' });
+    $('#size').select2({ tags: true, width: '100%' });
+    $('#unit_price').select2({ tags: true, width: '100%' });
+    $('#srp_price').select2({ tags: true, width: '100%' });
+});
+</script>
 {% endblock %}
