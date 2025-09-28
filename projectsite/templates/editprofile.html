@@ -4,76 +4,82 @@
 {% block title %}Edit Profile{% endblock %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/profile.css' %}">
-<div class="edit-page">
-    <div class="profile-header">
-        <div class="edit-button-container">
-            <a href="{% url 'profile' %}" class="btn btn-secondary">Back to Profile</a>
-        </div>
-        <!-- Circular container for profile image -->
-        <div class="profile-img-container">
-            <img id="profile-img" src="" alt="Profile Picture" class="profile-img" style="display: none;">
+
+<div class="container light-style flex-grow-1 container-p-y">
+    <h2 class="font-weight-bold py-3 mb-4">
+        Edit Profile
+    </h2>
+
+    <div class="card overflow-hidden">
+        <div class="row no-gutters row-bordered row-border-light">
+            <div class="col-md-3 pt-0">
+                <div class="list-group list-group-flush account-settings-links">
+                    <a class="list-group-item list-group-item-action active" data-toggle="list" href="#account-general">General</a>
+                    <a class="list-group-item list-group-item-action" data-toggle="list" href="#account-change-password">Change Password</a>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="account-general">
+                                <div class="form-group">
+                                    <label class="form-label">Username</label>
+                                    {{ form.username }}  <!-- Render the Django form field -->
+                                </div>
+                                    <div class="form-group">
+                                        <label class="form-label">First Name</label>
+                                        {{ form.first_name }}  <!-- Render the Django form field for first name -->
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Last Name</label>
+                                        {{ form.last_name }}  <!-- Render the Django form field for last name -->
+                                    </div>
+                                <div class="form-group">
+                                    <label class="form-label">E-mail</label>
+                                    {{ form.email }}  <!-- Render the Django form field -->
+                                    {% if form.email.errors %}
+                                        <div class="alert alert-warning mt-3">
+                                            Your email is not confirmed. Please check your inbox.<br>
+                                            <a href="javascript:void(0)">Resend confirmation</a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="account-change-password">
+                                <div class="form-group">
+                                    <label class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" name="current_password">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">New Password</label>
+                                    <input type="password" class="form-control" name="new_password">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Repeat New Password</label>
+                                    <input type="password" class="form-control" name="repeat_new_password">
+                                </div>
+                            </div>
+                                <div class="text-right mt-3">
+                                <button type="submit" class="btn btn-outline-primary">Save Changes</button>&nbsp;
+                                <a href="{% url 'profile' %}" class="btn btn-default">Cancel</a>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="profile-info">
-        <!-- Image Upload Section -->
-        <div class="upload-section">
-            <label for="image-upload" class="upload-label">Choose Profile Picture</label>
-            <input type="file" id="image-upload" name="profile-img" accept="image/*">
-        </div>
-
-        <div class="profile-form">
-            <form method="POST">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    {{form.username}}
-                    <!-- <input type="text" id="username" name="username" value="{{ request.user.username }}"> -->
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    {{form.email}}
-                    <!-- <input type="email" id="email" name="email" value="{{ request.user.email }}"> -->
-                </div>
-                <div class="form-group">
-                    <label for="first-name">First Name</label>
-                    {{form.first_name}}
-                    <!-- <input type="text" id="first-name" name="first-name" value="{{ request.user.first_name }}"> -->
-                </div>
-                <div class="form-group">
-                    <label for="last-name">Last Name</label>
-                    {{form.last_name}}
-                    <!-- <input type="text" id="last-name" name="last-name" value="{{ request.user.last_name }}"> -->
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="Leave empty to keep current">
-                </div>
-                <div class="d-flex justify-content-between">
-                    <a href="{% url 'profile' %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-success">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
 </div>
 
-<script>
-    const imageInput = document.getElementById("image-upload");
-    const profileImage = document.getElementById("profile-img");
-
-    imageInput.addEventListener("change", function(event) {
-        const file = event.target.files[0];
-
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                profileImage.src = e.target.result;
-                profileImage.style.display = "block"; // Show the image after upload
-            };
-            reader.readAsDataURL(file); // Converts the image file to a URL
-        }
-    });
-</script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

@@ -16,7 +16,8 @@ from decimal import Decimal
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
-from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .forms import CustomUserCreationForm
@@ -75,6 +76,8 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.contrib.auth.models import User
+from .forms import CustomUserChangeForm
 
 
 @method_decorator(login_required, name='dispatch')
@@ -367,22 +370,35 @@ class ProductBatchList(ListView):
     template_name = "prodbatch_list.html"
     paginate_by = 10
 
-
     def get_queryset(self):
         queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
-        query = self.request.GET.get("q", "").strip()
 
+        # text search
+        query = self.request.GET.get("q", "").strip()
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |   # product description from Products
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(manufactured_date__icontains=query) |      # manufactured_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(product__description__icontains=query) |
+                Q(batch_date__icontains=query) |
+                Q(manufactured_date__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(quantity__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
             )
 
+        # calendar filters
+        batch_date = self.request.GET.get("batch_date")
+        manufactured_date = self.request.GET.get("manufactured_date")
+        expiration_date = self.request.GET.get("expiration_date")
+
+        if batch_date:
+            queryset = queryset.filter(batch_date=batch_date)
+        if manufactured_date:
+            queryset = queryset.filter(manufactured_date=manufactured_date)
+        if expiration_date:
+            queryset = queryset.filter(expiration_date=expiration_date)
+
         return queryset
+
     
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
@@ -690,6 +706,18 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
 
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def profile_view(request):
+    return render(request, "profile.html")
+
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+
 
 def best_sellers_api(request):
     TOP_N = 5
@@ -732,14 +760,19 @@ class StockChangesList(ListView):
     
 def login_view(request):
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            return redirect('home')  # Redirect to home page after login
-    else:
-        form = AuthenticationForm()
-    return render(request, 'login.html', {'form': form})
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if user.is_active:
+                login(request, user)
+                return redirect('home')  # Redirect to home after successful login
+            else:
+                messages.error(request, "Your account is not active.")
+        else:
+            messages.error(request, "Invalid username or password.")
+    return render(request, 'login.html')
 
 def register(request):
     if request.method == 'POST':
@@ -777,17 +810,29 @@ def edit_profile(request):
     user = request.user  # Get the currently logged-in user
 
     if request.method == "POST":
-        # Create a form instance with the POST data and the current user
-        form = UserChangeForm(request.POST, request.FILES, instance=user)
-        if form.is_valid():
-            form.save()  # Save the form if it's valid
-            messages.success(request, "Profile updated successfully!")
-            return redirect("profile")  # Redirect to the profile page after saving
-        else:
-            # If the form is invalid, show errors
-            messages.error(request, "There was an error updating your profile. Please check the form.")
+       # Get the updated data from the form
+        username = request.POST.get("username")
+        first_name = request.POST.get("first_name")
+        last_name = request.POST.get("last_name")
+        email = request.POST.get("email")
+
+        # Check if the email is already taken by another user (excluding the current user)
+        if User.objects.exclude(id=user.id).filter(email=email).exists():
+            messages.error(request, "This email address is already in use by another account.")
+            return redirect("edit_profile")  # Redirect back to the edit profile page
+
+        # Update the user's fields
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+
+        # Save the updated user object to the database
+        user.save()
+
+        messages.success(request, "Profile updated successfully!")
+        return redirect("profile")  # Redirect to profile page after saving
     else:
-        # If it's a GET request, pre-fill the form with the current user data
-        form = UserChangeForm(instance=user)
+        form = UserChangeForm(instance=user)  # Pre-fill the form with current user data
 
     return render(request, "editprofile.html", {"form": form})

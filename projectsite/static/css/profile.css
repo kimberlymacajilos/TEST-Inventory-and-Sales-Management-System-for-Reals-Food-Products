@@ -113,6 +113,39 @@
     outline: none;
 }
 
+/* Pop-up message container at the top */
+#popup-messages {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: 400px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 16px;
+  color: white;
+  text-align: center;
+  display: none;  /* Hidden by default, shown via JS */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Add this to your profile.css or wherever you'd like to style the alerts */
+.alert {
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+
 /* Responsiveness for smaller screens */
 @media (max-width: 768px) {
     .profile-page {

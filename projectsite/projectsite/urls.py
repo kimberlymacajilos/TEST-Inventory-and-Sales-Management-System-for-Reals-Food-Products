@@ -27,7 +27,6 @@ from django.conf.urls.static import static
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
     re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
@@ -113,6 +112,7 @@ urlpatterns = [
 
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
+
 
 ]
 
