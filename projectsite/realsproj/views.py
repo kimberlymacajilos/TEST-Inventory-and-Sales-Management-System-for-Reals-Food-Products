@@ -25,6 +25,7 @@ from django.contrib import messages
 from django.db.models import Avg, Count, Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from datetime import datetime
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -71,13 +72,17 @@ from realsproj.models import (
     ExpensesSummary,
 )
 
-from django.db.models import Q
+from django.db.models import Q, CharField
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.contrib.auth.forms import UserCreationForm
+from datetime import datetime
+from django.db.models.functions import Cast
+
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
 
@@ -148,15 +153,14 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+
 class ProductsList(ListView):
     model = Products
     context_object_name = 'products'
     template_name = "prod_list.html"
     paginate_by = 10
-    
 
     def get_queryset(self):
-        # Preload related FKs for performance
         queryset = (
             super()
             .get_queryset()
@@ -168,12 +172,58 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(description__icontains=query) |
                 Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)  
+                Q(variant__name__icontains=query)
             )
+        product_type = self.request.GET.get("product_type")
+        variant = self.request.GET.get("variant")
+        size = self.request.GET.get("size")
+        date_created = self.request.GET.get("date_created")
+
+        if product_type:
+            queryset = queryset.filter(product_type__name__icontains=product_type)
+        if variant:
+            queryset = queryset.filter(variant__name__icontains=variant)
+        if size:
+            queryset = queryset.filter(size__size_label__icontains=size)
+        if date_created:
+            date_created = date_created.replace("/", "-").strip()
+            parts = date_created.split("-")
+
+            year, month, day = None, None, None
+
+            if len(parts) == 3:
+                if len(parts[0]) == 4:
+                    year, month, day = parts
+                else:
+                    month, day, year = parts
+            elif len(parts) == 2:
+                if len(parts[0]) == 4:
+                    year, month = parts
+                else:
+                    month, year = parts
+            elif len(parts) == 1:
+                if len(parts[0]) == 4: 
+                    year = parts[0]
+                elif len(parts[0]) <= 2:
+                    month = parts[0]
+
+            filters = {}
+            if year and year.isdigit():
+                filters["date_created__year"] = int(year)
+            if month and month.isdigit():
+                filters["date_created__month"] = int(month)
+            if day and day.isdigit():
+                filters["date_created__day"] = int(day)
+
+            if filters:
+                queryset = queryset.filter(**filters)
 
         return queryset
 
-
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query_params"] = self.request.GET
+        return context
 
 class ProductCreateView(CreateView):
     model = Products
@@ -182,25 +232,85 @@ class ProductCreateView(CreateView):
     success_url = reverse_lazy('products')
 
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
-    
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user  
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Product added successfully.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+        return context
+
+
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
-    template_name = 'prod_edit.html'
-    success_url = reverse_lazy('products')
+    template_name = "prod_edit.html"
+    success_url = reverse_lazy("products")
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Product updated successfully.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+        return context
+
 
 class ProductsDeleteView(DeleteView):
     model = Products
-    success_url = reverse_lazy('products')
+    success_url = reverse_lazy("products")
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Product deleted successfully.")
+        return super().get_success_url()
+
 
 class RawMaterialsList(ListView):
     model = RawMaterials
     context_object_name = 'rawmaterials'
     template_name = "rawmaterial_list.html"
     paginate_by = 10
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query) |
+                Q(unit__unit_name__icontains=query) |
+                Q(price_per_unit__icontains=query) |
+                Q(date_created__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+        
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(date_created__year=parsed_date.year, date_created__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
+
+        return queryset
+
+        return queryset
 
 class RawMaterialsCreateView(CreateView):
     model = RawMaterials
@@ -211,7 +321,9 @@ class RawMaterialsCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Raw Material created successfully.")
+        return response
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -219,9 +331,20 @@ class RawMaterialsUpdateView(UpdateView):
     template_name = 'rawmaterial_edit.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Raw Material updated successfully.")
+        return response
+
+
+
 class RawMaterialsDeleteView(DeleteView):
     model = RawMaterials
     success_url = reverse_lazy('rawmaterials')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Raw Material deleted successfully.")
+        return super().get_success_url()
 
 class HistoryLogList(ListView):
     model = HistoryLog
@@ -232,15 +355,29 @@ class HistoryLogList(ListView):
     def get_queryset(self):
         queryset = super().get_queryset().select_related("admin", "log_type").order_by("-log_date")
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(admin__username__icontains=query) |
-                Q(log_type__category__icontains=query) |   # adjust if field is different
-                Q(log_date__icontains=query)
-            )
+        admin_filter = self.request.GET.get("admin", "").strip()
+        if admin_filter:
+            queryset = queryset.filter(admin__username=admin_filter)
+
+        log_filter = self.request.GET.get("log", "").strip()
+        if log_filter:
+            queryset = queryset.filter(log_type__category=log_filter)
+
+        date_str = self.request.GET.get("date", "").strip()
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                queryset = queryset.filter(log_date__date=date_obj)
+            except ValueError:
+                pass
 
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['admins'] = HistoryLog.objects.values_list('admin__username', flat=True).distinct()
+        context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
+        return context
     
 
 class SalesList(ListView):
@@ -252,16 +389,30 @@ class SalesList(ListView):
     def get_queryset(self):
         qs = Sales.objects.select_related("created_by_admin").order_by("-date")
 
+        # --- Search filter ---
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
-                Q(item__icontains=query) |
-                Q(quantity__icontains=query) |
+                Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+
+        # --- Category filter ---
+        category = self.request.GET.get("category", "").strip()
+        if category:
+            qs = qs.filter(category__iexact=category)
+
+        # --- Month filter (YYYY-MM) ---
+        month = self.request.GET.get("month", "").strip()
+        if month:
+            try:
+                year, month_num = month.split("-")
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass  # ignore invalid month
 
         self._full_queryset = qs
         return qs
@@ -276,20 +427,23 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
+        categories = Sales.objects.values_list('category', flat=True).distinct()
+        context['categories'] = categories
 
         return context
-
 
 class SalesCreateView(CreateView):
     model = Sales
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-
+    
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Sale recorded successfully.")
+        return response
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -297,9 +451,18 @@ class SalesUpdateView(UpdateView):
     template_name = 'sales_edit.html'
     success_url = reverse_lazy('sales')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Sale updated successfully.")
+        return response
+
 class SalesDeleteView(DeleteView):
     model = Sales
     success_url = reverse_lazy('sales')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Sale deleted successfully.")
+        return super().get_success_url()
 
 
 class ExpensesList(ListView):
@@ -312,6 +475,9 @@ class ExpensesList(ListView):
         queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        month = self.request.GET.get("month", "").strip()
+
         if query:
             queryset = queryset.filter(
                 Q(category__icontains=query) |
@@ -320,6 +486,13 @@ class ExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+        if category:
+            queryset = queryset.filter(category=category)
+        if month:
+            # Filter by month (YYYY-MM)
+            queryset = queryset.filter(date__year=int(month.split("-")[0]),
+                                       date__month=int(month.split("-")[1]))
+
         self.filtered_queryset = queryset
         return queryset
 
@@ -333,9 +506,11 @@ class ExpensesList(ListView):
         )
 
         context["expenses_summary"] = summary
-
+            # Unique categories for dropdown
+        categories = Expenses.objects.values_list('category', flat=True).distinct()
+        context["categories"] = categories
         return context
-
+    
 class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
@@ -345,7 +520,10 @@ class ExpensesCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         form.instance.created_by_admin = auth_user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "✅ Expense recorded successfully.")
+        return response
+
 
 class ExpensesUpdateView(UpdateView):
     model = Expenses
@@ -353,9 +531,19 @@ class ExpensesUpdateView(UpdateView):
     template_name = 'expenses_edit.html'
     success_url = reverse_lazy('expenses')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "✏️ Expense updated successfully.")
+        return response
+
 class ExpensesDeleteView(DeleteView):
     model = Expenses
     success_url = reverse_lazy('expenses')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Expense deleted successfully.")
+        return super().get_success_url()
+
 
 class ProductBatchList(ListView):
     model = ProductBatches
@@ -365,33 +553,31 @@ class ProductBatchList(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
-
-        # text search
         query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
+
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |
+                Q(product__product_type__name__icontains=query) |
+                Q(product__variant__name__icontains=query) |
                 Q(batch_date__icontains=query) |
                 Q(manufactured_date__icontains=query) |
-                Q(expiration_date__icontains=query) |
-                Q(quantity__icontains=query) |
-                Q(created_by_admin__username__icontains=query)
+                Q(expiration_date__icontains=query)
             )
 
-        # calendar filters
-        batch_date = self.request.GET.get("batch_date")
-        manufactured_date = self.request.GET.get("manufactured_date")
-        expiration_date = self.request.GET.get("expiration_date")
-
-        if batch_date:
-            queryset = queryset.filter(batch_date=batch_date)
-        if manufactured_date:
-            queryset = queryset.filter(manufactured_date=manufactured_date)
-        if expiration_date:
-            queryset = queryset.filter(expiration_date=expiration_date)
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
+                    Q(manufactured_date__year=parsed_date.year, manufactured_date__month=parsed_date.month) |
+                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
 
         return queryset
-
     
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
@@ -405,9 +591,23 @@ class ProductBatchUpdateView(UpdateView):
     template_name = 'prodbatch_edit.html'
     success_url = reverse_lazy('product-batch')
 
+    def form_valid(self, form):
+        messages.success(self.request, "✅ Product Batch updated successfully.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Failed to update Product Batch. Please check the form.")
+        return super().form_invalid(form)
+
+
 class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
-    success_url = reverse_lazy('product-batch')
+    success_url = reverse_lazy("product-batch")
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Product Batch deleted successfully.")
+        return super().get_success_url()
+    
 
 class ProductInventoryList(ListView):
     model = ProductInventory
@@ -416,41 +616,93 @@ class ProductInventoryList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product")
+        queryset = super().get_queryset().select_related(
+            "product",
+            "product__product_type",
+            "product__variant",
+            "product__size",
+            "product__size_unit",
+            "unit",   # direct unit in ProductInventory
+        )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            queryset = queryset.annotate(
+                total_stock_str=Cast("total_stock", CharField()),
+                restock_threshold_str=Cast("restock_threshold", CharField()),
+            )
+
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |  # comes from Products
-                Q(total_stock__icontains=query) |           # comes from ProductInventory
-                Q(restock_threshold__icontains=query)       # comes from ProductInventory
+                Q(product__description__icontains=q) |
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
+                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
+                Q(unit__unit_name__icontains=q) |                # ✅ correct
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
         return queryset.order_by("product_id")
 
+class RawMaterialList(ListView):
+    model = RawMaterials
+    context_object_name = 'raw_materials'
+    template_name = "rawmaterial_list.html"
+    paginate_by = 10
 
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query) |
+                Q(unit__unit_name__icontains=query) |
+                Q(price_per_unit__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
+
+    
 class RawMaterialBatchList(ListView):
     model = RawMaterialBatches
     context_object_name = 'rawmatbatch'
     template_name = "rawmatbatch_list.html"
     paginate_by = 10
-
+    
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
         query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
 
         if query:
             queryset = queryset.filter(
-                Q(rawmaterial__description__icontains=query) |   # raw material description from RawMaterials
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(received_date__icontains=query) |      # received_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(material__name__icontains=query) |
+                Q(batch_date__icontains=query) |
+                Q(received_date__icontains=query) |
+                Q(quantity__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
             )
+        
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
+                    Q(received_date__year=parsed_date.year, received_date__month=parsed_date.month) |
+                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
 
         return queryset
-    
+
+
 class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
@@ -462,7 +714,7 @@ class RawMaterialBatchUpdateView(UpdateView):
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
     success_url = reverse_lazy('rawmaterial-batch') 
-
+    
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
     success_url = reverse_lazy('rawmaterial-batch')
@@ -473,6 +725,19 @@ class RawMaterialInventoryList(ListView):
     context_object_name = 'rawmatinvent'
     template_name = "rawmatinvent_list.html"
     paginate_by = 10
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("material").order_by('-material_id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(material__name__icontains=query) |
+                Q(total_stock__icontains=query) |
+                Q(reorder_threshold__icontains=query)
+            )
+
+        return queryset
 
 class ProductTypeCreateView(CreateView):
     model = ProductTypes
@@ -518,8 +783,55 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Withdrawals.objects.all().order_by('-date')
-    
+        queryset = Withdrawals.objects.all().order_by('-date')
+        request = self.request
+
+        # filters (keep what you already had)
+        q = request.GET.get("q")
+        if q:
+            filters = (
+                Q(created_by_admin__username__icontains=q) |
+                Q(reason__icontains=q) |
+                Q(item_type__icontains=q)
+            )
+            if q.isdigit():
+                filters |= Q(item_id=q)
+            queryset = queryset.filter(filters)
+
+        item_type = request.GET.get("item_type")
+        if item_type:
+            queryset = queryset.filter(item_type=item_type)
+
+        reason = request.GET.get("reason")
+        if reason:
+            queryset = queryset.filter(reason=reason)
+
+        date_val = request.GET.get("date")
+        if date_val:
+            try:
+                if len(date_val) == 7:  # YYYY-MM
+                    year, month = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month)
+                elif len(date_val) == 10:  # YYYY-MM-DD
+                    year, month, day = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month, date__day=day)
+                elif len(date_val) == 4:  # YYYY
+                    queryset = queryset.filter(date__year=int(date_val))
+            except ValueError:
+                pass  
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # ✅ Distinct admin usernames for filter dropdown
+        context["admins"] = (
+            Withdrawals.objects
+            .values_list("created_by_admin__username", flat=True)
+            .distinct()
+            .order_by("created_by_admin__username")
+        )
+        return context
 
 class WithdrawItemView(View):
     template_name = "withdraw_item.html"
@@ -596,8 +908,15 @@ class WithdrawItemView(View):
                         price_type=price_type if reason == "SOLD" else None,
                     )
                     withdrawals_made += 1
-            
+
+        if withdrawals_made > 0:
+            messages.success(request, f"{withdrawals_made} withdrawal(s) recorded successfully.")
+
+        for error in errors:
+            messages.error(request, error)
+
         return redirect("withdrawals")
+
     
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
@@ -635,7 +954,7 @@ class NotificationsList(ListView):
         return super().get(request, *args, **kwargs)
 
 
-class BulkProductBatchCreateView(LoginRequiredMixin, View):
+class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
 
     def get(self, request):
@@ -647,27 +966,41 @@ class BulkProductBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             manufactured_date = form.cleaned_data['manufactured_date']
-            expiration_date = form.cleaned_data.get('expiration_date')
-            deduct_raw_material = form.cleaned_data['deduct_raw_material']  # ✅ get checkbox value
+            deduct_raw_material = form.cleaned_data['deduct_raw_material']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
-            for product_info in form.products:
-                product = product_info['product']
-                qty = form.cleaned_data.get(f'product_{product.id}_qty')
-                if qty:
-                    ProductBatches.objects.create(
-                        product=product,
-                        quantity=qty,
-                        batch_date=batch_date,
-                        manufactured_date=manufactured_date,
-                        expiration_date=expiration_date,
-                        created_by_admin=auth_user,
-                        deduct_raw_material=deduct_raw_material
-                    )
+            try:
+                added_any = False
+                for product_info in form.products:
+                    product = product_info['product']
+                    qty = form.cleaned_data.get(f'product_{product.id}_qty')
+                    if qty:
+                        ProductBatches.objects.create(
+                            product=product,
+                            quantity=qty,
+                            batch_date=batch_date,
+                            manufactured_date=manufactured_date,
+                            created_by_admin=auth_user,
+                            deduct_raw_material=deduct_raw_material
+                        )
+                        added_any = True
 
-            return redirect('product-batch')
+                if added_any:
+                    messages.success(request, "✅ Product Batch added successfully.")
+                else:
+                    messages.warning(request, "⚠️ No product quantities were entered.")
+
+                return redirect("product-batch")
+
+            except Exception as e:
+                messages.error(
+                    request,
+                    f"❌ Product Batch not added: insufficient raw materials."
+                )
+                return redirect("product-batch")
 
         return render(request, self.template_name, {'form': form, 'products': form.products})
+
 
 class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     template_name = "rawmatbatch_add.html"
