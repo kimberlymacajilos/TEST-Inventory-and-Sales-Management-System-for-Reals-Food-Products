@@ -9,37 +9,43 @@
       <div class="col-md-12">
         <div class="card">
 
-          <!-- Card Header -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of Withdrawals</div>
-              <div class="card-category">Page Subtitle</div>
+              <div class="card-category">All recorded withdrawals</div>
             </div>
-
-            <div class="d-flex align-items-center" style="gap: 0.5rem;">
-              <input
-                type="month"
-                id="dateFilter"
-                class="form-control"
-                style="width: 180px;"
-                value="{{ request.GET.date|default:'' }}"
-              />
-
-              <input
-                id="searchInput"
-                class="form-control"
-                style="width: 220px;"
-                placeholder="Search item id / user..."
-                value="{{ request.GET.q|default:'' }}"
-              />
-
-              <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">
-                Withdraw Item
-              </a>
+            <div class="pull-right">
+              <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
             </div>
           </div>
+          <div class="card-body">
+            <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Admin Filter -->
+              <select id="adminFilter" class="form-control" style="width:160px;">
+                <option value="">All Admins</option>
+                {% for admin in admins %}
+                  <option value="{{ admin }}">{{ admin }}</option>
+                {% endfor %}
+              </select>
+              <!-- Item Type Filter -->
+              <select id="itemTypeFilter" class="form-control" style="width:160px;">
+                <option value="">All Types</option>
+                {% for value, label in withdrawals.model.ITEM_TYPE_CHOICES %}
+                  <option value="{{ label }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+              <!-- Reason Filter -->
+              <select id="reasonFilter" class="form-control" style="width:160px;">
+                <option value="">All Reasons</option>
+                {% for value, label in withdrawals.model.REASON_CHOICES %}
+                  <option value="{{ label }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+              <!-- Month-Year Filter -->
+              <input id="dateFilter" type="month" class="form-control" style="width:180px;" />
+            </form>
+          </div>
 
-          <!-- Card Body -->
           <div class="card-body">
             <div class="table-responsive">
               <table class="table table-striped" id="withdrawalTable">
@@ -54,7 +60,7 @@
                   </tr>
                 </thead>
                 <tbody id="withdrawalTableBody">
-                  {% for object in object_list %}
+                  {% for object in withdrawals %}
                   <tr>
                     <td>{{ object.date|date:"Y-m-d H:i" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
@@ -70,12 +76,72 @@
 
             {% include 'includes/pagination.html' %}
           </div>
-
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="{% static 'js/withdraw_search.js' %}"></script>
+<script>
+(function () {
+  const adminFilter = document.getElementById('adminFilter');
+  const itemTypeFilter = document.getElementById('itemTypeFilter');
+  const reasonFilter = document.getElementById('reasonFilter');
+  const dateFilter = document.getElementById('dateFilter');
+  const tbody = document.getElementById('withdrawalTableBody');
+  const table = document.getElementById('withdrawalTable');
+
+  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
+
+  function showNoResults(show){
+    let existing = document.getElementById('noResultsRow');
+    if(show){
+      if(!existing){
+        const cols = table.querySelectorAll('thead th').length;
+        const tr = document.createElement('tr');
+        tr.id = 'noResultsRow';
+        tr.innerHTML = `<td colspan="${cols}" class="text-center">No withdrawals found.</td>`;
+        tbody.appendChild(tr);
+      }
+    } else {
+      if(existing) existing.remove();
+    }
+  }
+
+  function filterRows(){
+    const selectedAdmin = normalize(adminFilter.value);
+    const selectedItemType = normalize(itemTypeFilter.value);
+    const selectedReason = normalize(reasonFilter.value);
+    const selectedDate = dateFilter.value; 
+
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
+    let visible = 0;
+
+    rows.forEach(row => {
+      const dateCell = (row.cells[0].textContent || '').trim().substring(0,7); 
+      const itemType = normalize(row.cells[1].textContent);
+      const reason = normalize(row.cells[4].textContent);
+      const admin = normalize(row.cells[5].textContent); 
+
+      let match = true;
+
+      if (selectedAdmin && admin !== selectedAdmin) match = false;
+      if (selectedItemType && itemType !== selectedItemType) match = false;
+      if (selectedReason && reason !== selectedReason) match = false;
+      if (selectedDate && dateCell !== selectedDate) match = false;
+
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+
+    showNoResults(visible === 0);
+  }
+
+  [adminFilter, itemTypeFilter, reasonFilter, dateFilter].forEach(el =>
+    el.addEventListener('change', filterRows)
+  );
+
+  document.addEventListener('DOMContentLoaded', filterRows);
+})();
+</script>
 {% endblock %}

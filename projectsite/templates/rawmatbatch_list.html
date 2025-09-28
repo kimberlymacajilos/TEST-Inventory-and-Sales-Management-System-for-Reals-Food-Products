@@ -3,7 +3,7 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Raw Material Batches</h4>
+    <h4 class="page-title">Raw Material</h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
@@ -13,49 +13,49 @@
               <div class="card-title">List of Raw Material Batches</div>
               <div class="card-category">Page Subtitle</div>
             </div>
-            <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
+
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
+            </div>
+          </div>
+          <div class="card-body">
+            <form class="row mb-4" id="filterForm">
+              <div class="col-md-3">
+                <input type="text" id="searchInput" class="form-control" style="width:260px;" placeholder="Search raw material batches..." />
+              </div>
+              <div class="col-md-3">
+                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
+              </div>
+            </form>
           </div>
 
-          <!-- Card Body -->
           <div class="card-body">
-            <!-- Search bar above table -->
-            <div class="row mb-3">
-              <div class="col-md-4">
-                <form id="batchSearchForm">
-                  <input type="text" id="batchSearchInput" class="form-control" placeholder="Search raw material batches...">
-                </form>
-              </div>
-            </div>
-
-            <!-- Table -->
             <div class="table-responsive">
-              <table class="table table-striped">
+              <table class="table table-striped" id="batchTable">
                 <thead>
                   <tr>
-                    <th>Batch Date</th>
-                    <th>Material</th>
-                    <th>Quantity</th>
-                    <th>Received Date</th>
-                    <th>Expiration Date</th>
-                    <th>Created By</th>
-                    <th>Actions</th>
+                    <th scope="col">Batch Date</th>
+                    <th scope="col">Material</th>
+                    <th scope="col">Quantity</th>
+                    <th scope="col">Input Date</th>
+                    <th scope="col">Expiration Date</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="batchTableBody">
-                  {% for batch in rawmatbatch %}
+                  {% for object in object_list %}
                   <tr>
-                    <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                    <td>{{ batch.material.name }}</td>
-                    <td>{{ batch.quantity }}</td>
-                    <td>{{ batch.received_date|date:"Y-m-d" }}</td>
-                    <td>{{ batch.expiration_date|date:"Y-m-d" }}</td>
-                    <td>{{ batch.created_by_admin.username }}</td>
+                    <td>{{ object.batch_date|date:"Y-m-d" }}</td>
+                    <td>{{ object.material }}</td>
+                    <td>{{ object.quantity }}</td>
+                    <td>{{ object.received_date|date:"Y-m-d" }}</td>
+                    <td>{{ object.expiration_date|date:"Y-m-d" }}</td>
                     <td>
-                      <a href="{% url 'rawmaterial-batch-edit' batch.id %}" style="color: blue;" title="Edit">
+                      <a href="{% url 'rawmaterial-batch-edit' object.id %}" style="color: blue;" title="Edit">
                         <i class="la la-edit la-lg"></i>
                       </a>
                       &nbsp;&nbsp;
-                      <a href="#" data-toggle="modal" data-target="#deleteRawBatchModal{{ batch.id }}" style="color: red;" title="Delete">
+                      <a href="#" data-toggle="modal" data-target="#deleteRawBatchModal{{ object.id }}" style="color: red;" title="Delete">
                         <i class="la la-trash la-lg"></i>
                       </a>
                       <div class="modal fade" id="deleteRawBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
@@ -92,10 +92,7 @@
               </table>
             </div>
 
-            <!-- Pagination -->
-            <div class="pagination-container">
-              {% include 'includes/pagination.html' %}
-            </div>
+            {% include 'includes/pagination.html' %}
           </div>
         </div>
       </div>
@@ -103,5 +100,52 @@
   </div>
 </div>
 
-<script src="{% static 'js/rawmaterial_search.js' %}"></script>
+<script>
+    document.getElementById("searchInput").addEventListener("keyup", function() {
+        var search = this.value.toLowerCase();
+        var rows = document.querySelectorAll("#batchTable tbody tr");
+
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? "" : "none";
+    });
+
+});
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filterForm');
+    const dateFilter = document.getElementById('rawDateFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    if (!filterForm) {
+        console.warn('filterForm not found');
+        return;
+    }
+
+    if (dateFilter) {
+        dateFilter.addEventListener('change', function () {
+            console.log('Auto-submitting month:', this.value);
+            filterForm.submit();
+        });
+    }
+
+    let typingTimer;
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function (e) {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function () {
+                console.log('Auto-submitting search:', searchInput.value);
+                filterForm.submit();
+            }, 500);
+        });
+
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                filterForm.submit();
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

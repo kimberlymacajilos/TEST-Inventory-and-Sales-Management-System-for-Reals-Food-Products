@@ -23,6 +23,7 @@ from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum
+from datetime import datetime
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -483,30 +484,29 @@ class ProductBatchList(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
-
-        # text search
         query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
+
         if query:
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |
+                Q(product__product_type__name__icontains=query) |
+                Q(product__variant__name__icontains=query) |
                 Q(batch_date__icontains=query) |
                 Q(manufactured_date__icontains=query) |
-                Q(expiration_date__icontains=query) |
-                Q(quantity__icontains=query) |
-                Q(created_by_admin__username__icontains=query)
+                Q(expiration_date__icontains=query)
             )
 
-        # calendar filters
-        batch_date = self.request.GET.get("batch_date")
-        manufactured_date = self.request.GET.get("manufactured_date")
-        expiration_date = self.request.GET.get("expiration_date")
-
-        if batch_date:
-            queryset = queryset.filter(batch_date=batch_date)
-        if manufactured_date:
-            queryset = queryset.filter(manufactured_date=manufactured_date)
-        if expiration_date:
-            queryset = queryset.filter(expiration_date=expiration_date)
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
+                    Q(manufactured_date__year=parsed_date.year, manufactured_date__month=parsed_date.month) |
+                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
 
         return queryset
 
@@ -594,6 +594,7 @@ class RawMaterialBatchList(ListView):
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
         query = self.request.GET.get("q", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
 
         if query:
             queryset = queryset.filter(
@@ -604,6 +605,18 @@ class RawMaterialBatchList(ListView):
                 Q(expiration_date__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+        
+        if date_filter:
+            try:
+                # Parse only year and month (from YYYY-MM)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
+                    Q(received_date__year=parsed_date.year, received_date__month=parsed_date.month) |
+                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
+                )
+            except ValueError:
+                pass  # Ignore invalid format
 
         return queryset
 
@@ -691,7 +704,7 @@ class WithdrawSuccessView(ListView):
         queryset = Withdrawals.objects.all().order_by('-date')
         request = self.request
 
-        # ✅ Search across multiple fields
+        # filters (keep what you already had)
         q = request.GET.get("q")
         if q:
             filters = (
@@ -700,10 +713,9 @@ class WithdrawSuccessView(ListView):
                 Q(item_type__icontains=q)
             )
             if q.isdigit():
-                filters |= Q(item_id=q)  # numeric search matches exact item_id
+                filters |= Q(item_id=q)
             queryset = queryset.filter(filters)
 
-        # ✅ Dropdown filters
         item_type = request.GET.get("item_type")
         if item_type:
             queryset = queryset.filter(item_type=item_type)
@@ -712,7 +724,6 @@ class WithdrawSuccessView(ListView):
         if reason:
             queryset = queryset.filter(reason=reason)
 
-        # ✅ Date filter
         date_val = request.GET.get("date")
         if date_val:
             try:
@@ -725,10 +736,20 @@ class WithdrawSuccessView(ListView):
                 elif len(date_val) == 4:  # YYYY
                     queryset = queryset.filter(date__year=int(date_val))
             except ValueError:
-                pass  # ignore invalid formats
+                pass  
 
         return queryset
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # ✅ Distinct admin usernames for filter dropdown
+        context["admins"] = (
+            Withdrawals.objects
+            .values_list("created_by_admin__username", flat=True)
+            .distinct()
+            .order_by("created_by_admin__username")
+        )
+        return context
 
 class WithdrawItemView(View):
     template_name = "withdraw_item.html"

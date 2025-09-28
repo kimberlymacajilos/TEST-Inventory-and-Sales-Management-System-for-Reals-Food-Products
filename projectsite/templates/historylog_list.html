@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -12,36 +11,30 @@
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of History</div>
-              <div class="card-category">Page Subtitle</div>
+              <div class="card-category">All actions recorded by admins</div>
             </div>
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
+
+          </div>
+          <div class="card-body">
+            <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
-              <select name="admin" class="form-control" style="width:160px;">
+              <select id="adminFilter" class="form-control" style="width:160px;">
                 <option value="">All Admins</option>
-                {% for username in admins %}
-                  <option value="{{ username }}" {% if request.GET.admin == username %}selected{% endif %}>
-                    {{ username }}
-                  </option>
+                {% for admin in admins %}
+                  <option value="{{ admin }}">{{ admin }}</option>
                 {% endfor %}
               </select>
-
               <!-- Log Filter -->
-              <select id="logFilter" class="form-control" style="width:160px;">
+              <select id="logFilter" class="form-control" style="width:180px;">
                 <option value="">All Logs</option>
-                {% for category in logs %}
-                  <option value="{{ category }}" {% if request.GET.log == category %}selected{% endif %}>
-                    {{ category }}
-                  </option>
+                {% for log in logs %}
+                  <option value="{{ log }}">{{ log }}</option>
                 {% endfor %}
               </select>
-
               <!-- Date Filter -->
-              <input type="date" name="date" class="form-control" style="width:170px;" value="{{ request.GET.date }}"/>
-
-              <button type="submit" class="btn btn-primary">Filter</button>
+              <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
             </form>
           </div>
-
           <!-- Table -->
           <div class="card-body">
             <div class="table-responsive">
@@ -55,12 +48,14 @@
                     <th scope="col">Date</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="historyTableBody">
                   {% for object in object_list %}
                   <tr>
                     <td>{{ object.admin.username }}</td>
                     <td>{{ object.log_type.category }}</td>
-                    <td>{{ object.log_date }}</td>
+                    <td>{{ object.get_entity_display }}</td>
+                    <td>{{ object.get_details_display }}</td>
+                    <td>{{ object.log_date|date:"Y-m-d H:i" }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -73,5 +68,74 @@
     </div>
   </div>
 </div>
-<script src="{% static 'js/historylog_search.js' %}"></script>
+
+<script>
+(function () {
+  const adminFilter = document.getElementById('adminFilter');
+  const logFilter = document.getElementById('logFilter');
+  const dateFilter = document.getElementById('dateFilter');
+  const tbody = document.getElementById('historyTableBody');
+  const table = document.getElementById('historyTable');
+  const form = document.getElementById('filterForm'); 
+
+  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
+
+  function showNoResults(show){
+    let existing = document.getElementById('noResultsRow');
+    if(show){
+      if(!existing){
+        const cols = table.querySelectorAll('thead th').length;
+        const tr = document.createElement('tr');
+        tr.id = 'noResultsRow';
+        tr.innerHTML = `<td colspan="${cols}" class="text-center">No history found.</td>`;
+        tbody.appendChild(tr);
+      }
+    } else {
+      if(existing) existing.remove();
+    }
+  }
+
+  function filterRows(){
+    const selectedAdmin = normalize(adminFilter.value);
+    const selectedLog = normalize(logFilter.value);
+    const selectedDate = dateFilter.value; 
+
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
+    let visible = 0;
+
+    rows.forEach(row => {
+      const admin = normalize(row.cells[0].textContent);
+      const log = normalize(row.cells[1].textContent);
+      const entity = normalize(row.cells[2].textContent);
+      const date = (row.cells[4].textContent || '').trim().substring(0,7);
+
+      let match = true;
+
+      if(selectedAdmin && admin !== selectedAdmin) {
+        match = false;
+      }
+      if(selectedLog && log !== selectedLog) {
+        match = false;
+      }
+      if(selectedDate && date !== selectedDate) {
+        match = false;
+      }
+
+      row.style.display = match ? '' : 'none';
+      if(match) visible++;
+    });
+
+    showNoResults(visible === 0);
+  }
+  
+  adminFilter.addEventListener('change', filterRows);
+  logFilter.addEventListener('change', filterRows);
+  dateFilter.addEventListener('change', filterRows);
+
+
+  document.addEventListener('DOMContentLoaded', filterRows);
+})();
+</script>
+
+
 {% endblock %}
