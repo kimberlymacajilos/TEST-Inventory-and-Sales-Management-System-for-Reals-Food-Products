@@ -27,6 +27,7 @@ class ProductsForm(forms.ModelForm):
         exclude = ['created_by_admin', 'date_created']
 
     def __init__(self, *args, **kwargs):
+        self.created_by_admin = kwargs.pop('created_by_admin', None)
         super().__init__(*args, **kwargs)
 
         if self.instance.pk:  # editing
@@ -45,29 +46,42 @@ class ProductsForm(forms.ModelForm):
 
     def clean_product_type(self):
         name = self.cleaned_data['product_type'].strip()
-        obj, _ = ProductTypes.objects.get_or_create(name=name)
+        obj, created = ProductTypes.objects.get_or_create(
+            name=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
         return obj
 
     def clean_variant(self):
         name = self.cleaned_data['variant'].strip()
-        obj, _ = ProductVariants.objects.get_or_create(name=name)
+        obj, created = ProductVariants.objects.get_or_create(
+            name=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
         return obj
 
     def clean_size(self):
         name = self.cleaned_data['size'].strip()
-        if not name:
-            return None
-        obj, _ = Sizes.objects.get_or_create(size_label=name)
+        obj, created = Sizes.objects.get_or_create(
+            size_label=name,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
         return obj
 
     def clean_unit_price(self):
         price = self.cleaned_data['unit_price'].strip()
-        obj, _ = UnitPrices.objects.get_or_create(unit_price=price)
+        obj, created = UnitPrices.objects.get_or_create(
+            unit_price=price,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
         return obj
 
     def clean_srp_price(self):
         price = self.cleaned_data['srp_price'].strip()
-        obj, _ = SrpPrices.objects.get_or_create(srp_price=price)
+        obj, created = SrpPrices.objects.get_or_create(
+            srp_price=price,
+            defaults={'created_by_admin': self.created_by_admin}
+        )
         return obj
 
 class RawMaterialsForm(ModelForm):

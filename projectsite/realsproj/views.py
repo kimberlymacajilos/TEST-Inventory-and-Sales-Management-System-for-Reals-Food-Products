@@ -246,6 +246,12 @@ class ProductCreateView(CreateView):
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         return context
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
 
 
 class ProductsUpdateView(UpdateView):
@@ -267,6 +273,12 @@ class ProductsUpdateView(UpdateView):
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         return context
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
 
 
 class ProductsDeleteView(DeleteView):
@@ -745,11 +757,22 @@ class ProductTypeCreateView(CreateView):
     template_name = "prodtype_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class ProductVariantCreateView(CreateView):
     model = ProductVariants
     form_class = ProductVariantsForm
     template_name = "prodvar_add.html"
     success_url = reverse_lazy("product-add")
+
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class SizesCreateView(CreateView):
     model = Sizes
@@ -757,11 +780,21 @@ class SizesCreateView(CreateView):
     template_name = "sizes_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SizeUnitsCreateView(CreateView):
     model = SizeUnits
     form_class = SizeUnitsForm
     template_name = "sizeunits_add.html"
     success_url = reverse_lazy("product-add")
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class UnitPricesCreateView(CreateView):
     model = UnitPrices
@@ -769,11 +802,21 @@ class UnitPricesCreateView(CreateView):
     template_name = "unitprices_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SrpPricesCreateView(CreateView):
     model = SrpPrices
     form_class = SrpPricesForm
     template_name = "srpprices_add.html"
     success_url = reverse_lazy("product-add")
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 
 class WithdrawSuccessView(ListView):
