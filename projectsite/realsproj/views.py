@@ -226,13 +226,24 @@ class ProductsList(ListView):
 class ProductCreateView(CreateView):
     model = Products
     form_class = ProductsForm
-    template_name = "prod_add.html"
-    success_url = reverse_lazy("products")
+    template_name = 'prod_add.html'
+    success_url = reverse_lazy('products')
 
     def form_valid(self, form):
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user  
         response = super().form_valid(form)
         messages.success(self.request, "✅ Product added successfully.")
         return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+        return context
 
 
 class ProductsUpdateView(UpdateView):
@@ -241,11 +252,19 @@ class ProductsUpdateView(UpdateView):
     template_name = "prod_edit.html"
     success_url = reverse_lazy("products")
     
-
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, "✏️ Product updated successfully.")
         return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+        return context
 
 
 class ProductsDeleteView(DeleteView):
