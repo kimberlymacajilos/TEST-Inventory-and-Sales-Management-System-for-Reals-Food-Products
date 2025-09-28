@@ -1,175 +1,153 @@
-/* Profile Page */
-.profile-page {
-    position: relative;
-    display: flex;
-    flex-direction: column; /* Stack everything vertically */
-    padding: 20px;
-    min-height: 100vh;
+/* =========================================
+   Profile Page (scoped) — no conflicts
+   ========================================= */
 
+/* Wrapper only; wag gagalawin ang global <body> styles */
+.profile-page { /* optional page-specific spacing here if needed */ }
+
+/* Avatar helper */
+.profile-page .ui-w-80 { width: 80px !important; height: auto; }
+
+/* Buttons (scoped) */
+.profile-page .btn { cursor: pointer; }
+
+.profile-page .btn-default{
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.profile-page .btn-default:hover{
+  background: var(--primary-100);
+  border-color: var(--border);
 }
 
-/* Profile Header */
-.profile-header {
-    display: flex;
-    justify-content: flex-start; /* Align profile image to the left */
-    align-items: center;
-    position: relative; /* Make it relative for positioning the Edit button */
-    width: 100%;
-    margin-bottom: 10px;
-    margin-top: 20px;
-
+.profile-page .btn-outline-primary{
+  border: 1px solid var(--primary-500);
+  background: transparent;
+  color: var(--primary-600);
+}
+.profile-page .btn-outline-primary:hover{
+  background: var(--primary-100);
+  color: #0f172a;
+  border-color: var(--primary-600);
 }
 
-/* Circular container for profile image */
-.profile-img-container {
-    margin-top: 50px;
-    margin-left: 30px;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 2px solid #007bff;
+/* Text tone (scoped; hindi tatama sa global .text-light) */
+.profile-page .text-light{ color: var(--muted) !important; }
+
+/* Cards — huwag sapawan ang global card look; subtle lang */
+.profile-page .card{
+  background-clip: padding-box;
+  /* keep base card border/radius/shadow from base.css */
+  box-shadow: var(--shadow-xs);
 }
 
-/* Edit Profile Button */
-.edit-button-container {
-    position: absolute;
-    top: 100px;
-    right: 0;
-    margin: 10px 20px; /* Add some spacing around the button */
+/* Utility */
+.profile-page .row-bordered { overflow: hidden; }
+
+.profile-page .account-settings-fileinput{
+  position: absolute; visibility: hidden; width: 1px; height: 1px; opacity: 0;
 }
 
-.edit-button-container a {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    display: inline-block;
+/* Left nav (General / Change Password) */
+.profile-page .account-settings-links .list-group-item{
+  padding: .85rem 1.25rem;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border-color: rgba(24,28,33,.06) !important;
+  background: transparent;
+  color: var(--text);
+  transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.profile-page .account-settings-links .list-group-item:hover{
+  background: var(--primary-100);
+}
+.profile-page .account-settings-links .list-group-item.active{
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  background: linear-gradient(180deg, var(--primary-200), var(--primary-100)) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.08);
 }
 
-/* Profile Info Section (Form and Email) */
-.profile-info {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+/* If you also use .form-group-item in the links column */
+.profile-page .account-settings-links .form-group-item{
+  padding: .85rem 1.25rem;
+  border-color: rgba(24,28,33,.06) !important;
+  background: transparent;
+}
+.profile-page .account-settings-links .form-group-item.active{
+  color: #0f172a !important;
+  background: var(--primary-100) !important;
 }
 
-/* Image Upload Section (optional) */
-.upload-section {
-    margin-bottom: 10px;
-    margin-left: 30px;
+/* Select2 width fix inside profile */
+.profile-page .account-settings-multiselect ~ .select2-container{ width: 100% !important; }
 
+/* -------- Forms: match the global style, ensure full-width -------- */
+.profile-page .form-group{ margin-bottom: 1rem; }
+
+.profile-page label,
+.profile-page .col-form-label{
+  color: var(--muted);
+  font-weight: 500;
 }
 
-.upload-label {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
-    display: block;
-    margin-bottom: 10px;
+.profile-page .form-control,
+.profile-page input[type="text"],
+.profile-page input[type="email"],
+.profile-page input[type="password"],
+.profile-page select,
+.profile-page textarea{
+  width: 100% !important;
+  max-width: 100%;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .625rem .875rem;
+  min-height: 44px;
+  box-shadow: var(--shadow-xs) inset;
 }
 
-#image-upload {
-    padding: 5px;
-    font-size: 14px;
+.profile-page .form-control:focus,
+.profile-page select:focus,
+.profile-page textarea:focus{
+  border-color: var(--primary-500) !important;
+  box-shadow: 0 0 0 4px rgba(var(--primary-500-rgb, 90,133,95), .18) !important;
+  outline: 0;
 }
 
-/* Profile Form */
-.profile-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding: 20px;
-    border-radius: 8px;
+/* -------- Dark mode variants (scoped) -------- */
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item{
+  border-color: rgba(255,255,255,.06) !important;
+  color: var(--text);
+}
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item:hover{
+  background: rgba(56,78,29,.18);
+}
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item.active{
+  color: #fff !important;
+  background: linear-gradient(180deg, rgba(56,78,29,.28), rgba(56,78,29,.18)) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
 }
 
-/* Form Styling */
-.form-group {
-    margin-bottom: 20px;
+/* Dark mode inputs: keep white fields for readability (same as Change Password) */
+html[data-theme="dark"] .profile-page .form-control,
+html[data-theme="dark"] .profile-page select,
+html[data-theme="dark"] .profile-page textarea{
+  background: #fff;
+  color: #0f172a;
+  border-color: rgba(255,255,255,.2);
 }
 
-.form-group label {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
+/* Buttons in dark */
+html[data-theme="dark"] .profile-page .btn-outline-primary{
+  border-color: var(--primary-500);
+  color: var(--text);
 }
-
-.form-group input {
-    padding: 10px;
-    font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    width: 100%;
-    background-color: #f9f9f9;
-    cursor: not-allowed; /* Initially set to not-allowed for profile page */
-}
-
-.form-group input:focus {
-    border-color: #007bff;
-    outline: none;
-}
-
-/* Pop-up message container at the top */
-#popup-messages {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  max-width: 400px;
-  width: 100%;
-  padding: 10px;
-  border-radius: 5px;
-  font-size: 16px;
-  color: white;
-  text-align: center;
-  display: none;  /* Hidden by default, shown via JS */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Add this to your profile.css or wherever you'd like to style the alerts */
-.alert {
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 15px;
-    font-size: 1rem;
-    text-align: center;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
-}
-
-/* Responsiveness for smaller screens */
-@media (max-width: 768px) {
-    .profile-page {
-        flex-direction: column; /* Stack profile image and form vertically on mobile */
-        align-items: center;
-    }
-
-    .profile-header, .profile-info {
-        width: 100%; /* Make form and header take full width on mobile */
-        margin-bottom: 20px; /* Add space between profile image and form */
-    }
-
-    .edit-button-container {
-        position: static; /* Remove absolute positioning on smaller screens */
-        margin-top: 10px;
-        justify-content: center;
-    }
-}
-
-/* End of Profile Page */
-
-/* Edit Profile Page Modifications - Specific CSS */
-.edit-page .form-group input {
-    cursor: text; /* Text cursor for editable fields in the Edit Profile page */
-    background-color: #fff; /* Editable fields should have normal white background */
-    border: 1px solid #007bff; /* Highlight border for editable fields */
+html[data-theme="dark"] .profile-page .btn-outline-primary:hover{
+  background: rgba(56,78,29,.25);
+  color: var(--text);
 }

@@ -43,7 +43,20 @@
         <nav class="navbar navbar-header navbar-expand-lg">
             <div class="container-fluid">
                 <ul class="navbar-nav topbar-nav ml-md-auto align-items-center">
-
+                    <li class="nav-item">
+                    <button id="themeToggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Toggle color mode">
+                        <span class="track"></span>
+                        <span class="knob">
+                        <!-- Sun / Moon icons (inline SVG para no external deps) -->
+                        <span class="icon sun" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zm10.48 14.32l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM12 5V2h-0v3h0zm0 17v-3h0v3h0zM4.84 17.24l-1.8 1.79 1.41 1.41 1.79-1.8-1.4-1.4zM19.16 6.76l1.8-1.79-1.41-1.41-1.79 1.8 1.4 1.4zM22 12h-3v0h3v0zM5 12H2v0h3v0zm7 5a5 5 0 110-10 5 5 0 010 10z"/></svg>
+                        </span>
+                        <span class="icon moon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                        </span>
+                        </span>
+                    </button>
+                    </li>
                     <!-- Messages Dropdown (Optional) -->
                     <li class="nav-item dropdown hidden-caret">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -230,6 +243,40 @@
     const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
     toast.show();
   });
+</script>
+
+
+<script>
+(function(){
+  var html = document.documentElement;
+  var key = 'rfp-theme';
+  var toggle = document.getElementById('themeToggle');
+
+  // apply saved theme on load
+  var saved = localStorage.getItem(key);
+  if(saved === 'dark'){ html.setAttribute('data-theme','dark'); if(toggle) toggle.setAttribute('aria-checked','true'); }
+
+  if(toggle){
+    toggle.addEventListener('click', function(e){
+      e.preventDefault();
+      var dark = html.getAttribute('data-theme') === 'dark';
+      if(dark){
+        html.removeAttribute('data-theme');
+        localStorage.setItem(key,'light');
+        toggle.setAttribute('aria-checked','false');
+      }else{
+        html.setAttribute('data-theme','dark');
+        localStorage.setItem(key,'dark');
+        toggle.setAttribute('aria-checked','true');
+      }
+
+      // keep Apex tooltip theme in sync (if using ApexCharts)
+      if(window.Apex){
+        window.Apex.tooltip = { theme: (html.getAttribute('data-theme') === 'dark') ? 'dark' : 'light' };
+      }
+    });
+  }
+})();
 </script>
 
 

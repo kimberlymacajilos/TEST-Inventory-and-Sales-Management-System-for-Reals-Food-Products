@@ -4,10 +4,14 @@
 {% block title %}Edit Profile{% endblock %}
 
 {% block content %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+\<link rel="stylesheet" href="{% static 'css/profile.css' %}">
 
-<div class="container light-style flex-grow-1 container-p-y">
+<div class="container container-p-y profile-page">
+    {% if messages %}
+        {% for m in messages %}
+            <div class="alert alert-{{ m.tags }} mb-3">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
     <h2 class="font-weight-bold py-3 mb-4">
         Edit Profile
     </h2>
@@ -16,8 +20,8 @@
         <div class="row no-gutters row-bordered row-border-light">
             <div class="col-md-3 pt-0">
                 <div class="list-group list-group-flush account-settings-links">
-                    <a class="list-group-item list-group-item-action active" data-toggle="list" href="#account-general">General</a>
-                    <a class="list-group-item list-group-item-action" data-toggle="list" href="#account-change-password">Change Password</a>
+                    <a class="list-group-item list-group-item-action {% if active_tab == 'account-general' %}active{% endif %}" data-toggle="list" href="#account-general">General</a>
+                    <a class="list-group-item list-group-item-action {% if active_tab == 'account-change-password' %}active{% endif %}" data-toggle="list" href="#account-change-password">Change Password</a>
                 </div>
             </div>
 
@@ -26,7 +30,7 @@
                     <form method="POST">
                         {% csrf_token %}
                         <div class="tab-content">
-                            <div class="tab-pane fade show active" id="account-general">
+                            <div class="tab-pane fade {% if active_tab == 'account-general' %}show active{% endif %}" id="account-general">
                                 <div class="form-group">
                                     <label class="form-label">Username</label>
                                     {{ form.username }}  <!-- Render the Django form field -->
@@ -52,7 +56,7 @@
                                 </div>
                             </div>
 
-                            <div class="tab-pane fade" id="account-change-password">
+                            <div class="tab-pane fade {% if active_tab == 'account-change-password' %}show active{% endif %}" id="account-change-password">
                                 <div class="form-group">
                                     <label class="form-label">Current Password</label>
                                     <input type="password" class="form-control" name="current_password">
