@@ -1,7 +1,4 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block content %}
+{% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
         <h4 class="page-title">Products</h4>
@@ -14,117 +11,18 @@
                     </div>
 
                     <div class="col-md-6">
-                        <div class="card-body">
-                            <form action="" method="post" novalidate>
-                                {% csrf_token %}
+                    <div class="card-body">
+                        <form action="" method="post" novalidate>
+                            {% csrf_token %} {% include 'includes/form.html' %}
 
-                                <!-- Product Name -->
-                                <div class="form-group">
-                                    {{ form.name.label_tag }}
-                                    {{ form.name }}
-                                </div>
-
-                                <!-- Product Type -->
-                                <div class="form-group">
-                                    <label for="product_type_name">Product Type</label>
-                                    <input type="text" name="product_type_name" id="product_type_name"
-                                           class="form-control" list="product-types"
-                                           placeholder="Type or select"
-                                           value="{{ form.product_type_name.value|default_if_none:'' }}">
-                                    <datalist id="product-types">
-                                        {% for pt in product_types %}
-                                            <option value="{{ pt.name }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- Variant -->
-                                <div class="form-group">
-                                    <label for="variant_name">Product Variant</label>
-                                    <input type="text" name="variant_name" id="variant_name"
-                                           class="form-control" list="variants"
-                                           placeholder="Type or select"
-                                           value="{{ form.variant_name.value|default_if_none:'' }}">
-                                    <datalist id="variants">
-                                        {% for v in variants %}
-                                            <option value="{{ v.name }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- Size -->
-                                <div class="form-group">
-                                    <label for="size_label">Size</label>
-                                    <input type="text" name="size_label" id="size_label"
-                                           class="form-control" list="sizes"
-                                           placeholder="Type or select"
-                                           value="{{ form.size_label.value|default_if_none:'' }}">
-                                    <datalist id="sizes">
-                                        {% for s in sizes %}
-                                            <option value="{{ s.size_label }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- Size Unit -->
-                                <div class="form-group">
-                                    <label for="size_unit_name">Size Unit</label>
-                                    <input type="text" name="size_unit_name" id="size_unit_name"
-                                           class="form-control" list="units"
-                                           placeholder="Type or select"
-                                           value="{{ form.size_unit_name.value|default_if_none:'' }}">
-                                    <datalist id="units">
-                                        {% for u in size_units %}
-                                            <option value="{{ u.unit_name }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- Unit Price -->
-                                <div class="form-group">
-                                    <label for="unit_price_value">Unit Price</label>
-                                    <input type="number" step="0.01" name="unit_price_value" id="unit_price_value"
-                                           class="form-control" list="unit-prices"
-                                           placeholder="Type or select"
-                                           value="{{ form.unit_price_value.value|default_if_none:'' }}">
-                                    <datalist id="unit-prices">
-                                        {% for up in unit_prices %}
-                                            <option value="{{ up.unit_price }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- SRP Price -->
-                                <div class="form-group">
-                                    <label for="srp_price_value">SRP Price</label>
-                                    <input type="number" step="0.01" name="srp_price_value" id="srp_price_value"
-                                           class="form-control" list="srp-prices"
-                                           placeholder="Type or select"
-                                           value="{{ form.srp_price_value.value|default_if_none:'' }}">
-                                    <datalist id="srp-prices">
-                                        {% for sp in srp_prices %}
-                                            <option value="{{ sp.srp_price }}">
-                                        {% endfor %}
-                                    </datalist>
-                                </div>
-
-                                <!-- Date Created (optional) -->
-                                {% if form.date_created %}
-                                <div class="form-group">
-                                    {{ form.date_created.label_tag }}
-                                    {{ form.date_created }}
-                                </div>
-                                {% endif %}
-
-                                <!-- Submit -->
-                                <div class="form-group">
+                            <div class="form-group">
+                                <div class="col-md-12 col-sm-3">
                                     <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                    <a href="{% url 'products' %}" class="btn btn-secondary btn-rounded">Cancel</a>
                                 </div>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
-
+                    </div>
                 </div>
             </div>
         </div>
