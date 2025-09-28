@@ -26,6 +26,8 @@ from django.db.models import Avg, Count, Sum
 from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+=========
+>>>>>>>>> Temporary merge branch 2
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
