@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -11,31 +12,34 @@
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of History</div>
-              <div class="card-category">All actions recorded by admins</div>
+              <div class="card-category">Page Subtitle</div>
             </div>
             <div class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
-              <select id="adminFilter" class="form-control" style="width:160px;">
+              <select name="admin" class="form-control" style="width:160px;">
                 <option value="">All Admins</option>
-                {% for object in object_list|dictsort:"admin.username" %}
-                  <option value="{{ object.admin.username }}">{{ object.admin.username }}</option>
+                {% for username in admins %}
+                  <option value="{{ username }}" {% if request.GET.admin == username %}selected{% endif %}>
+                    {{ username }}
+                  </option>
                 {% endfor %}
               </select>
 
               <!-- Log Filter -->
-              <select id="logFilter" class="form-control" style="width:180px;">
+              <select id="logFilter" class="form-control" style="width:160px;">
                 <option value="">All Logs</option>
-                {% for object in object_list|dictsort:"log_type.category" %}
-                  <option value="{{ object.log_type.category }}">{{ object.log_type.category }}</option>
+                {% for category in logs %}
+                  <option value="{{ category }}" {% if request.GET.log == category %}selected{% endif %}>
+                    {{ category }}
+                  </option>
                 {% endfor %}
               </select>
 
               <!-- Date Filter -->
-              <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
+              <input type="date" name="date" class="form-control" style="width:170px;" value="{{ request.GET.date }}"/>
 
-              <!-- Search -->
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search history..." />
-            </div>
+              <button type="submit" class="btn btn-primary">Filter</button>
+            </form>
           </div>
 
           <!-- Table -->
@@ -51,14 +55,12 @@
                     <th scope="col">Date</th>
                   </tr>
                 </thead>
-                <tbody id="historyTableBody">
+                <tbody>
                   {% for object in object_list %}
                   <tr>
                     <td>{{ object.admin.username }}</td>
                     <td>{{ object.log_type.category }}</td>
-                    <td>{{ object.get_entity_display }}</td>
-                    <td>{{ object.get_details_display }}</td>
-                    <td>{{ object.log_date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ object.log_date }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -71,75 +73,5 @@
     </div>
   </div>
 </div>
-
-<script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const adminFilter = document.getElementById('adminFilter');
-  const logFilter = document.getElementById('logFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('historyTableBody');
-  const table = document.getElementById('historyTable');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No history found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const selectedAdmin = normalize(adminFilter.value);
-    const selectedLog = normalize(logFilter.value);
-    const selectedDate = dateFilter.value; // format YYYY-MM
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const admin = normalize(row.cells[0].textContent);
-      const log = normalize(row.cells[1].textContent);
-      const entity = normalize(row.cells[2].textContent);
-      const date = (row.cells[4].textContent || '').trim().substring(0,7); // YYYY-MM
-
-      let match = true;
-
-      if(q && !(admin.includes(q) || log.includes(q) || entity.includes(q) || date.includes(q))) {
-        match = false;
-      }
-      if(selectedAdmin && admin !== selectedAdmin) {
-        match = false;
-      }
-      if(selectedLog && log !== selectedLog) {
-        match = false;
-      }
-      if(selectedDate && date !== selectedDate) {
-        match = false;
-      }
-
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
-    });
-
-    showNoResults(visible === 0);
-  }
-
-  searchInput.addEventListener('keyup', filterRows);
-  adminFilter.addEventListener('change', filterRows);
-  logFilter.addEventListener('change', filterRows);
-  dateFilter.addEventListener('change', filterRows);
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
-</script>
+<script src="{% static 'js/historylog_search.js' %}"></script>
 {% endblock %}

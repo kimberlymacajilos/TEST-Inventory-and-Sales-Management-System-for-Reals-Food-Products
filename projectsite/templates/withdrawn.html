@@ -9,35 +9,37 @@
       <div class="col-md-12">
         <div class="card">
 
+          <!-- Card Header -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of Withdrawals</div>
               <div class="card-category">Page Subtitle</div>
             </div>
 
-            <div class="d-flex align-items-center" style="gap:0.5rem;">
+            <div class="d-flex align-items-center" style="gap: 0.5rem;">
+              <input
+                type="month"
+                id="dateFilter"
+                class="form-control"
+                style="width: 180px;"
+                value="{{ request.GET.date|default:'' }}"
+              />
 
-              <select id="itemTypeFilter" class="form-control" style="width:160px;">
-                <option value="">All Types</option>
-                {% for obj in object_list %}
-                  <option value="{{ obj.get_item_type_display }}">{{ obj.get_item_type_display }}</option>
-                {% endfor %}
-              </select>
+              <input
+                id="searchInput"
+                class="form-control"
+                style="width: 220px;"
+                placeholder="Search item id / user..."
+                value="{{ request.GET.q|default:'' }}"
+              />
 
-              <select id="reasonFilter" class="form-control" style="width:160px;">
-                <option value="">All Reasons</option>
-                {% for obj in object_list %}
-                  <option value="{{ obj.get_reason_display }}">{{ obj.get_reason_display }}</option>
-                {% endfor %}
-              </select>
-
-              <input id="dateFilter" class="form-control" style="width:180px;" placeholder="Date (YYYY / YYYY-MM / MM / YYYY-MM-DD)" />
-              <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search item id / user..." />
-
-              <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
+              <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">
+                Withdraw Item
+              </a>
             </div>
           </div>
 
+          <!-- Card Body -->
           <div class="card-body">
             <div class="table-responsive">
               <table class="table table-striped" id="withdrawalTable">
@@ -56,7 +58,7 @@
                   <tr>
                     <td>{{ object.date|date:"Y-m-d H:i" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
-                    <td>{{ object.get_item_display  }}</td>
+                    <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity }}</td>
                     <td>{{ object.get_reason_display }}</td>
                     <td>{{ object.created_by_admin.username }}</td>
@@ -68,106 +70,12 @@
 
             {% include 'includes/pagination.html' %}
           </div>
+
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-(function () {
-  const searchInput = document.getElementById('searchInput');
-  const itemTypeFilter = document.getElementById('itemTypeFilter');
-  const reasonFilter = document.getElementById('reasonFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('withdrawalTableBody');
-  const table = document.getElementById('withdrawalTable');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No withdrawals recorded yet.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  function matchesDateInput(dateInput, dateVal) {
-    if (!dateInput) return true;
-    if (!dateVal) return false;
-    dateVal = dateVal.trim(); // expected like "YYYY-MM-DD" or "YYYY-MM-DD HH:MM"
-    // we'll use first 10 chars for YYYY-MM-DD
-    const d = dateVal.slice(0,10);
-    if (/^\d{4}$/.test(dateInput)) {
-      return d.startsWith(dateInput); // YYYY
-    } else if (/^\d{4}-\d{2}$/.test(dateInput)) {
-      return d.startsWith(dateInput); // YYYY-MM
-    } else if (/^\d{2}$/.test(dateInput)) {
-      // MM only -> compare month portion
-      return d.slice(5,7) === dateInput;
-    } else {
-      // full date exact match
-      return d === dateInput;
-    }
-  }
-
-  function filterRows(){
-    const q = normalize(searchInput.value);
-    const selectedItemType = normalize(itemTypeFilter.value);
-    const selectedReason = normalize(reasonFilter.value);
-    const dateQ = dateFilter.value.trim(); // allow YYYY, YYYY-MM, MM, YYYY-MM-DD
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const cells = row.cells;
-      const dateCell = (cells[0].textContent || '').trim();
-      const itemType = normalize(cells[1].textContent);
-      const itemId = normalize(cells[2].textContent);
-      const qty = normalize(cells[3].textContent);
-      const reason = normalize(cells[4].textContent);
-      const user = normalize(cells[5].textContent);
-
-      let match = true;
-
-      // text search: check item id, username, reason, itemType
-      if (q) {
-        const combined = `${itemId} ${user} ${reason} ${itemType}`.toLowerCase();
-        if (!combined.includes(q)) match = false;
-      }
-
-      // item type filter
-      if (selectedItemType && itemType !== selectedItemType) match = false;
-
-      // reason filter
-      if (selectedReason && reason !== selectedReason) match = false;
-
-      // date filter
-      if (dateQ && !matchesDateInput(dateQ, dateCell)) match = false;
-
-      row.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
-
-    showNoResults(visible === 0);
-  }
-
-  // Attach listeners
-  [searchInput].forEach(el => el.addEventListener('keyup', filterRows));
-  [itemTypeFilter, reasonFilter].forEach(el => el.addEventListener('change', filterRows));
-  dateFilter.addEventListener('keyup', filterRows);
-
-  // Run initial filter (handles browser autofill / initial state)
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
-</script>
+<script src="{% static 'js/withdraw_search.js' %}"></script>
 {% endblock %}

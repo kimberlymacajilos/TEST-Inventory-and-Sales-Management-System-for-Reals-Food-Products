@@ -69,13 +69,17 @@ from realsproj.models import (
     ExpensesSummary,
 )
 
-from django.db.models import Q
+from django.db.models import Q, CharField
 from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.contrib.auth.forms import UserCreationForm
+from datetime import datetime
+from django.db.models.functions import Cast
+
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
 
@@ -208,6 +212,21 @@ class RawMaterialsList(ListView):
     context_object_name = 'rawmaterials'
     template_name = "rawmaterial_list.html"
     paginate_by = 10
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query) |
+                Q(unit__unit_name__icontains=query) |
+                Q(price_per_unit__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
 
 class RawMaterialsCreateView(CreateView):
     model = RawMaterials
@@ -239,15 +258,29 @@ class HistoryLogList(ListView):
     def get_queryset(self):
         queryset = super().get_queryset().select_related("admin", "log_type").order_by("-log_date")
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(admin__username__icontains=query) |
-                Q(log_type__category__icontains=query) |   # adjust if field is different
-                Q(log_date__icontains=query)
-            )
+        admin_filter = self.request.GET.get("admin", "").strip()
+        if admin_filter:
+            queryset = queryset.filter(admin__username=admin_filter)
+
+        log_filter = self.request.GET.get("log", "").strip()
+        if log_filter:
+            queryset = queryset.filter(log_type__category=log_filter)
+
+        date_str = self.request.GET.get("date", "").strip()
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                queryset = queryset.filter(log_date__date=date_obj)
+            except ValueError:
+                pass
 
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['admins'] = HistoryLog.objects.values_list('admin__username', flat=True).distinct()
+        context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
+        return context
     
 
 class SalesList(ListView):
@@ -259,16 +292,30 @@ class SalesList(ListView):
     def get_queryset(self):
         qs = Sales.objects.select_related("created_by_admin").order_by("-date")
 
+        # --- Search filter ---
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
-                Q(item__icontains=query) |
-                Q(quantity__icontains=query) |
+                Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+
+        # --- Category filter ---
+        category = self.request.GET.get("category", "").strip()
+        if category:
+            qs = qs.filter(category__iexact=category)
+
+        # --- Month filter (YYYY-MM) ---
+        month = self.request.GET.get("month", "").strip()
+        if month:
+            try:
+                year, month_num = month.split("-")
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass  # ignore invalid month
 
         self._full_queryset = qs
         return qs
@@ -283,9 +330,10 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
+        categories = Sales.objects.values_list('category', flat=True).distinct()
+        context['categories'] = categories
 
         return context
-
 
 class SalesCreateView(CreateView):
     model = Sales
@@ -319,6 +367,9 @@ class ExpensesList(ListView):
         queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        month = self.request.GET.get("month", "").strip()
+
         if query:
             queryset = queryset.filter(
                 Q(category__icontains=query) |
@@ -327,6 +378,13 @@ class ExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
+        if category:
+            queryset = queryset.filter(category=category)
+        if month:
+            # Filter by month (YYYY-MM)
+            queryset = queryset.filter(date__year=int(month.split("-")[0]),
+                                       date__month=int(month.split("-")[1]))
+
         self.filtered_queryset = queryset
         return queryset
 
@@ -340,9 +398,11 @@ class ExpensesList(ListView):
         )
 
         context["expenses_summary"] = summary
-
+            # Unique categories for dropdown
+        categories = Expenses.objects.values_list('category', flat=True).distinct()
+        context["categories"] = categories
         return context
-
+    
 class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
@@ -423,41 +483,80 @@ class ProductInventoryList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product")
+        queryset = super().get_queryset().select_related(
+            "product",
+            "product__product_type",
+            "product__variant",
+            "product__size",
+            "product__size_unit",
+            "unit",   # direct unit in ProductInventory
+        )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            queryset = queryset.annotate(
+                total_stock_str=Cast("total_stock", CharField()),
+                restock_threshold_str=Cast("restock_threshold", CharField()),
+            )
+
             queryset = queryset.filter(
-                Q(product__description__icontains=query) |  # comes from Products
-                Q(total_stock__icontains=query) |           # comes from ProductInventory
-                Q(restock_threshold__icontains=query)       # comes from ProductInventory
+                Q(product__description__icontains=q) |
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
+                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
+                Q(unit__unit_name__icontains=q) |                # ✅ correct
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
         return queryset.order_by("product_id")
 
+class RawMaterialList(ListView):
+    model = RawMaterials
+    context_object_name = 'raw_materials'
+    template_name = "rawmaterial_list.html"
+    paginate_by = 10
 
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query) |
+                Q(unit__unit_name__icontains=query) |
+                Q(price_per_unit__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        return queryset
+
+    
 class RawMaterialBatchList(ListView):
     model = RawMaterialBatches
     context_object_name = 'rawmatbatch'
     template_name = "rawmatbatch_list.html"
     paginate_by = 10
-
+    
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
         query = self.request.GET.get("q", "").strip()
 
         if query:
             queryset = queryset.filter(
-                Q(rawmaterial__description__icontains=query) |   # raw material description from RawMaterials
-                Q(batch_date__icontains=query) |             # batch_date
-                Q(received_date__icontains=query) |      # received_date
-                Q(expiration_date__icontains=query) |        # expiration_date
-                Q(quantity__icontains=query) |               # quantity
-                Q(created_by_admin__username__icontains=query)  # admin username
+                Q(material__name__icontains=query) |
+                Q(batch_date__icontains=query) |
+                Q(received_date__icontains=query) |
+                Q(quantity__icontains=query) |
+                Q(expiration_date__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
             )
 
         return queryset
-    
+
+
 class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
@@ -469,7 +568,7 @@ class RawMaterialBatchUpdateView(UpdateView):
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
     success_url = reverse_lazy('rawmaterial-batch') 
-
+    
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
     success_url = reverse_lazy('rawmaterial-batch')
@@ -480,6 +579,19 @@ class RawMaterialInventoryList(ListView):
     context_object_name = 'rawmatinvent'
     template_name = "rawmatinvent_list.html"
     paginate_by = 10
+    
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("material").order_by('-material_id')
+        query = self.request.GET.get("q", "").strip()
+
+        if query:
+            queryset = queryset.filter(
+                Q(material__name__icontains=query) |
+                Q(total_stock__icontains=query) |
+                Q(reorder_threshold__icontains=query)
+            )
+
+        return queryset
 
 class ProductTypeCreateView(CreateView):
     model = ProductTypes
@@ -525,7 +637,46 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Withdrawals.objects.all().order_by('-date')
+        queryset = Withdrawals.objects.all().order_by('-date')
+        request = self.request
+
+        # ✅ Search across multiple fields
+        q = request.GET.get("q")
+        if q:
+            filters = (
+                Q(created_by_admin__username__icontains=q) |
+                Q(reason__icontains=q) |
+                Q(item_type__icontains=q)
+            )
+            if q.isdigit():
+                filters |= Q(item_id=q)  # numeric search matches exact item_id
+            queryset = queryset.filter(filters)
+
+        # ✅ Dropdown filters
+        item_type = request.GET.get("item_type")
+        if item_type:
+            queryset = queryset.filter(item_type=item_type)
+
+        reason = request.GET.get("reason")
+        if reason:
+            queryset = queryset.filter(reason=reason)
+
+        # ✅ Date filter
+        date_val = request.GET.get("date")
+        if date_val:
+            try:
+                if len(date_val) == 7:  # YYYY-MM
+                    year, month = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month)
+                elif len(date_val) == 10:  # YYYY-MM-DD
+                    year, month, day = map(int, date_val.split("-"))
+                    queryset = queryset.filter(date__year=year, date__month=month, date__day=day)
+                elif len(date_val) == 4:  # YYYY
+                    queryset = queryset.filter(date__year=int(date_val))
+            except ValueError:
+                pass  # ignore invalid formats
+
+        return queryset
     
 
 class WithdrawItemView(View):

@@ -58,32 +58,37 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 
-// batch_list search
 document.addEventListener("DOMContentLoaded", function() {
     const searchInput = document.getElementById("batchSearchInput");
-    const searchForm = document.getElementById("batchSearchForm");
+    const monthInput = document.getElementById("batchDateFilter");
     const batchTableBody = document.getElementById("batchTableBody");
-    const pagination = document.querySelector(".pagination");
-
-    // Prevent form reload
-    searchForm.addEventListener("submit", function(e) {
-        e.preventDefault();
-        fetchBatches(searchInput.value.trim());
-    });
+    const pagination = document.querySelector(".pagination-container");
 
     let timeout;
+
+    // Trigger search on typing
     searchInput.addEventListener("input", function() {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
-            fetchBatches(searchInput.value.trim());
+            fetchBatches(searchInput.value.trim(), monthInput ? monthInput.value : "");
         }, 300);
     });
 
-    function fetchBatches(query = "") {
+
+    if (monthInput) {
+        monthInput.addEventListener("change", function () {
+            fetchBatches(searchInput.value.trim(), monthInput.value);
+        });
+    }
+
+    function fetchBatches(query = "", month = "") {
         let url = "/prodbatch/";
-        if (query) {
-            url += `?q=${encodeURIComponent(query)}`;
-        }
+        let params = [];
+
+        if (query) params.push(`q=${encodeURIComponent(query)}`);
+        if (month) params.push(`month=${encodeURIComponent(month)}`);
+
+        if (params.length > 0) url += `?${params.join("&")}`;
 
         fetch(url)
             .then(response => response.text())
@@ -91,26 +96,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, "text/html");
 
+                // Update table body
                 const newRows = doc.querySelector("#batchTableBody");
-                if (newRows) {
-                    batchTableBody.innerHTML = newRows.innerHTML;
-                }
+                if (newRows) batchTableBody.innerHTML = newRows.innerHTML;
 
-                const newPagination = doc.querySelector(".pagination");
-                if (newPagination && pagination) {
-                    pagination.innerHTML = newPagination.innerHTML;
-                }
+                // Update pagination
+                const newPagination = doc.querySelector(".pagination-container");
+                if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
             })
             .catch(err => console.error("Error fetching batches:", err));
     }
 });
+
 
 // prodinvent_list search
 document.addEventListener("DOMContentLoaded", function() {
     const searchInput = document.getElementById("searchInput");
     const searchForm = document.getElementById("searchForm");
     const inventoryTableBody = document.getElementById("inventoryTableBody");
-    const pagination = document.querySelector(".pagination");
+    const paginationContainer = document.getElementById("paginationContainer");
 
     // Prevent normal form submission
     searchForm.addEventListener("submit", function(e) {
@@ -128,10 +132,14 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Fetch inventory data
-    function fetchInventory(query = "") {
-        let url = "/product-inventory/";
-        if (query) {
+    function fetchInventory(query = "", pageUrl = null) {
+        let url = pageUrl || "/product-inventory/";
+        if (query && !pageUrl) {
             url += `?q=${encodeURIComponent(query)}`;
+        } else if (query && pageUrl) {
+            // Preserve query when using pagination
+            const separator = pageUrl.includes("?") ? "&" : "?";
+            url = pageUrl + separator + "q=" + encodeURIComponent(query);
         }
 
         fetch(url)
@@ -146,13 +154,36 @@ document.addEventListener("DOMContentLoaded", function() {
                     inventoryTableBody.innerHTML = newRows.innerHTML;
                 }
 
-                // Replace pagination
-                const newPagination = doc.querySelector(".pagination");
-                if (newPagination && pagination) {
-                    pagination.innerHTML = newPagination.innerHTML;
+                // Replace pagination and rebind events
+                const newPagination = doc.querySelector("#paginationContainer");
+                if (newPagination && paginationContainer) {
+                    paginationContainer.innerHTML = newPagination.innerHTML;
+                    bindPaginationEvents(); // rebind click handlers
                 }
             })
             .catch(err => console.error("Error fetching inventory:", err));
     }
+
+    // Intercept pagination clicks
+    function bindPaginationEvents() {
+        const links = paginationContainer.querySelectorAll("a.page-link");
+        links.forEach(link => {
+            link.addEventListener("click", function(e) {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                const href = link.getAttribute("href");
+
+                // Ensure correct base URL for relative links like "?page=2"
+                const baseUrl = window.location.pathname; // "/product-inventory/"
+                const pageUrl = href.startsWith("?") ? baseUrl + href : href;
+
+                fetchInventory(query, pageUrl);
+            });
+        });
+    }
+
+    // Initial bind
+    bindPaginationEvents();
 });
+
 

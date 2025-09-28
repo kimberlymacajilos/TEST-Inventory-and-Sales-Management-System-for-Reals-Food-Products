@@ -791,3 +791,14 @@ class Withdrawals(models.Model):
             except Products.DoesNotExist:
                 return Decimal(0)
         return Decimal(0)
+    
+
+    def get_queryset(self):
+        query = self.request.GET.get("q")
+        qs = Withdrawals.objects.all().order_by("-date")
+        if query:
+            qs = qs.filter(
+                Q(reason__icontains=query) |
+                Q(item_type__icontains=query)
+            )
+        return qs
