@@ -46,7 +46,7 @@ body, .main-panel{
 /* Sticky Glass Header */
 .main-header, .navbar.navbar-header{
   position: sticky; top: 0; z-index: 1040;
-  background: rgba(240,255,227,.75) !important;
+  background: rgba(197,220,194,.75) !important;
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border) !important;
   box-shadow: var(--shadow-xs);

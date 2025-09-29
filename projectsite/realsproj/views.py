@@ -26,8 +26,6 @@ from django.db.models import Avg, Count, Sum
 from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-=========
->>>>>>>>> Temporary merge branch 2
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -1147,21 +1145,21 @@ def login_view(request):
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
 
+# def register(request):
+#     if request.method == 'POST':
+#         form = UserCreationForm(request.POST)
+#         if form.is_valid():
+#             form.save()  # Save the new user to the database
+#             messages.success(request, 'Your account has been created successfully! You can now log in.')
+#             return redirect('login')  # Redirect to login page after successful registration
+#     else:
+#         form = UserCreationForm()  # Instantiate a blank form
+
+#     return render(request, 'register.html', {'form': form})
+
 def register(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()  # Save the new user to the database
-            messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')  # Redirect to login page after successful registration
-    else:
-        form = UserCreationForm()  # Instantiate a blank form
-
-    return render(request, 'register.html', {'form': form})
-
-def register(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()  # Save the new user to the database
             messages.success(request, 'Your account has been created successfully! You can now log in.')

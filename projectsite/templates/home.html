@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static i18n %}
+{% load humanize %}
 
 {% block title %}Dashboard{% endblock title %}
 
@@ -74,7 +75,7 @@
             <h5 class="mb-0">Total Revenue</h5>
           </div>
           <div class="card-body d-flex align-items-center justify-content-center">
-            <h2 class="text-success">₱{{ total_revenue|floatformat:2 }}</h2>
+            <h2 class="text-success">₱{{ total_revenue|floatformat:2|intcomma }}</h2>
           </div>
         </div>
       </div>
