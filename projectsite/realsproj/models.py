@@ -481,16 +481,22 @@ class ProductInventory(models.Model):
 
 class ProductRecipes(models.Model):
     id = models.BigAutoField(primary_key=True)
-    product = models.ForeignKey('Products', models.DO_NOTHING)
-    material_id = models.BigIntegerField()
+    product = models.ForeignKey(
+        "Products",
+        on_delete=models.CASCADE,
+        related_name="recipes"  # lets you do product.recipes.all()
+    )
+    material = models.ForeignKey(
+        "RawMaterials",
+        on_delete=models.DO_NOTHING,
+        db_column="material_id"
+    )
     quantity_needed = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
-    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    yield_factor = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    created_by_admin = models.ForeignKey("AuthUser", models.DO_NOTHING)
+    yield_factor = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
 
     class Meta:
-        managed = False
-        db_table = 'product_recipes'
+        db_table = "product_recipes" 
 
 
 class ProductTypes(models.Model):

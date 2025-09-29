@@ -46,6 +46,7 @@ from realsproj.forms import (
     BulkProductBatchForm,
     StockChangesForm,
     BulkRawMaterialBatchForm,
+    ProductRecipeFormSet,
 )
 
 from realsproj.models import (
@@ -70,6 +71,7 @@ from realsproj.models import (
     StockChanges,
     SalesSummary,
     ExpensesSummary,
+    ProductRecipes,
 )
 
 from django.db.models import Q, CharField
@@ -231,13 +233,6 @@ class ProductCreateView(CreateView):
     template_name = 'prod_add.html'
     success_url = reverse_lazy('products')
 
-    def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user  
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Product added successfully.")
-        return response
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['product_types'] = ProductTypes.objects.all()
@@ -245,6 +240,14 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
+
+        if self.request.method == 'POST':
+            context['recipe_formset'] = ProductRecipeFormSet(
+                self.request.POST,
+                instance=self.object if hasattr(self, 'object') else None
+            )
+        else:
+            context['recipe_formset'] = ProductRecipeFormSet()
         return context
     
     def get_form_kwargs(self):
@@ -252,6 +255,28 @@ class ProductCreateView(CreateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user
+        self.object = form.save()
+
+        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
+
+        if recipe_formset.is_valid():
+            recipes = recipe_formset.save(commit=False)
+            for recipe in recipes:
+                recipe.created_by_admin = auth_user
+                recipe.save()
+            for obj in recipe_formset.deleted_objects:
+                obj.delete()
+        else:
+            return self.render_to_response(
+                self.get_context_data(form=form, recipe_formset=recipe_formset)
+            )
+
+        messages.success(self.request, "✅ Product and recipe added successfully.")
+        return redirect(self.success_url)
 
 
 class ProductsUpdateView(UpdateView):
