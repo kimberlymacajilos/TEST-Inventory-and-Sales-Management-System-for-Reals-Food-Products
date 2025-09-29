@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
@@ -200,11 +200,6 @@ class UnifiedWithdrawForm(forms.Form):
         ('UNIT', 'Unit Price'),
         ('SRP', 'Suggested Retail Price'),
     ]
-
-    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
-    item = forms.ChoiceField(choices=[], required=True)
-    quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
-
     REASON_CHOICES = [
         ('SOLD', 'Sold'),
         ('EXPIRED', 'Expired'),
@@ -212,10 +207,20 @@ class UnifiedWithdrawForm(forms.Form):
         ('RETURNED', 'Returned'),
         ('OTHERS', 'Others'),
     ]
+
+    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
+    item = forms.ChoiceField(choices=[], required=True)
+    quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
 
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
     price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+
+    # NEW: discount fields
+    discount = forms.ModelChoiceField(queryset=Discounts.objects.all(), required=False)
+    custom_discount_value = forms.DecimalField(
+        required=False, min_value=0, decimal_places=2, label="Custom Discount"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -231,8 +236,11 @@ class UnifiedWithdrawForm(forms.Form):
             if not cleaned_data.get("price_type"):
                 self.add_error("price_type", "This field is required when reason is SOLD.")
 
-        return cleaned_data
+            # require either a discount or a custom discount
+            if not cleaned_data.get("discount") and not cleaned_data.get("custom_discount_value"):
+                self.add_error("discount", "Select a discount or enter a custom discount.")
 
+        return cleaned_data
 
 class NotificationsForm(forms.Form):
     class Meta:
