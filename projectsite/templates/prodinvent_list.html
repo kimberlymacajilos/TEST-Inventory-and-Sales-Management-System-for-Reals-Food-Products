@@ -31,7 +31,6 @@
                                     <th scope="col">Product</th>
                                     <th scope="col">Current Stock</th>
                                     <th scope="col">Restock Threshold</th>
-                                    <th scope="col">Unit</th>
                                     <th scope="col">Status</th>
                                 </tr>
                             </thead>
@@ -41,7 +40,6 @@
                                     <td>{{ object.product }}</td>
                                     <td>{{ object.total_stock }}</td>
                                     <td>{{ object.restock_threshold }}</td>
-                                    <td>{{ object.unit.unit_name }}</td>
                                     <td>
                                         {% if object.total_stock == 0 %}
                                             <span class="badge bg-danger">Out of Stock</span>

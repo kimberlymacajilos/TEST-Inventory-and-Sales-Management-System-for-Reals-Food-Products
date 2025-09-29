@@ -284,11 +284,6 @@ class ProductsUpdateView(UpdateView):
     form_class = ProductsForm
     template_name = "prod_edit.html"
     success_url = reverse_lazy("products")
-    
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, "✏️ Product updated successfully.")
-        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -297,6 +292,13 @@ class ProductsUpdateView(UpdateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
+
+        if self.request.method == "POST":
+            context["recipe_formset"] = ProductRecipeFormSet(
+                self.request.POST, instance=self.object
+            )
+        else:
+            context["recipe_formset"] = ProductRecipeFormSet(instance=self.object)
         return context
     
     def get_form_kwargs(self):
@@ -304,6 +306,28 @@ class ProductsUpdateView(UpdateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        recipe_formset = context["recipe_formset"]
+
+        if form.is_valid() and recipe_formset.is_valid():
+            self.object = form.save()
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+
+            recipes = recipe_formset.save(commit=False)
+            for recipe in recipes:
+                if not recipe.pk: 
+                    recipe.created_by_admin = auth_user
+                recipe.save()
+            for obj in recipe_formset.deleted_objects:
+                obj.delete()
+
+            messages.success(self.request, "✏️ Product updated successfully.")
+            return redirect(self.success_url)
+
+        return self.render_to_response(self.get_context_data(form=form))
+
 
 
 class ProductsDeleteView(DeleteView):
@@ -659,7 +683,6 @@ class ProductInventoryList(ListView):
             "product__variant",
             "product__size",
             "product__size_unit",
-            "unit",   # direct unit in ProductInventory
         )
 
         q = self.request.GET.get("q", "").strip()
@@ -978,7 +1001,10 @@ class WithdrawItemView(View):
                     withdrawals_made += 1
 
         if withdrawals_made > 0:
-            messages.success(request, f"{withdrawals_made} withdrawal(s) recorded successfully.")
+            if item_type == "PRODUCT":
+                messages.success(request, "Product has been successfully withdrawn.")
+            else:
+                messages.success(request, "Raw Material has been successfully withdrawn.")
 
         for error in errors:
             messages.error(request, error)

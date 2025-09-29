@@ -472,7 +472,6 @@ class ProductInventory(models.Model):
     product = models.OneToOneField('Products', models.DO_NOTHING, primary_key=True)
     total_stock = models.DecimalField(max_digits=10, decimal_places=2)
     restock_threshold = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
 
     class Meta:
         managed = False
