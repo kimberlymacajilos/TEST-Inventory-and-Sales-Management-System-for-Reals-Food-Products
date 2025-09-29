@@ -94,50 +94,43 @@
                 </div>
 
                 {% if recipe_formset.non_form_errors %}
-                  <div class="alert alert-danger">
-                    {{ recipe_formset.non_form_errors }}
-                  </div>
+                  <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
                 {% endif %}
 
                 {{ recipe_formset.management_form }}
 
-                <table class="table table-bordered">
+                <table class="table table-bordered" id="recipe-table">
                   <thead class="thead-light">
                     <tr>
-                      <th>Raw Material</th>
-                      <th>Quantity Needed</th>
-                      <th>Yield Factor</th>
-                      <th>Action</th>
+                      <th style="width: 40%;">Raw Material</th>
+                      <th style="width: 20%;">Quantity Needed</th>
+                      <th style="width: 20%;">Yield Factor</th>
+                      <th style="width: 20%;">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for form in recipe_formset %}
+                    {% for recipe_form in recipe_formset %}
                       <tr>
-                        <td>
-                          {{ form.material|add_class:"form-control" }}
-                        </td>
-                        <td>
-                          {{ form.quantity_needed|add_class:"form-control" }}
-                        </td>
-                        <td>
-                          {{ form.yield_factor|add_class:"form-control" }}
-                        </td>
-                        <td>
-                          <button type="button" class="btn btn-danger remove-row">Remove</button>
+                        <td>{% render_field recipe_form.material class="form-control" %}</td>
+                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
+                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
+                        <td class="text-center">
+                          <span style="display:none">{{ recipe_form.DELETE }}</span>
+                          <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
                         </td>
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
 
-                <!-- Hidden empty form template -->
+                <!-- Hidden empty form -->
                 <div id="empty-form" style="display:none;">
                   <table>
-                    <tr class="form-row">
-                      <td>{{ recipe_formset.empty_form.material }}</td>
-                      <td>{{ recipe_formset.empty_form.quantity_needed }}</td>
-                      <td>{{ recipe_formset.empty_form.yield_factor }}</td>
-                      <td>
+                    <tr>
+                      <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
+                      <td class="text-center">
                         <span style="display:none">{{ recipe_formset.empty_form.DELETE }}</span>
                         <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
                       </td>
