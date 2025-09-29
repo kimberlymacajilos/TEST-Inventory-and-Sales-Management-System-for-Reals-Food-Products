@@ -47,6 +47,8 @@ from realsproj.forms import (
     StockChangesForm,
     BulkRawMaterialBatchForm,
     ProductRecipeFormSet,
+    UnifiedWithdrawForm
+    
 )
 
 from realsproj.models import (
@@ -72,6 +74,7 @@ from realsproj.models import (
     SalesSummary,
     ExpensesSummary,
     ProductRecipes,
+    Discounts,
 )
 
 from django.db.models import Q, CharField
@@ -915,7 +918,6 @@ class WithdrawSuccessView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # ✅ Distinct admin usernames for filter dropdown
         context["admins"] = (
             Withdrawals.objects
             .values_list("created_by_admin__username", flat=True)
@@ -923,7 +925,7 @@ class WithdrawSuccessView(ListView):
             .order_by("created_by_admin__username")
         )
         return context
-
+    
 class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
@@ -934,84 +936,102 @@ class WithdrawItemView(View):
         rawmaterials = RawMaterials.objects.all().select_related(
             "unit", "rawmaterialinventory"
         )
+        discounts = Discounts.objects.all()
 
         return render(request, self.template_name, {
             "products": products,
-            "rawmaterials": rawmaterials
+            "rawmaterials": rawmaterials,
+            "discounts": discounts
         })
-    
+
     def post(self, request):
-        item_type = request.POST.get("item_type", "").upper()
-        reason = request.POST.get("reason", "").upper()
+        item_type = request.POST.get("item_type")
+        reason = request.POST.get("reason")
+        sales_channel = request.POST.get("sales_channel")
+        price_type = request.POST.get("price_type")
+        discount_combined = request.POST.get("discount_combined") 
 
-        sales_channel = request.POST.get("sales_channel", None)
-        price_type = request.POST.get("price_type", None)
-
-        if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
-            messages.error(request, "Invalid item type.")
-            return redirect("withdraw-item")
+        count = 0  
 
         if item_type == "PRODUCT":
-            model = Products
-            prefix = "product_"
-        else:
-            model = RawMaterials
-            prefix = "material_"
-
-        withdrawals_made = 0
-        errors = []
-
-        with transaction.atomic():
             for key, value in request.POST.items():
-                if key.startswith(prefix) and value.strip():
+                if key.startswith("product_") and value:
                     try:
-                        qty = Decimal(value)
-                    except (InvalidOperation, TypeError):
-                        continue
+                        product_id = key.split("_")[1]
+                        quantity = float(value)
+                        if quantity <= 0:
+                            continue
+                        product = Products.objects.get(id=product_id)
+                        inv = product.productinventory
 
-                    if qty <= 0:
-                        continue
+                        if quantity > inv.total_stock:
+                            messages.error(request, f"Not enough stock for {product}")
+                            continue
 
-                    item_id = key.replace(prefix, "")
-                    item = get_object_or_404(model, id=item_id)
+                        discount_obj = None
+                        custom_value = None
+                        if discount_combined:
+                            try:
+                                discount_obj = Discounts.objects.get(value=discount_combined)
+                            except Discounts.DoesNotExist:
+                                custom_value = discount_combined
 
-                    if item_type == "PRODUCT":
-                        inventory = getattr(item, "productinventory", None)
-                    else:
-                        inventory = getattr(item, "rawmaterialinventory", None)
+                        Withdrawals.objects.create(
+                            item_id=product.id,
+                            item_type="PRODUCT",
+                            quantity=quantity,
+                            reason=reason,
+                            date=timezone.now(),
+                            created_by_admin=request.user,
+                            sales_channel=sales_channel if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" else None,
+                            discount_id=discount_obj.id if discount_obj else None,
+                            custom_discount_value=custom_value,
+                        )
 
-                    if not inventory:
-                        errors.append(f"No inventory record found for {item}")
-                        continue
+                        inv.total_stock -= quantity
+                        inv.save()
+                        count += 1
+                    except Exception as e:
+                        messages.error(request, f"Error withdrawing product: {e}")
 
-                    if qty > inventory.total_stock:
-                        errors.append(f"Not enough stock for {item}")
-                        continue
+        elif item_type == "RAW_MATERIAL":
+            for key, value in request.POST.items():
+                if key.startswith("material_") and value:
+                    try:
+                        material_id = key.split("_")[1]
+                        quantity = float(value)
+                        if quantity <= 0:
+                            continue
+                        material = RawMaterials.objects.get(id=material_id)
+                        inv = material.rawmaterialinventory
 
-                    Withdrawals.objects.create(
-                        item_id=item.id,
-                        item_type=item_type,
-                        quantity=qty,
-                        reason=reason,
-                        date=timezone.now(),
-                        created_by_admin=request.user,
-                        sales_channel=sales_channel if reason == "SOLD" else None,
-                        price_type=price_type if reason == "SOLD" else None,
-                    )
-                    withdrawals_made += 1
+                        if quantity > inv.total_stock:
+                            messages.error(request, f"Not enough stock for {material}")
+                            continue
 
-        if withdrawals_made > 0:
-            if item_type == "PRODUCT":
-                messages.success(request, "Product has been successfully withdrawn.")
-            else:
-                messages.success(request, "Raw Material has been successfully withdrawn.")
+                        Withdrawals.objects.create(
+                            item_id=material.id,
+                            item_type="RAW_MATERIAL",
+                            quantity=quantity,
+                            reason=reason,
+                            date=timezone.now(),
+                            created_by_admin=request.user,
+                        )
 
-        for error in errors:
-            messages.error(request, error)
+                        inv.total_stock -= quantity
+                        inv.save()
+                        count += 1
+                    except Exception as e:
+                        messages.error(request, f"Error withdrawing raw material: {e}")
+
+        if count > 0:
+            messages.success(request, f"{count} item(s) withdrawn successfully.")
+        else:
+            messages.warning(request, "No withdrawals were recorded.")
 
         return redirect("withdrawals")
 
-    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
