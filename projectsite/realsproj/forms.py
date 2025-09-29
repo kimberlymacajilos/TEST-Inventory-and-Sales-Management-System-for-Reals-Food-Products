@@ -1,10 +1,11 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductRecipes, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
+from django.forms import inlineformset_factory
 
 
 class ProductsForm(forms.ModelForm):
@@ -36,7 +37,7 @@ class ProductsForm(forms.ModelForm):
             self.fields['unit_price'].initial = self.instance.unit_price.unit_price
             self.fields['srp_price'].initial = self.instance.srp_price.srp_price
 
-            # Prevent Django from showing raw IDs
+            # Set nice initial values
             self.initial['product_type'] = self.fields['product_type'].initial
             self.initial['variant'] = self.fields['variant'].initial
             self.initial['size'] = self.fields['size'].initial
@@ -69,6 +70,15 @@ class ProductsForm(forms.ModelForm):
         price = self.cleaned_data['srp_price'].strip()
         obj, _ = SrpPrices.objects.get_or_create(srp_price=price)
         return obj
+
+
+ProductRecipeFormSet = inlineformset_factory(
+    Products,
+    ProductRecipes,
+    fields=("material", "quantity_needed", "yield_factor"),
+    extra=1,
+    can_delete=True
+)
 
 class RawMaterialsForm(ModelForm):
     class Meta:
