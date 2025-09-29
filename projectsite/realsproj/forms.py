@@ -26,6 +26,9 @@ class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
         exclude = ['created_by_admin', 'date_created']
+        widgets = {
+            'size_unit': forms.Select(attrs={'class': 'form-control'}),
+        }
 
     def __init__(self, *args, **kwargs):
         self.created_by_admin = kwargs.pop('created_by_admin', None)

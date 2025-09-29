@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load widget_tweaks %}
 
 {% block content %}
 <div class="content">
@@ -23,16 +24,47 @@
                 {% endif %}
 
                 <!-- Product Fields -->
-                <div class="form-group">{{ form.product_type.label_tag }} {{ form.product_type }}</div>
-                <div class="form-group">{{ form.variant.label_tag }} {{ form.variant }}</div>
-                <div class="form-group">{{ form.size.label_tag }} {{ form.size }}</div>
-                <div class="form-group">{{ form.size_unit.label_tag }} {{ form.size_unit }}</div>
-                <div class="form-group">{{ form.unit_price.label_tag }} {{ form.unit_price }}</div>
-                <div class="form-group">{{ form.srp_price.label_tag }} {{ form.srp_price }}</div>
-                <div class="form-group">{{ form.description.label_tag }} {{ form.description }}</div>
+                <div class="form-group">
+                  {{ form.product_type.label_tag }}
+                  {% render_field form.product_type class="form-control" %}
+                </div>
+
+                <div class="form-group">
+                  {{ form.variant.label_tag }}
+                  {% render_field form.variant class="form-control" %}
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group col-md-6">
+                    {{ form.size.label_tag }}
+                    {% render_field form.size class="form-control" %}
+                  </div>
+                  <div class="form-group col-md-6">
+                    {{ form.size_unit.label_tag }}
+                    {% render_field form.size_unit class="form-control" %}
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  {{ form.unit_price.label_tag }}
+                  {% render_field form.unit_price class="form-control" %}
+                </div>
+
+                <div class="form-group">
+                  {{ form.srp_price.label_tag }}
+                  {% render_field form.srp_price class="form-control" %}
+                </div>
+
+                <div class="form-group">
+                  {{ form.description.label_tag }}
+                  {% render_field form.description class="form-control" %}
+                </div>
 
                 <hr>
-                <h5>Product Recipe (Raw Materials)</h5>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <p class="mb-0">Product Recipe (Raw Materials)</p>
+                  <button type="button" class="btn btn-secondary btn-sm" id="add-row">+ Add Row</button>
+                </div>
 
                 {% if recipe_formset.non_form_errors %}
                   <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
@@ -40,22 +72,22 @@
 
                 {{ recipe_formset.management_form }}
 
-                <table class="table" id="recipe-table">
-                  <thead>
+                <table class="table table-bordered" id="recipe-table">
+                  <thead class="thead-light">
                     <tr>
-                      <th>Raw Material</th>
-                      <th>Quantity Needed</th>
-                      <th>Yield Factor</th>
-                      <th>Action</th>
+                      <th style="width: 40%;">Raw Material</th>
+                      <th style="width: 20%;">Quantity Needed</th>
+                      <th style="width: 20%;">Yield Factor</th>
+                      <th style="width: 20%;">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for recipe_form in recipe_formset %}
-                      <tr class="form-row">
-                        <td>{{ recipe_form.material }}</td>
-                        <td>{{ recipe_form.quantity_needed }}</td>
-                        <td>{{ recipe_form.yield_factor }}</td>
-                        <td>
+                      <tr>
+                        <td>{% render_field recipe_form.material class="form-control" %}</td>
+                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
+                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
+                        <td class="text-center">
                           <span style="display:none">{{ recipe_form.DELETE }}</span>
                           <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
                         </td>
@@ -67,11 +99,11 @@
                 <!-- Hidden empty form -->
                 <div id="empty-form" style="display:none;">
                   <table>
-                    <tr class="form-row">
-                      <td>{{ recipe_formset.empty_form.material }}</td>
-                      <td>{{ recipe_formset.empty_form.quantity_needed }}</td>
-                      <td>{{ recipe_formset.empty_form.yield_factor }}</td>
-                      <td>
+                    <tr>
+                      <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
+                      <td class="text-center">
                         <span style="display:none">{{ recipe_formset.empty_form.DELETE }}</span>
                         <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
                       </td>
