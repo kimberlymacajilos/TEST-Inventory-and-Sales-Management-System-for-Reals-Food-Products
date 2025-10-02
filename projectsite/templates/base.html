@@ -347,8 +347,7 @@
   document.addEventListener("DOMContentLoaded", function() {
     {% for message in messages %}
       const type = "{{ message.tags }}";
-      const text = "{{ message|escapejs }}".replace(
-        "Product batch hindi nag add kasi kulang yung raw materials.",
+      const text = "{{ message|escapejs }}"(
         "Product batch was not added — insufficient raw materials."
       );
 
