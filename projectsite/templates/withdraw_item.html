@@ -30,6 +30,7 @@
                   <th>Product</th>
                   <th>Stock</th>
                   <th>Withdraw Quantity</th>
+                  <th class="discount-col" style="display:none;">Discount (%)</th>
                 </tr>
               </thead>
               <tbody>
@@ -43,6 +44,18 @@
                   <td>
                     <input type="number" step="0.01" name="product_{{ product.id }}" 
                            class="form-control" min="0">
+                  </td>
+                  <td class="discount-col" style="display:none;">
+                    <input type="number" step="0.01" min="0" 
+                           name="discount_{{ product.id }}" 
+                           class="form-control" 
+                           list="discountOptions" 
+                           placeholder="Type or select %">
+                    <datalist id="discountOptions">
+                      {% for d in discounts %}
+                        <option value="{{ d.value }}">{{ d.name }} ({{ d.value }}%)</option>
+                      {% endfor %}
+                    </datalist>
                   </td>
                 </tr>
                 {% endfor %}
@@ -89,6 +102,7 @@
             </select>
           </div>
 
+          <!-- Sales section -->
           <div id="sales-price-section" style="display:none; margin-top:10px;">
             <label for="sales_channel">Sales Channel</label>
             <select name="sales_channel" id="sales_channel">
@@ -106,27 +120,6 @@
               <option value="SRP">SRP</option>
             </select>
           </div>
-          <div id="discountSection" style="display:none;">
-            <div class="form-group">
-              <label for="discount_combined">Discount (%)</label>
-              <input 
-                type="number" 
-                step="0.01" 
-                min="0" 
-                name="discount_combined" 
-                id="discount_combined" 
-                class="form-control" 
-                list="discountOptions"
-                placeholder="Type or select discount %">
-              
-              <datalist id="discountOptions">
-                {% for d in discounts %}
-                  <option value="{{ d.value }}">{{ d.name }} ({{ d.value }}%)</option>
-                {% endfor %}
-              </datalist>
-            </div>
-          </div>
-
 
           <!-- Submit -->
           <div class="form-group mt-3">
@@ -138,52 +131,44 @@
   </div>
 </div>
 
-<!-- Auto-toggle tables -->
+<!-- JS to toggle -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const typeSelect = document.getElementById("item_type");
   const prodTable = document.getElementById("products_table");
   const matTable = document.getElementById("rawmaterials_table");
+  const reasonField = document.getElementById("reason");
+  const salesPriceSection = document.getElementById("sales-price-section");
+  const discountCols = document.querySelectorAll(".discount-col");
 
-  typeSelect.addEventListener("change", function() {
-    if (this.value === "PRODUCT") {
+  function toggleItemTables() {
+    if (typeSelect.value === "PRODUCT") {
       prodTable.style.display = "block";
       matTable.style.display = "none";
-    } else if (this.value === "RAW_MATERIAL") {
+    } else if (typeSelect.value === "RAW_MATERIAL") {
       matTable.style.display = "block";
       prodTable.style.display = "none";
     } else {
       prodTable.style.display = "none";
       matTable.style.display = "none";
     }
-  });
-});
-
-document.getElementById("reason").addEventListener("change", function() {
-  if (this.value === "SOLD") {
-    document.getElementById("sales-price-section").style.display = "block";
-  } else {
-    document.getElementById("sales-price-section").style.display = "none";
   }
-});
-
-document.addEventListener("DOMContentLoaded", function(){
-  const reasonField = document.getElementById("reason");
-  const salesPriceSection = document.getElementById("sales-price-section");
-  const discountSection = document.getElementById("discountSection");
 
   function toggleSections() {
     if (reasonField.value === "SOLD") {
       salesPriceSection.style.display = "block";
-      discountSection.style.display = "block";
+      discountCols.forEach(col => col.style.display = "table-cell");
     } else {
       salesPriceSection.style.display = "none";
-      discountSection.style.display = "none";
+      discountCols.forEach(col => col.style.display = "none");
     }
   }
 
+  typeSelect.addEventListener("change", toggleItemTables);
   reasonField.addEventListener("change", toggleSections);
-  toggleSections(); // run once at start
+
+  toggleItemTables();
+  toggleSections();
 });
 </script>
 {% endblock %}
