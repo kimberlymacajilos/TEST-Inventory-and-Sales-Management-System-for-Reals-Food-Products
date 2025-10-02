@@ -715,18 +715,11 @@ class ProductInventoryList(ListView):
             )
 
             queryset = queryset.filter(
-                Q(product__description__icontains=q) |
                 Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
-                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
-                Q(unit__unit_name__icontains=q) |                # ✅ correct
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+                Q(product__variant__name__icontains=q)
             )
 
         return queryset.order_by("product_id")
-
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'
@@ -899,7 +892,6 @@ class WithdrawSuccessView(ListView):
         queryset = Withdrawals.objects.all().order_by('-date')
         request = self.request
 
-        # filters (keep what you already had)
         q = request.GET.get("q")
         if q:
             filters = (
@@ -968,7 +960,6 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
-        discount_combined = request.POST.get("discount_combined") 
 
         count = 0  
 
@@ -987,13 +978,14 @@ class WithdrawItemView(View):
                             messages.error(request, f"Not enough stock for {product}")
                             continue
 
+                        discount_val = request.POST.get(f"discount_{product_id}")
                         discount_obj = None
                         custom_value = None
-                        if discount_combined:
+                        if discount_val:
                             try:
-                                discount_obj = Discounts.objects.get(value=discount_combined)
+                                discount_obj = Discounts.objects.get(value=discount_val)
                             except Discounts.DoesNotExist:
-                                custom_value = discount_combined
+                                custom_value = discount_val
 
                         Withdrawals.objects.create(
                             item_id=product.id,
@@ -1147,28 +1139,26 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             received_date = form.cleaned_data['received_date']
-            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
             for rawmaterial_info in form.rawmaterials:
                 rawmaterial = rawmaterial_info['rawmaterial']
                 qty = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_qty')
+                exp_date = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_exp')
+
                 if qty:
                     RawMaterialBatches.objects.create(
                         material=rawmaterial,
                         quantity=qty,
                         batch_date=batch_date,
                         received_date=received_date,
-                        expiration_date=expiration_date,
+                        expiration_date=exp_date,
                         created_by_admin=auth_user
                     )
 
             return redirect('rawmaterial-batch')
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def profile_view(request):
