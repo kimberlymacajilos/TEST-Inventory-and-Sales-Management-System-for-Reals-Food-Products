@@ -698,18 +698,11 @@ class ProductInventoryList(ListView):
             )
 
             queryset = queryset.filter(
-                Q(product__description__icontains=q) |
                 Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
-                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
-                Q(unit__unit_name__icontains=q) |                # ✅ correct
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+                Q(product__variant__name__icontains=q)
             )
 
         return queryset.order_by("product_id")
-
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'
