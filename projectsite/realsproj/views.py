@@ -270,6 +270,7 @@ class ProductCreateView(CreateView):
             recipes = recipe_formset.save(commit=False)
             for recipe in recipes:
                 recipe.created_by_admin = auth_user
+                recipe.products = self.object 
                 recipe.save()
             for obj in recipe_formset.deleted_objects:
                 obj.delete()
@@ -278,7 +279,7 @@ class ProductCreateView(CreateView):
                 self.get_context_data(form=form, recipe_formset=recipe_formset)
             )
 
-        messages.success(self.request, "✅ Product and recipe added successfully.")
+        messages.success(self.request, "✅ Product added successfully.")
         return redirect(self.success_url)
 
 
@@ -311,26 +312,28 @@ class ProductsUpdateView(UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        context = self.get_context_data()
-        recipe_formset = context["recipe_formset"]
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user
+        self.object = form.save()
 
-        if form.is_valid() and recipe_formset.is_valid():
-            self.object = form.save()
-            auth_user = AuthUser.objects.get(username=self.request.user.username)
+        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
 
+        if recipe_formset.is_valid():
             recipes = recipe_formset.save(commit=False)
             for recipe in recipes:
-                if not recipe.pk: 
-                    recipe.created_by_admin = auth_user
+                recipe.created_by_admin = auth_user
+                recipe.products = self.object
                 recipe.save()
             for obj in recipe_formset.deleted_objects:
                 obj.delete()
+            recipe_formset.save_m2m()  # <-- important
+        else:
+            return self.render_to_response(
+                self.get_context_data(form=form, recipe_formset=recipe_formset)
+            )
 
-            messages.success(self.request, "✏️ Product updated successfully.")
-            return redirect(self.success_url)
-
-        return self.render_to_response(self.get_context_data(form=form))
-
+        messages.success(self.request, "✅ Product added successfully.")
+        return redirect(self.success_url)
 
 
 class ProductsDeleteView(DeleteView):
