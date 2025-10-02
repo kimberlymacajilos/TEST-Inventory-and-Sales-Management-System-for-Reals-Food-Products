@@ -21,11 +21,6 @@
               <label>Received Date</label>
               {{ form.received_date }}
             </div>
-            <div class="form-group col-md-6">
-              <label>Expiration Date</label>
-              {{ form.expiration_date }}
-            </div>
-          </div>
 
           <hr>
           <h5>Input Quantities for Raw Materials</h5>
@@ -35,6 +30,7 @@
               <tr>
                 <th>Raw Material</th>
                 <th>Quantity</th>
+                <th>Expiration Date</th>
               </tr>
             </thead>
             <tbody>
@@ -42,6 +38,7 @@
               <tr>
                 <td>{{ r.rawmaterial }}</td>
                 <td>{{ r.qty_field }}</td>
+                <td>{{ r.exp_field }}</td>
               </tr>
               {% endfor %}
             </tbody>

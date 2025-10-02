@@ -1130,28 +1130,26 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             received_date = form.cleaned_data['received_date']
-            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
             for rawmaterial_info in form.rawmaterials:
                 rawmaterial = rawmaterial_info['rawmaterial']
                 qty = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_qty')
+                exp_date = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_exp')
+
                 if qty:
                     RawMaterialBatches.objects.create(
                         material=rawmaterial,
                         quantity=qty,
                         batch_date=batch_date,
                         received_date=received_date,
-                        expiration_date=expiration_date,
+                        expiration_date=exp_date,
                         created_by_admin=auth_user
                     )
 
             return redirect('rawmaterial-batch')
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def profile_view(request):
