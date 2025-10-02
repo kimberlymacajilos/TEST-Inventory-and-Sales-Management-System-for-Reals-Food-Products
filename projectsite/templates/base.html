@@ -218,12 +218,29 @@
                         </ul>
                     </div>
                 </li>
-
-                <li class="nav-item"><a href="{% url 'expenses' %}"><i class="la la-dollar"></i><p>Expenses</p></a></li>
-                <li class="nav-item"><a href="{% url 'sales' %}"><i class="la la-line-chart"></i><p>Sales</p></a></li>
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#financialMenu" aria-expanded="false">
+                        <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="financialMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="{% url 'expenses' %}"><span class="sub-item">Sales</span></a></li>
+                            <li><a href="{% url 'sales' %}"><span class="sub-item">Expenses</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                                <li class="nav-item">
+                    <a data-toggle="collapse" href="#withdrawalsMenu" aria-expanded="false">
+                        <i class="la la-trash"></i><p>Withdrawals</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="withdrawalsMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="{% url 'withdrawals' %}"><span class="sub-item">Withdrawn Items</span></a></li>
+                            <li><a href="{% url 'stock-changes' %}"><span class="sub-item">Stock Changes</span></a></li>
+                        </ul>
+                    </div>
+                </li>
                 <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
-                <li class="nav-item"><a href="{% url 'withdrawals' %}"><i class="la la-trash"></i><p>Withdrawn Items</p></a></li>
-                <li class="nav-item"><a href="{% url 'stock-changes' %}"><i class="la la-trash"></i><p>Stock Changes</p></a></li>
             </ul>
         </div>
     </div>
