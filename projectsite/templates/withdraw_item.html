@@ -8,7 +8,7 @@
 
     <div class="card">
       <div class="card-body"> 
-        <form method="post">
+        <form method="post" action="{% url 'withdraw-item' %}">
           {% csrf_token %}
           
           <!-- Item type selection -->
@@ -106,6 +106,27 @@
               <option value="SRP">SRP</option>
             </select>
           </div>
+          <div id="discountSection" style="display:none;">
+            <div class="form-group">
+              <label for="discount_combined">Discount (%)</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                name="discount_combined" 
+                id="discount_combined" 
+                class="form-control" 
+                list="discountOptions"
+                placeholder="Type or select discount %">
+              
+              <datalist id="discountOptions">
+                {% for d in discounts %}
+                  <option value="{{ d.value }}">{{ d.name }} ({{ d.value }}%)</option>
+                {% endfor %}
+              </datalist>
+            </div>
+          </div>
+
 
           <!-- Submit -->
           <div class="form-group mt-3">
@@ -144,6 +165,25 @@ document.getElementById("reason").addEventListener("change", function() {
   } else {
     document.getElementById("sales-price-section").style.display = "none";
   }
+});
+
+document.addEventListener("DOMContentLoaded", function(){
+  const reasonField = document.getElementById("reason");
+  const salesPriceSection = document.getElementById("sales-price-section");
+  const discountSection = document.getElementById("discountSection");
+
+  function toggleSections() {
+    if (reasonField.value === "SOLD") {
+      salesPriceSection.style.display = "block";
+      discountSection.style.display = "block";
+    } else {
+      salesPriceSection.style.display = "none";
+      discountSection.style.display = "none";
+    }
+  }
+
+  reasonField.addEventListener("change", toggleSections);
+  toggleSections(); // run once at start
 });
 </script>
 {% endblock %}

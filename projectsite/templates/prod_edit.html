@@ -1,31 +1,156 @@
-{% extends 'base.html' %} {% load static %} {% block content %}
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
 <div class="content">
-    <div class="container-fluid">
-        <h4 class="page-title">Products</h4>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Edit Product</div>
-                        <div class="card-category">Page Subtitle</div>
-                    </div>
+  <div class="container-fluid">
+    <h4 class="page-title">Products</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Edit Product</div>
+            <div class="card-category">Update product and its recipe</div>
+          </div>
 
-                    <div class="col-md-6">
-                    <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            {% csrf_token %} {% include 'includes/form.html' %}
+          <div class="col-md-10">
+            <div class="card-body">
+              <form method="post">
+                {% csrf_token %}
 
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                    </div>
+                {% if form.errors %}
+                  <div class="alert alert-danger">{{ form.errors }}</div>
+                {% endif %}
+
+                <!-- Product Fields -->
+                <div class="form-group">
+                  {{ form.product_type.label_tag }}
+                  {% render_field form.product_type class="form-control" %}
                 </div>
+
+                <div class="form-group">
+                  {{ form.variant.label_tag }}
+                  {% render_field form.variant class="form-control" %}
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group col-md-6">
+                    {{ form.size.label_tag }}
+                    {% render_field form.size class="form-control" %}
+                  </div>
+                  <div class="form-group col-md-6">
+                    {{ form.size_unit.label_tag }}
+                    {% render_field form.size_unit class="form-control" %}
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  {{ form.unit_price.label_tag }}
+                  {% render_field form.unit_price class="form-control" %}
+                </div>
+
+                <div class="form-group">
+                  {{ form.srp_price.label_tag }}
+                  {% render_field form.srp_price class="form-control" %}
+                </div>
+
+                <div class="form-group">
+                  {{ form.description.label_tag }}
+                  {% render_field form.description class="form-control" %}
+                </div>
+
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <p class="mb-0">Product Recipe (Raw Materials)</p>
+                  <button type="button" class="btn btn-secondary btn-sm" id="add-row">+ Add Row</button>
+                </div>
+
+                {% if recipe_formset.non_form_errors %}
+                  <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
+                {% endif %}
+
+                {{ recipe_formset.management_form }}
+
+                <table class="table table-bordered" id="recipe-table">
+                  <thead class="thead-light">
+                    <tr>
+                      <th style="width: 40%;">Raw Material</th>
+                      <th style="width: 20%;">Quantity Needed</th>
+                      <th style="width: 20%;">Yield Factor</th>
+                      <th style="width: 20%;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for recipe_form in recipe_formset %}
+                      <tr>
+                        <td>{% render_field recipe_form.material class="form-control" %}</td>
+                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
+                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
+                        <td class="text-center">
+                          <span style="display:none">{{ recipe_form.DELETE }}</span>
+                          <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+                <!-- Hidden empty form -->
+                <div id="empty-form" style="display:none;">
+                  <table>
+                    <tr>
+                      <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
+                      <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
+                      <td class="text-center">
+                        <span style="display:none">{{ recipe_formset.empty_form.DELETE }}</span>
+                        <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <div class="mb-3">
+                  <button type="submit" class="btn btn-primary btn-rounded">Update</button>
+                </div>
+              </form>
             </div>
+          </div>
+
         </div>
+      </div>
     </div>
+  </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const prefix = "{{ recipe_formset.prefix }}";
+  const totalForms = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
+  const addRowBtn = document.getElementById("add-row");
+  const tableBody = document.querySelector("#recipe-table tbody");
+  const emptyFormHTML = document.getElementById("empty-form").innerHTML;
+
+  addRowBtn.addEventListener("click", function() {
+    const formIndex = parseInt(totalForms.value, 10);
+    const newRowHtml = emptyFormHTML.replace(/__prefix__/g, formIndex);
+    tableBody.insertAdjacentHTML("beforeend", newRowHtml);
+    totalForms.value = formIndex + 1;
+  });
+
+  tableBody.addEventListener("click", function(e) {
+    if (e.target && e.target.matches(".remove-row")) {
+      const row = e.target.closest("tr");
+      const deleteInput = row.querySelector("input[name$='-DELETE']");
+      if (deleteInput) {
+        deleteInput.checked = true;
+        row.style.display = "none";
+      } else {
+        row.remove();
+      }
+    }
+  });
+});
+</script>
 {% endblock %}

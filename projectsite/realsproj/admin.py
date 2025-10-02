@@ -10,7 +10,6 @@ admin.site.register(ProductInventory)
 admin.site.register(ProductRecipes)
 admin.site.register(ProductTypes)
 admin.site.register(ProductVariants)
-admin.site.register(Products)
 admin.site.register(RawMaterialBatches)
 admin.site.register(RawMaterialInventory)
 admin.site.register(RawMaterials)
@@ -24,3 +23,11 @@ admin.site.register(Notifications)
 admin.site.register(Withdrawals)
 admin.site.register(SalesSummary)
 admin.site.register(ExpensesSummary)
+
+class ProductRecipeInline(admin.TabularInline):
+    model = ProductRecipes
+    extra = 1
+
+@admin.register(Products)
+class ProductsAdmin(admin.ModelAdmin):
+    inlines = [ProductRecipeInline]

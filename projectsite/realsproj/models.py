@@ -472,7 +472,6 @@ class ProductInventory(models.Model):
     product = models.OneToOneField('Products', models.DO_NOTHING, primary_key=True)
     total_stock = models.DecimalField(max_digits=10, decimal_places=2)
     restock_threshold = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
 
     class Meta:
         managed = False
@@ -481,16 +480,22 @@ class ProductInventory(models.Model):
 
 class ProductRecipes(models.Model):
     id = models.BigAutoField(primary_key=True)
-    product = models.ForeignKey('Products', models.DO_NOTHING)
-    material_id = models.BigIntegerField()
+    product = models.ForeignKey(
+        "Products",
+        on_delete=models.CASCADE,
+        related_name="recipes"  # lets you do product.recipes.all()
+    )
+    material = models.ForeignKey(
+        "RawMaterials",
+        on_delete=models.DO_NOTHING,
+        db_column="material_id"
+    )
     quantity_needed = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.ForeignKey('SizeUnits', models.DO_NOTHING)
-    created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
-    yield_factor = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    created_by_admin = models.ForeignKey("AuthUser", models.DO_NOTHING)
+    yield_factor = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
 
     class Meta:
-        managed = False
-        db_table = 'product_recipes'
+        db_table = "product_recipes" 
 
 
 class ProductTypes(models.Model):
@@ -693,7 +698,27 @@ class UnitPrices(models.Model):
     def __str__(self):
         return f"₱{self.unit_price}"
 
+class Discounts(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('PERCENT', 'Percentage'),
+        ('AMOUNT', 'Fixed Amount'),
+    ]
 
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=50)
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    created_by_admin = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "discounts"
+
+    def __str__(self):
+        if self.discount_type == "PERCENT":
+            return f"{self.name} ({self.value}%)"
+        return f"{self.name} (-{self.value})"
+    
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
 
@@ -745,8 +770,22 @@ class Withdrawals(models.Model):
         blank=True
     )
 
+    # NEW DISCOUNT FIELDS
+    discount = models.ForeignKey(
+        Discounts,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+    custom_discount_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
     class Meta:
-        managed = False  
+        managed = False  # existing table
         db_table = 'withdrawals'
 
     def __str__(self):
@@ -754,7 +793,7 @@ class Withdrawals(models.Model):
 
     def get_item_display(self):
         if self.item_type == "PRODUCT":
-            from .models import Products  
+            from .models import Products
             try:
                 product = Products.objects.get(id=self.item_id)
                 return str(product)
@@ -774,14 +813,25 @@ class Withdrawals(models.Model):
             from .models import Products
             try:
                 product = Products.objects.get(id=self.item_id)
-                return Decimal(self.quantity) * product.srp_price.srp_price
+                base_revenue = Decimal(self.quantity) * product.srp_price.srp_price
+
+                discount_value = Decimal(0)
+                if self.discount:
+                    if self.discount.discount_type == 'PERCENT':
+                        discount_value = base_revenue * (self.discount.value / 100)
+                    else:
+                        discount_value = self.discount.value
+                elif self.custom_discount_value:
+                    discount_value = self.custom_discount_value
+
+                return base_revenue - discount_value
             except Products.DoesNotExist:
                 return Decimal(0)
         return Decimal(0)
-    
 
-    def get_queryset(self):
-        query = self.request.GET.get("q")
+    @staticmethod
+    def get_queryset(request):
+        query = request.GET.get("q")
         qs = Withdrawals.objects.all().order_by("-date")
         if query:
             qs = qs.filter(

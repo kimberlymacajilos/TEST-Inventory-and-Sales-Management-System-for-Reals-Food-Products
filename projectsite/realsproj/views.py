@@ -46,6 +46,9 @@ from realsproj.forms import (
     BulkProductBatchForm,
     StockChangesForm,
     BulkRawMaterialBatchForm,
+    ProductRecipeFormSet,
+    UnifiedWithdrawForm
+    
 )
 
 from realsproj.models import (
@@ -70,6 +73,8 @@ from realsproj.models import (
     StockChanges,
     SalesSummary,
     ExpensesSummary,
+    ProductRecipes,
+    Discounts,
 )
 
 from django.db.models import Q, CharField
@@ -228,13 +233,53 @@ class ProductsList(ListView):
 class ProductCreateView(CreateView):
     model = Products
     form_class = ProductsForm
-    template_name = "prod_add.html"
-    success_url = reverse_lazy("products")
+    template_name = 'prod_add.html'
+    success_url = reverse_lazy('products')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+
+        if self.request.method == 'POST':
+            context['recipe_formset'] = ProductRecipeFormSet(
+                self.request.POST,
+                instance=self.object if hasattr(self, 'object') else None
+            )
+        else:
+            context['recipe_formset'] = ProductRecipeFormSet()
+        return context
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Product added successfully.")
-        return response
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user
+        self.object = form.save()
+
+        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
+
+        if recipe_formset.is_valid():
+            recipes = recipe_formset.save(commit=False)
+            for recipe in recipes:
+                recipe.created_by_admin = auth_user
+                recipe.save()
+            for obj in recipe_formset.deleted_objects:
+                obj.delete()
+        else:
+            return self.render_to_response(
+                self.get_context_data(form=form, recipe_formset=recipe_formset)
+            )
+
+        messages.success(self.request, "✅ Product and recipe added successfully.")
+        return redirect(self.success_url)
 
 
 class ProductsUpdateView(UpdateView):
@@ -242,12 +287,50 @@ class ProductsUpdateView(UpdateView):
     form_class = ProductsForm
     template_name = "prod_edit.html"
     success_url = reverse_lazy("products")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all()
+        context['variants'] = ProductVariants.objects.all()
+        context['sizes'] = Sizes.objects.all()
+        context['unit_prices'] = UnitPrices.objects.all()
+        context['srp_prices'] = SrpPrices.objects.all()
+
+        if self.request.method == "POST":
+            context["recipe_formset"] = ProductRecipeFormSet(
+                self.request.POST, instance=self.object
+            )
+        else:
+            context["recipe_formset"] = ProductRecipeFormSet(instance=self.object)
+        return context
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, "✏️ Product updated successfully.")
-        return response
+        context = self.get_context_data()
+        recipe_formset = context["recipe_formset"]
+
+        if form.is_valid() and recipe_formset.is_valid():
+            self.object = form.save()
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+
+            recipes = recipe_formset.save(commit=False)
+            for recipe in recipes:
+                if not recipe.pk: 
+                    recipe.created_by_admin = auth_user
+                recipe.save()
+            for obj in recipe_formset.deleted_objects:
+                obj.delete()
+
+            messages.success(self.request, "✏️ Product updated successfully.")
+            return redirect(self.success_url)
+
+        return self.render_to_response(self.get_context_data(form=form))
+
 
 
 class ProductsDeleteView(DeleteView):
@@ -603,7 +686,6 @@ class ProductInventoryList(ListView):
             "product__variant",
             "product__size",
             "product__size_unit",
-            "unit",   # direct unit in ProductInventory
         )
 
         q = self.request.GET.get("q", "").strip()
@@ -726,11 +808,22 @@ class ProductTypeCreateView(CreateView):
     template_name = "prodtype_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class ProductVariantCreateView(CreateView):
     model = ProductVariants
     form_class = ProductVariantsForm
     template_name = "prodvar_add.html"
     success_url = reverse_lazy("product-add")
+
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class SizesCreateView(CreateView):
     model = Sizes
@@ -738,11 +831,21 @@ class SizesCreateView(CreateView):
     template_name = "sizes_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SizeUnitsCreateView(CreateView):
     model = SizeUnits
     form_class = SizeUnitsForm
     template_name = "sizeunits_add.html"
     success_url = reverse_lazy("product-add")
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 class UnitPricesCreateView(CreateView):
     model = UnitPrices
@@ -750,11 +853,21 @@ class UnitPricesCreateView(CreateView):
     template_name = "unitprices_add.html"
     success_url = reverse_lazy("product-add")
 
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
+
 class SrpPricesCreateView(CreateView):
     model = SrpPrices
     form_class = SrpPricesForm
     template_name = "srpprices_add.html"
     success_url = reverse_lazy("product-add")
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
 
 
 class WithdrawSuccessView(ListView):
@@ -805,7 +918,6 @@ class WithdrawSuccessView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # ✅ Distinct admin usernames for filter dropdown
         context["admins"] = (
             Withdrawals.objects
             .values_list("created_by_admin__username", flat=True)
@@ -813,7 +925,7 @@ class WithdrawSuccessView(ListView):
             .order_by("created_by_admin__username")
         )
         return context
-
+    
 class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
@@ -824,81 +936,102 @@ class WithdrawItemView(View):
         rawmaterials = RawMaterials.objects.all().select_related(
             "unit", "rawmaterialinventory"
         )
+        discounts = Discounts.objects.all()
 
         return render(request, self.template_name, {
             "products": products,
-            "rawmaterials": rawmaterials
+            "rawmaterials": rawmaterials,
+            "discounts": discounts
         })
-    
+
     def post(self, request):
-        item_type = request.POST.get("item_type", "").upper()
-        reason = request.POST.get("reason", "").upper()
+        item_type = request.POST.get("item_type")
+        reason = request.POST.get("reason")
+        sales_channel = request.POST.get("sales_channel")
+        price_type = request.POST.get("price_type")
+        discount_combined = request.POST.get("discount_combined") 
 
-        sales_channel = request.POST.get("sales_channel", None)
-        price_type = request.POST.get("price_type", None)
-
-        if item_type not in ["PRODUCT", "RAW_MATERIAL"]:
-            messages.error(request, "Invalid item type.")
-            return redirect("withdraw-item")
+        count = 0  
 
         if item_type == "PRODUCT":
-            model = Products
-            prefix = "product_"
-        else:
-            model = RawMaterials
-            prefix = "material_"
-
-        withdrawals_made = 0
-        errors = []
-
-        with transaction.atomic():
             for key, value in request.POST.items():
-                if key.startswith(prefix) and value.strip():
+                if key.startswith("product_") and value:
                     try:
-                        qty = Decimal(value)
-                    except (InvalidOperation, TypeError):
-                        continue
+                        product_id = key.split("_")[1]
+                        quantity = float(value)
+                        if quantity <= 0:
+                            continue
+                        product = Products.objects.get(id=product_id)
+                        inv = product.productinventory
 
-                    if qty <= 0:
-                        continue
+                        if quantity > inv.total_stock:
+                            messages.error(request, f"Not enough stock for {product}")
+                            continue
 
-                    item_id = key.replace(prefix, "")
-                    item = get_object_or_404(model, id=item_id)
+                        discount_obj = None
+                        custom_value = None
+                        if discount_combined:
+                            try:
+                                discount_obj = Discounts.objects.get(value=discount_combined)
+                            except Discounts.DoesNotExist:
+                                custom_value = discount_combined
 
-                    if item_type == "PRODUCT":
-                        inventory = getattr(item, "productinventory", None)
-                    else:
-                        inventory = getattr(item, "rawmaterialinventory", None)
+                        Withdrawals.objects.create(
+                            item_id=product.id,
+                            item_type="PRODUCT",
+                            quantity=quantity,
+                            reason=reason,
+                            date=timezone.now(),
+                            created_by_admin=request.user,
+                            sales_channel=sales_channel if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" else None,
+                            discount_id=discount_obj.id if discount_obj else None,
+                            custom_discount_value=custom_value,
+                        )
 
-                    if not inventory:
-                        errors.append(f"No inventory record found for {item}")
-                        continue
+                        inv.total_stock -= quantity
+                        inv.save()
+                        count += 1
+                    except Exception as e:
+                        messages.error(request, f"Error withdrawing product: {e}")
 
-                    if qty > inventory.total_stock:
-                        errors.append(f"Not enough stock for {item}")
-                        continue
+        elif item_type == "RAW_MATERIAL":
+            for key, value in request.POST.items():
+                if key.startswith("material_") and value:
+                    try:
+                        material_id = key.split("_")[1]
+                        quantity = float(value)
+                        if quantity <= 0:
+                            continue
+                        material = RawMaterials.objects.get(id=material_id)
+                        inv = material.rawmaterialinventory
 
-                    Withdrawals.objects.create(
-                        item_id=item.id,
-                        item_type=item_type,
-                        quantity=qty,
-                        reason=reason,
-                        date=timezone.now(),
-                        created_by_admin=request.user,
-                        sales_channel=sales_channel if reason == "SOLD" else None,
-                        price_type=price_type if reason == "SOLD" else None,
-                    )
-                    withdrawals_made += 1
+                        if quantity > inv.total_stock:
+                            messages.error(request, f"Not enough stock for {material}")
+                            continue
 
-        if withdrawals_made > 0:
-            messages.success(request, f"{withdrawals_made} withdrawal(s) recorded successfully.")
+                        Withdrawals.objects.create(
+                            item_id=material.id,
+                            item_type="RAW_MATERIAL",
+                            quantity=quantity,
+                            reason=reason,
+                            date=timezone.now(),
+                            created_by_admin=request.user,
+                        )
 
-        for error in errors:
-            messages.error(request, error)
+                        inv.total_stock -= quantity
+                        inv.save()
+                        count += 1
+                    except Exception as e:
+                        messages.error(request, f"Error withdrawing raw material: {e}")
+
+        if count > 0:
+            messages.success(request, f"{count} item(s) withdrawn successfully.")
+        else:
+            messages.warning(request, "No withdrawals were recorded.")
 
         return redirect("withdrawals")
 
-    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -1083,21 +1216,21 @@ def login_view(request):
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
 
+# def register(request):
+#     if request.method == 'POST':
+#         form = UserCreationForm(request.POST)
+#         if form.is_valid():
+#             form.save()  # Save the new user to the database
+#             messages.success(request, 'Your account has been created successfully! You can now log in.')
+#             return redirect('login')  # Redirect to login page after successful registration
+#     else:
+#         form = UserCreationForm()  # Instantiate a blank form
+
+#     return render(request, 'register.html', {'form': form})
+
 def register(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()  # Save the new user to the database
-            messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')  # Redirect to login page after successful registration
-    else:
-        form = UserCreationForm()  # Instantiate a blank form
-
-    return render(request, 'register.html', {'form': form})
-
-def register(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()  # Save the new user to the database
             messages.success(request, 'Your account has been created successfully! You can now log in.')
