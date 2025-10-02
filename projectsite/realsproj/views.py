@@ -244,15 +244,12 @@ class ProductCreateView(CreateView):
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
 
-        if self.request.method == 'POST':
-            context['recipe_formset'] = ProductRecipeFormSet(
-                self.request.POST,
-                instance=self.object if hasattr(self, 'object') else None
-            )
+        if self.request.POST:
+            context['recipe_formset'] = ProductRecipeFormSet(self.request.POST)
         else:
             context['recipe_formset'] = ProductRecipeFormSet()
         return context
-    
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
@@ -262,8 +259,11 @@ class ProductCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+
+        # Save ONE product
         self.object = form.save()
 
+        # Attach formset recipes to the product
         recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
 
         if recipe_formset.is_valid():
@@ -274,12 +274,11 @@ class ProductCreateView(CreateView):
             for obj in recipe_formset.deleted_objects:
                 obj.delete()
         else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
+            return self.form_invalid(form)
 
         messages.success(self.request, "✅ Product and recipe added successfully.")
         return redirect(self.success_url)
+
 
 
 class ProductsUpdateView(UpdateView):

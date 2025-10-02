@@ -1,0 +1,133 @@
+
+/* Page title */
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #4a4a4a;
+}
+
+.page-title .text-muted {
+  font-weight: 400;
+}
+
+/* Card Styles */
+.card {
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  margin-bottom: 30px;
+}
+
+.card-header {
+  background-color: #f1f3f5;
+  padding: 15px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.card-header h5 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* Header for the chart containers */
+.card-header h5.mb-0 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Flex container for the charts */
+.d-flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.justify-content-center {
+  justify-content: center;
+}
+
+.card-body d-flex {
+  padding: 20px;
+}
+
+/* Card for the list group of recent sales */
+.list-group-item {
+  padding: 15px;
+  font-size: 16px;
+  color: #555;
+  border: 1px solid #f1f1f1;
+}
+
+.list-group-item .badge {
+  font-weight: bold;
+  background-color: #28a745;
+}
+
+/* Styling for the total revenue and total stocks cards */
+.text-center {
+  text-align: center;
+}
+
+.text-success {
+  color: #28a745;
+}
+
+.stretched-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.stretched-link:hover {
+  color: #007bff;
+}
+
+h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Styles for the ApexCharts Container */
+#salesExpensesChart, #bestSellerChart {
+  max-width: 100%;
+  width: 100%;
+  height: 350px;
+  min-height: 300px;
+}
+
+#salesExpensesChart {
+  max-width: 900px;
+  width: 90%;
+}
+
+/* Pagination for the "Recent Sales" list */
+.mb-0 {
+  margin-bottom: 0;
+}
+
+.text-muted {
+  color: #6c757d;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .col-6 {
+    width: 100%;
+    padding: 0 15px;
+  }
+
+  .container-fluid {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .card-body {
+    padding: 15px;
+  }
+}

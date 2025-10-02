@@ -1,6 +1,7 @@
 :root{
-  --bg:#d3ecdc;      
-  --bg-soft:#c5dcc2;
+  /* — Light palette from you — */
+  --bg:#d3ecdc;      /* pinakamagaan bg */
+  --bg-soft:#c5dcc2; /* sidebar/soft areas */
   --panel:#ffffff;
 
   --primary-100:#d3ecdc;
@@ -9,6 +10,7 @@
   --primary-400:#91b38e;
   --primary-500:#5a855f;  /* main */
 
+  /* derived (slightly darker for hovers/active) */
   --primary-600:#4e7452;
   --primary-700:#3f6244;
 
@@ -22,10 +24,12 @@
   --radius: 14px;
   --radius-sm: 10px;
 
-  --primary-400-rgb:145,179,142; 
-  --primary-500-rgb: 90,133, 95;
+  /* RGB helpers para sa glows/focus rings */
+  --primary-400-rgb:145,179,142; /* #91b38e */
+  --primary-500-rgb: 90,133, 95; /* #5a855f */
 }
 
+/* ——— Global ——— */
 html, body { height: 100%; }
 body, .main-panel{
   font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial !important;
@@ -36,18 +40,19 @@ body, .main-panel{
     var(--bg) !important;
 }
 
+/* Remove bullets (just in case) */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
 
+/* Sticky Glass Header */
 .main-header, .navbar.navbar-header{
-  position: static !important;
-  top: initial !important; 
-  z-index: auto !important;
+  position: sticky; top: 0; z-index: 1040;
   background: rgba(197,220,194,.75) !important;
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border) !important;
   box-shadow: var(--shadow-xs);
 }
 
+/* 2) Reset any offsets na binibigay ng theme sa main panel/content */
 .main-panel{
   margin-top: 0 !important;
   padding-top: 0 !important;
@@ -55,18 +60,21 @@ body, .main-panel{
 .main-panel > .content,
 .main-panel > .container,
 .main-panel > .container-fluid{
-  padding-top: 12px !important;   
+  padding-top: 12px !important;   /* dati 16/30 — gawin nating tight */
   margin-top: 0 !important;
 }
 
+/* 3) Huwag magdagdag ng bottom gap ang outer header */
 .main-header{ margin-bottom: 0 !important; }
 
+/* 4) Compact spacing ng first elements (e.g., breadcrumb/page title) */
 .content > .page-title,
 .content > .page-header,
 .content > .breadcrumb{
   margin-top: 6px !important;
 }
 
+/* 5) Small screens: keep things snug */
 @media (max-width: 991.98px){
   .navbar.navbar-header{ padding-top: 8px; padding-bottom: 8px; }
   .main-panel > .content,
@@ -100,6 +108,7 @@ body, .main-panel{
   border: 1px solid var(--border);
 }
 
+/* Inline SVG nav icons */
 .nav-icon-svg{
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; min-width: 22px; margin-right: 2px;
@@ -107,6 +116,7 @@ body, .main-panel{
 .nav-icon-svg svg{ width: 18px; height: 18px; fill: currentColor; display: block; }
 .sidebar .nav-item a:hover .nav-icon-svg { transform: translateY(-1px); transition: transform .18s ease; }
 
+/* Cards */
 .card{
   background: var(--panel);
   border: 1px solid var(--border) !important;
@@ -114,6 +124,7 @@ body, .main-panel{
   box-shadow: var(--shadow-xs);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
 }
+/* .card:hover{ transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: #cfeab9 !important; } */
 .card .card-header{
   background: linear-gradient(180deg, #fff, var(--primary-100));
   border-bottom: 1px solid var(--border);
@@ -132,6 +143,7 @@ body, .main-panel{
 .btn-soft{ background: var(--primary-100) !important; border: 1px solid var(--border) !important; color: #0f172a !important; }
 .btn-soft:hover{ background: var(--primary-200) !important; border-color: #cfeab9 !important; }
 
+/* If you still use .btn-danger for non-destructive: keep it green */
 .btn-danger{
   background: var(--primary-500) !important; border-color: var(--primary-600) !important; color:#fff !important;
 }
@@ -176,15 +188,18 @@ a.read{ background:#fff; font-weight:500; }
   background:#ef4444; color:#fff; border:2px solid rgba(240,255,227,.9);
 }
 
+/* Utility grid for cards */
 .card-grid{ display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 16px; }
 
+/* Smooth global theme transition */
 :root{ --t:.35s; --e:cubic-bezier(.2,.8,.2,1); }
 body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-control, .btn, .badge {
   transition: background-color var(--t) var(--e), color var(--t) var(--e), border-color var(--t) var(--e), box-shadow var(--t) var(--e);
 }
 
-/*  DARK THEME */
+/* ===== DARK THEME (lighter, not too dark) ===== */
 html[data-theme="dark"] {
+  /* Dark Mode - Darker shades of Light Mode */
   --bg: #4B6387;        /* Darker background for dark mode */
   --bg-soft: #4B6387;    /* Sidebar/soft areas */
   --panel: #83A2CD;      /* Darker cards/navbars */
@@ -192,7 +207,10 @@ html[data-theme="dark"] {
   --muted: #A3C5f1;      /* Muted text */
   --border: #3f5b4f;     /* Border color */
   --primary-100: #334663; /* Darker version for dark mode */
-  --primary-500: #334663; /* Main darker color */
+  --primary-200: #ffffff;
+  --primary-300: #ffffff;
+  --primary-400: #ffffff;
+  --primary-500: #ffffff; /* Main darker color */
 }
 
 html[data-theme="dark"] body,
@@ -243,7 +261,7 @@ html[data-theme="dark"] .table thead th {
   color: var(--text);
 }
 
-/* Dark Mode Slide */
+/* ===== Animated Theme Toggle (slider + glow) ===== */
 .theme-toggle{
   position: relative; display: inline-flex; align-items: center;
   width: 56px; height: 30px; padding: 0; border: 0; background: transparent;
@@ -288,6 +306,38 @@ html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
 html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
 html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #eaf6e7; }
 
+/* ===== Animated Theme Toggle (slider + glow) ===== */
+.theme-toggle{
+  position: relative;
+  display: inline-flex; align-items: center;
+  width: 56px; height: 30px;
+  padding: 0; border: 0; background: transparent;
+  cursor: pointer; outline: none;
+  border-radius: 999px;
+}
+.theme-toggle .track{
+  position: absolute; inset: 0; border-radius: 999px;
+  background: linear-gradient(180deg, #dff8d2, #c9efb5);
+  border: 1px solid var(--border, #DDEFCC);
+  box-shadow: inset 0 2px 6px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05);
+  transition: background .35s cubic-bezier(.2,.8,.2,1), border-color .35s;
+}
+.theme-toggle .knob{
+  position: relative; z-index: 1;
+  width: 24px; height: 24px; border-radius: 50%;
+  transform: translateX(3px);
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(107,191,89,.35), 0 0 0 2px rgba(255,255,255,.9);
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), box-shadow .28s, background-color .28s;
+  display: grid; place-items: center;
+}
+.theme-toggle .icon svg{
+  width: 14px; height: 14px; fill: #2a2a2a;
+  transition: opacity .22s ease;
+}
+.theme-toggle .icon.moon{ opacity: 0; }
+.theme-toggle .icon.sun{ opacity: 1; }
+
 /* subtle stars when dark */
 .theme-toggle::after{
   content:""; position:absolute; inset:0; border-radius:999px; pointer-events:none;
@@ -319,19 +369,23 @@ html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
 html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
 html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #eaf6e7; }
 
+/* Remove list dot just in case */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
 
+/* Smoothen global theme transition (colors/borders/shadows) */
 :root{ --t: .35s; --e: cubic-bezier(.2,.8,.2,1); }
 body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-control, .btn, .badge {
   transition: background-color var(--t) var(--e), color var(--t) var(--e), border-color var(--t) var(--e), box-shadow var(--t) var(--e);
 }
 
+/* respect user's reduced-motion */
 @media (prefers-reduced-motion: reduce){
   .theme-toggle .knob, .theme-toggle .track, .theme-toggle::after, 
   body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-control, .btn, .badge {
     transition: none !important;
   }
 }
+
 
 #toast-container {
    position: fixed;
