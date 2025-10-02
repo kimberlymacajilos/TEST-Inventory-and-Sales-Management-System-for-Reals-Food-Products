@@ -270,13 +270,14 @@ class ProductCreateView(CreateView):
             recipes = recipe_formset.save(commit=False)
             for recipe in recipes:
                 recipe.created_by_admin = auth_user
+                recipe.products = self.object 
                 recipe.save()
             for obj in recipe_formset.deleted_objects:
                 obj.delete()
         else:
             return self.form_invalid(form)
 
-        messages.success(self.request, "✅ Product and recipe added successfully.")
+        messages.success(self.request, "✅ Product added successfully.")
         return redirect(self.success_url)
 
 
@@ -310,26 +311,28 @@ class ProductsUpdateView(UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        context = self.get_context_data()
-        recipe_formset = context["recipe_formset"]
+        auth_user = AuthUser.objects.get(username=self.request.user.username)
+        form.instance.created_by_admin = auth_user
+        self.object = form.save()
 
-        if form.is_valid() and recipe_formset.is_valid():
-            self.object = form.save()
-            auth_user = AuthUser.objects.get(username=self.request.user.username)
+        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
 
+        if recipe_formset.is_valid():
             recipes = recipe_formset.save(commit=False)
             for recipe in recipes:
-                if not recipe.pk: 
-                    recipe.created_by_admin = auth_user
+                recipe.created_by_admin = auth_user
+                recipe.products = self.object
                 recipe.save()
             for obj in recipe_formset.deleted_objects:
                 obj.delete()
+            recipe_formset.save_m2m()  # <-- important
+        else:
+            return self.render_to_response(
+                self.get_context_data(form=form, recipe_formset=recipe_formset)
+            )
 
-            messages.success(self.request, "✏️ Product updated successfully.")
-            return redirect(self.success_url)
-
-        return self.render_to_response(self.get_context_data(form=form))
-
+        messages.success(self.request, "✅ Product added successfully.")
+        return redirect(self.success_url)
 
 
 class ProductsDeleteView(DeleteView):
@@ -879,7 +882,6 @@ class WithdrawSuccessView(ListView):
         queryset = Withdrawals.objects.all().order_by('-date')
         request = self.request
 
-        # filters (keep what you already had)
         q = request.GET.get("q")
         if q:
             filters = (
@@ -948,7 +950,6 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
-        discount_combined = request.POST.get("discount_combined") 
 
         count = 0  
 
@@ -967,13 +968,14 @@ class WithdrawItemView(View):
                             messages.error(request, f"Not enough stock for {product}")
                             continue
 
+                        discount_val = request.POST.get(f"discount_{product_id}")
                         discount_obj = None
                         custom_value = None
-                        if discount_combined:
+                        if discount_val:
                             try:
-                                discount_obj = Discounts.objects.get(value=discount_combined)
+                                discount_obj = Discounts.objects.get(value=discount_val)
                             except Discounts.DoesNotExist:
-                                custom_value = discount_combined
+                                custom_value = discount_val
 
                         Withdrawals.objects.create(
                             item_id=product.id,
@@ -1127,28 +1129,26 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = form.cleaned_data['batch_date']
             received_date = form.cleaned_data['received_date']
-            expiration_date = form.cleaned_data.get('expiration_date')  # get manually entered value
             auth_user = AuthUser.objects.get(id=request.user.id)
 
             for rawmaterial_info in form.rawmaterials:
                 rawmaterial = rawmaterial_info['rawmaterial']
                 qty = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_qty')
+                exp_date = form.cleaned_data.get(f'rawmaterial_{rawmaterial.id}_exp')
+
                 if qty:
                     RawMaterialBatches.objects.create(
                         material=rawmaterial,
                         quantity=qty,
                         batch_date=batch_date,
                         received_date=received_date,
-                        expiration_date=expiration_date,
+                        expiration_date=exp_date,
                         created_by_admin=auth_user
                     )
 
             return redirect('rawmaterial-batch')
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def profile_view(request):

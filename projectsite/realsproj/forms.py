@@ -34,14 +34,13 @@ class ProductsForm(forms.ModelForm):
         self.created_by_admin = kwargs.pop('created_by_admin', None)
         super().__init__(*args, **kwargs)
 
-        if self.instance.pk:  # editing
+        if self.instance.pk:  
             self.fields['product_type'].initial = self.instance.product_type.name
             self.fields['variant'].initial = self.instance.variant.name
             self.fields['size'].initial = self.instance.size.size_label if self.instance.size else ''
             self.fields['unit_price'].initial = self.instance.unit_price.unit_price
             self.fields['srp_price'].initial = self.instance.srp_price.srp_price
 
-            # Set nice initial values
             self.initial['product_type'] = self.fields['product_type'].initial
             self.initial['variant'] = self.fields['variant'].initial
             self.initial['size'] = self.fields['size'].initial
@@ -87,7 +86,6 @@ class ProductsForm(forms.ModelForm):
             defaults={'created_by_admin': self.created_by_admin}
         )
         return obj
-
 
 ProductRecipeFormSet = inlineformset_factory(
     Products,
@@ -291,22 +289,30 @@ class BulkProductBatchForm(forms.Form):
 class BulkRawMaterialBatchForm(forms.Form):
     batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     received_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    expiration_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.rawmaterials = []
         for rawmaterial in RawMaterials.objects.all():
-            field_name = f'rawmaterial_{rawmaterial.id}_qty'
-            self.fields[field_name] = forms.DecimalField(
+            qty_field_name = f'rawmaterial_{rawmaterial.id}_qty'
+            exp_field_name = f'rawmaterial_{rawmaterial.id}_exp'
+
+            self.fields[qty_field_name] = forms.DecimalField(
                 required=False,
                 min_value=0,
                 label=str(rawmaterial),
                 widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
             )
+
+            self.fields[exp_field_name] = forms.DateField(
+                required=False,
+                widget=forms.DateInput(attrs={'type': 'date'})
+            )
+
             self.rawmaterials.append({
                 "rawmaterial": rawmaterial,
-                "qty_field": self[field_name],
+                "qty_field": self[qty_field_name],
+                "exp_field": self[exp_field_name],
             })
 
 

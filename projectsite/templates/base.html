@@ -144,7 +144,7 @@
 
             <ul class="nav">
                 <li class="nav-item"><a href="{% url 'home' %}"><i class="la la-dashboard"></i><p>Dashboard</p></a></li>
-                <li class="nav-item">
+                <!-- <li class="nav-item">
                     <a data-toggle="collapse" href="#productsMenu" aria-expanded="false">
                         <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
                     </a>
@@ -155,8 +155,28 @@
                             <li><a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a></li>
                         </ul>
                     </div>
-                </li>
+                </li> -->
                 <li class="nav-item">
+                    <a data-toggle="collapse" href="#productsMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'products product-batch product-inventory' %}true{% else %}false{% endif %}">
+                        <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'products product-batch product-inventory' %}show{% endif %}" id="productsMenu">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name == 'products' %}active{% endif %}">
+                                <a href="{% url 'products' %}"><span class="sub-item">Product List</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'product-batch' %}active{% endif %}">
+                                <a href="{% url 'product-batch' %}"><span class="sub-item">Product Batch</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'product-inventory' %}active{% endif %}">
+                                <a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                <!-- <li class="nav-item">
                     <a data-toggle="collapse" href="#rawmatMenu" aria-expanded="false">
                         <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
                     </a>
@@ -167,12 +187,50 @@
                             <li><a href="{% url 'rawmaterial-inventory' %}"><span class="sub-item">Raw Material Inventory</span></a></li>
                         </ul>
                     </div>
+                </li> -->
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#rawmatMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'rawmaterials rawmaterial-batch rawmaterial-inventory' %}true{% else %}false{% endif %}">
+                        <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'rawmaterials rawmaterial-batch rawmaterial-inventory' %}show{% endif %}" id="rawmatMenu">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name == 'rawmaterials' %}active{% endif %}">
+                                <a href="{% url 'rawmaterials' %}"><span class="sub-item">Raw Materials List</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'rawmaterial-batch' %}active{% endif %}">
+                                <a href="{% url 'rawmaterial-batch' %}"><span class="sub-item">Raw Material Batch</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'rawmaterial-inventory' %}active{% endif %}">
+                                <a href="{% url 'rawmaterial-inventory' %}"><span class="sub-item">Raw Material Inventory</span></a>
+                            </li>
+                        </ul>
+                    </div>
                 </li>
-                <li class="nav-item"><a href="{% url 'expenses' %}"><i class="la la-dollar"></i><p>Expenses</p></a></li>
-                <li class="nav-item"><a href="{% url 'sales' %}"><i class="la la-line-chart"></i><p>Sales</p></a></li>
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#financialMenu" aria-expanded="false">
+                        <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="financialMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="#index"><span class="sub-item">Report</span></a></li>
+                            <li><a href="{% url 'sales' %}"><span class="sub-item">Sales</span></a></li>
+                            <li><a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                                <li class="nav-item">
+                    <a data-toggle="collapse" href="#withdrawalsMenu" aria-expanded="false">
+                        <i class="la la-trash"></i><p>Withdrawals</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse" id="withdrawalsMenu">
+                        <ul class="nav nav-collapse">
+                            <li><a href="{% url 'withdrawals' %}"><span class="sub-item">Withdrawn Items</span></a></li>
+                            <li><a href="{% url 'stock-changes' %}"><span class="sub-item">Stock Changes</span></a></li>
+                        </ul>
+                    </div>
+                </li>
                 <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
-                <li class="nav-item"><a href="{% url 'withdrawals' %}"><i class="la la-trash"></i><p>Withdrawn Items</p></a></li>
-                <li class="nav-item"><a href="{% url 'stock-changes' %}"><i class="la la-trash"></i><p>Stock Changes</p></a></li>
             </ul>
         </div>
     </div>
