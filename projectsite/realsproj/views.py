@@ -880,7 +880,6 @@ class WithdrawSuccessView(ListView):
         queryset = Withdrawals.objects.all().order_by('-date')
         request = self.request
 
-        # filters (keep what you already had)
         q = request.GET.get("q")
         if q:
             filters = (
@@ -949,7 +948,6 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
-        discount_combined = request.POST.get("discount_combined") 
 
         count = 0  
 
@@ -968,13 +966,14 @@ class WithdrawItemView(View):
                             messages.error(request, f"Not enough stock for {product}")
                             continue
 
+                        discount_val = request.POST.get(f"discount_{product_id}")
                         discount_obj = None
                         custom_value = None
-                        if discount_combined:
+                        if discount_val:
                             try:
-                                discount_obj = Discounts.objects.get(value=discount_combined)
+                                discount_obj = Discounts.objects.get(value=discount_val)
                             except Discounts.DoesNotExist:
-                                custom_value = discount_combined
+                                custom_value = discount_val
 
                         Withdrawals.objects.create(
                             item_id=product.id,
