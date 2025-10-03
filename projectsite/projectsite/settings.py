@@ -86,7 +86,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'Reals_db_123',
+        'PASSWORD': 'reals',
         'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
         'PORT': '5432',
     }
