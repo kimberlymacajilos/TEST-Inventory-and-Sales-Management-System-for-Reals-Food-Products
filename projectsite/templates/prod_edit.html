@@ -80,6 +80,7 @@
                   {% else %}
                     <img id="photo-preview" class="img-thumbnail mt-2" style="max-height:120px; display:none;">
                   {% endif %}
+                </div>
                 <div class="mb-3">
                   {% if object and object.id %}
                     <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>

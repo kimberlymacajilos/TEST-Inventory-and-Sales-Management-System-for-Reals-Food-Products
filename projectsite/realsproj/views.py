@@ -75,6 +75,7 @@ from realsproj.models import (
     SalesSummary,
     ExpensesSummary,
     Discounts,
+    ProductRecipes
 )
 
 from django.db.models import Q, CharField
