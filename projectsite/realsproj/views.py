@@ -455,7 +455,6 @@ class SalesList(ListView):
     def get_queryset(self):
         qs = Sales.objects.select_related("created_by_admin").order_by("-date")
 
-        # --- Search filter ---
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
@@ -475,10 +474,15 @@ class SalesList(ListView):
         month = self.request.GET.get("month", "").strip()
         if month:
             try:
-                year, month_num = month.split("-")
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
                 qs = qs.filter(date__year=year, date__month=month_num)
             except ValueError:
-                pass  # ignore invalid month
+                pass
+        else:
+            today = timezone.now()
+            qs = qs.filter(date__year=today.year, date__month=today.month)
 
         self._full_queryset = qs
         return qs
@@ -497,6 +501,7 @@ class SalesList(ListView):
         context['categories'] = categories
 
         return context
+
 
 class SalesCreateView(CreateView):
     model = Sales
@@ -538,45 +543,56 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
-        category = self.request.GET.get("category", "").strip()
-        month = self.request.GET.get("month", "").strip()
-
         if query:
-            queryset = queryset.filter(
+            qs = qs.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-        if category:
-            queryset = queryset.filter(category=category)
-        if month:
-            # Filter by month (YYYY-MM)
-            queryset = queryset.filter(date__year=int(month.split("-")[0]),
-                                       date__month=int(month.split("-")[1]))
 
-        self.filtered_queryset = queryset
-        return queryset
+        # --- Category filter ---
+        category = self.request.GET.get("category", "").strip()
+        if category:
+            qs = qs.filter(category__iexact=category)
+
+        # --- Month filter (YYYY-MM) ---
+        month = self.request.GET.get("month", "").strip()
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            qs = qs.filter(date__year=today.year, date__month=today.month)
+
+        self._full_queryset = qs
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        summary = self.filtered_queryset.aggregate(
+        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
+
+        context["expenses_summary"] = full_qs.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
-
-        context["expenses_summary"] = summary
-            # Unique categories for dropdown
         categories = Expenses.objects.values_list('category', flat=True).distinct()
-        context["categories"] = categories
+        context['categories'] = categories
+
         return context
-    
+
+
 class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
@@ -698,18 +714,11 @@ class ProductInventoryList(ListView):
             )
 
             queryset = queryset.filter(
-                Q(product__description__icontains=q) |
                 Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(product__size__size_label__icontains=q) |      # ✅ fixed here
-                Q(product__size_unit__unit_name__icontains=q) |  # ✅ correct
-                Q(unit__unit_name__icontains=q) |                # ✅ correct
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+                Q(product__variant__name__icontains=q)
             )
 
         return queryset.order_by("product_id")
-
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'

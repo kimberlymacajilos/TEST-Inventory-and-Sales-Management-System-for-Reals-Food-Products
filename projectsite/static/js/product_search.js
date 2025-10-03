@@ -131,13 +131,11 @@ document.addEventListener("DOMContentLoaded", function() {
         }, 300);
     });
 
-    // Fetch inventory data
     function fetchInventory(query = "", pageUrl = null) {
-        let url = pageUrl || "/product-inventory/";
+        let url = pageUrl || "{% url 'product-inventory' %}";
         if (query && !pageUrl) {
             url += `?q=${encodeURIComponent(query)}`;
         } else if (query && pageUrl) {
-            // Preserve query when using pagination
             const separator = pageUrl.includes("?") ? "&" : "?";
             url = pageUrl + separator + "q=" + encodeURIComponent(query);
         }

@@ -15,7 +15,8 @@
 
           <div class="col-md-10">
             <div class="card-body">
-              <form method="post">
+              <!-- ✅ added enctype -->
+              <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 {% if form.errors %}
@@ -84,6 +85,12 @@
                 <div class="form-group">
                   <label>Description</label>
                   <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
+                </div>
+
+                <!-- Photo Upload -->
+                <div class="form-group">
+                  <label>Product Photo</label>
+                  {% render_field form.photo class="form-control-file" %}
                 </div>
 
                 <!-- Product Recipe Section -->
