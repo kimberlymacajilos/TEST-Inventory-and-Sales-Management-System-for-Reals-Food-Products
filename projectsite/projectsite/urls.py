@@ -26,6 +26,8 @@ from django.conf.urls.static import static
 
 
 
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
@@ -36,6 +38,10 @@ urlpatterns = [
     path('products/add', a.ProductCreateView.as_view(), name='product-add'),
     path('products/<pk>', a.ProductsUpdateView.as_view(), name='product-edit'),
     path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
+    path("products/add-barcode/", a.product_add_barcode, name="product-add-barcode"),
+    path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
+
+
 
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
     path('rawmaterials/add', a.RawMaterialsCreateView.as_view(), name='rawmaterials-add'),
@@ -112,6 +118,4 @@ urlpatterns = [
 
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
-
-
 ]

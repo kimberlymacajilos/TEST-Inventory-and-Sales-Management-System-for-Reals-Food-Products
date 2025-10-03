@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Products (Add via Barcode)</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+
+          <!-- Results Panel -->
+          <div class="card-body">
+            <div id="scan-results" class="p-2 bg-light" style="min-height:150px; overflow-y:auto;">
+              <strong>Scanned Results:</strong>
+              <div id="scanned-list"></div>
+            </div>
+          </div>
+
+          <!-- Form Section -->
+          <div class="col-md-10">
+            <div class="card-body">
+              <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                  <label>Barcode</label>
+                  <input type="text" id="barcode-input" name="barcode"
+                         class="form-control" readonly>
+                </div>
+
+                <!-- rest of your product form here... -->
+                <div class="mb-3">
+                  <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                  <a href="{% url 'products' %}" class="btn btn-secondary btn-rounded">Cancel</a>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const barcodeInput = document.getElementById("barcode-input");
+  const scannedList = document.getElementById("scanned-list");
+  const beep = document.getElementById("beep");
+
+  // ✅ WebSocket listener
+  const socket = new WebSocket(
+    (window.location.protocol === "https:" ? "wss://" : "ws://") +
+    window.location.host +
+    "/ws/scan/"
+  );
+
+  socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    const barcode = data.barcode;
+
+    // --- Simula ng pagbabago ---
+    // I-update lang kung ang bagong barcode ay iba sa kasalukuyang value
+    if (barcode && barcodeInput.value !== barcode) {
+      // update input field
+      barcodeInput.value = barcode;
+
+      // log sa list
+      const now = new Date().toLocaleTimeString();
+      const item = document.createElement("div");
+      item.textContent = `[${now}] ${barcode}`;
+      // Ilagay ang bago sa taas
+      scannedList.prepend(item); 
+
+      // beep
+      if (beep) {
+        beep.currentTime = 0;
+        beep.play().catch(err => console.error("Audio play failed:", err));
+      }
+    }
+    // --- Wakas ng pagbabago ---
+  };
+});
+</script>
+{% endblock %}
