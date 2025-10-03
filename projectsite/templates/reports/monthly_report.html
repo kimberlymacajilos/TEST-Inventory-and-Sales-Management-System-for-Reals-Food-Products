@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Monthly Business Report</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <div class="card-title">Revenue & Profit Trends</div>
+              <div class="card-category">Month-over-Month Analysis</div>
+            </div>
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
+              <a href="{% url 'monthly-report-export' %}" class="btn btn-primary btn-rounded">Export</a>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="row mb-3 text-center">
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Revenue</h5>
+                    <h3 class="text-success">₱{{ summary.total_revenue|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Profit</h5>
+                    <h3 class="text-primary">₱{{ summary.total_profit|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Average Profit</h5>
+                    <h3 class="text-info">₱{{ summary.average_profit|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-striped" id="reportTable">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Revenue</th>
+                    <th>Expenses</th>
+                    <th>Profit</th>
+                    <th>Revenue Change</th>
+                    <th>Profit Change</th>
+                    <th>Trend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in report %}
+                  <tr>
+                    <td>{{ row.month|date:"F Y" }}</td>
+                    <td>₱{{ row.revenue|floatformat:2|intcomma }}</td>
+                    <td>₱{{ row.expenses|floatformat:2|intcomma }}</td>
+                    <td>₱{{ row.profit|floatformat:2|intcomma }}</td>
+                    <td>
+                      {% if row.revenue_change %}
+                        {% if row.revenue_change > 0 %}
+                          <span class="text-success">↑ ₱{{ row.revenue_change|floatformat:2|intcomma }}</span>
+                        {% else %}
+                          <span class="text-danger">↓ ₱{{ row.revenue_change|floatformat:2|intcomma|slice:"1:" }}</span>
+                        {% endif %}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if row.profit_change %}
+                        {% if row.profit_change > 0 %}
+                          <span class="text-success">↑ ₱{{ row.profit_change|floatformat:2|intcomma }}</span>
+                        {% else %}
+                          <span class="text-danger">↓ ₱{{ row.profit_change|floatformat:2|intcomma|slice:"1:" }}</span>
+                        {% endif %}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if row.revenue_change and row.profit_change %}
+                        {% if row.revenue_change > 0 and row.profit_change > 0 %}
+                          <span class="badge bg-success">Revenue & Profit Increased</span>
+                        {% elif row.revenue_change > 0 and row.profit_change < 0 %}
+                          <span class="badge bg-warning text-dark">Revenue Increased, Profit Decreased</span>
+                        {% elif row.revenue_change < 0 and row.profit_change > 0 %}
+                          <span class="badge bg-warning text-dark">Revenue Decreased, Profit Increased</span>
+                        {% else %}
+                          <span class="badge bg-danger">Revenue & Profit Decreased</span>
+                        {% endif %}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="7" class="text-center text-muted">No monthly report available</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            {% include 'includes/pagination.html' %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/report_filters.js' %}"></script>
+{% endblock %}
