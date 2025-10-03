@@ -11,27 +11,30 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Edit Product</div>
-            <div class="card-category">Update product and its recipe</div>
+            <div class="card-category">Update product</div>
           </div>
 
           <div class="col-md-10">
             <div class="card-body">
-              <!-- enctype added for photo upload -->
               <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 {% if form.errors %}
                   <div class="alert alert-danger">{{ form.errors }}</div>
                 {% endif %}
 
+                <!-- Product Type -->
                 <div class="form-group">
                   {{ form.product_type.label_tag }}
                   {% render_field form.product_type class="form-control" %}
                 </div>
+
+                <!-- Variant -->
                 <div class="form-group">
                   {{ form.variant.label_tag }}
                   {% render_field form.variant class="form-control" %}
                 </div>
 
+                <!-- Size + Size Unit -->
                 <div class="form-row">
                   <div class="form-group col-md-6">
                     {{ form.size.label_tag }}
@@ -43,6 +46,7 @@
                   </div>
                 </div>
 
+                <!-- Prices -->
                 <div class="form-row">
                   <div class="form-group col-md-6">
                     {{ form.unit_price.label_tag }}
@@ -60,67 +64,25 @@
                   {% render_field form.description class="form-control" rows="3" %}
                 </div>
 
-                  <!-- Photo Upload -->
+                <!-- Photo Upload -->
                 <div class="form-group">
                   {{ form.photo.label_tag }}
-                  {% render_field form.photo class="form-control-file" %}
+                  {% render_field form.photo class="form-control-file" onchange="previewPhoto(event)" %}
                   {% if object.photo %}
                     <div class="mt-2">
-                      <img src="{{ object.photo.url }}" class="img-thumbnail" style="max-height:120px;">
+                      <img id="photo-preview" src="{{ object.photo.url }}" class="img-thumbnail" style="max-height:120px;">
                     </div>
+                    <div class="mt-2">
+                      <button type="submit" name="delete_photo" value="1" class="btn btn-danger btn-sm">
+                        <i class="fa fa-trash"></i> Delete Photo
+                      </button>
+                    </div>
+                  {% else %}
+                    <img id="photo-preview" class="img-thumbnail mt-2" style="max-height:120px; display:none;">
                   {% endif %}
                 </div>
 
-                <!-- Product Recipe Section -->
-                <hr>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <p class="mb-0">Product Recipe (Raw Materials)</p>
-                  <button type="button" class="btn btn-secondary btn-sm" id="add-row">+ Add Row</button>
-                </div>
-
-                {% if recipe_formset.non_form_errors %}
-                  <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
-                {% endif %}
-
-                {{ recipe_formset.management_form }}
-
-                <table class="table table-bordered" id="recipe-table">
-                  <thead class="thead-light">
-                    <tr>
-                      <th style="width: 40%;">Raw Material</th>
-                      <th style="width: 20%;">Quantity Needed</th>
-                      <th style="width: 20%;">Yield Factor</th>
-                      <th style="width: 20%;">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="recipe-body">
-                    {% for recipe_form in recipe_formset %}
-                      <tr>
-                        <td>{% render_field recipe_form.material class="form-control" %}</td>
-                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
-                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
-                        <td class="text-center">
-                          <div style="display:none;">{% render_field recipe_form.DELETE %}</div>
-                          <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-
-                <!-- Template for new row -->
-                <template id="empty-row">
-                  <tr>
-                    <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
-                    <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
-                    <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
-                    <td class="text-center">
-                      <div style="display:none;">{% render_field recipe_formset.empty_form.DELETE %}</div>
-                      <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                    </td>
-                  </tr>
-                </template>
-
+                <!-- Submit -->
                 <div class="mb-3">
                   <button type="submit" class="btn btn-primary btn-rounded">Update</button>
                 </div>
@@ -133,39 +95,11 @@
     </div>
   </div>
 </div>
-
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
-  if (!totalFormsInput) return;
-  const prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
-  const tableBody = document.getElementById("recipe-body");
-  const emptyTemplate = document.getElementById("empty-row").innerHTML.trim();
-  const addRowBtn = document.getElementById("add-row");
-
-  addRowBtn.addEventListener("click", function() {
-    const formIndex = parseInt(totalFormsInput.value, 10);
-    const newRowHtml = emptyTemplate.replace(/__prefix__/g, formIndex);
-    tableBody.insertAdjacentHTML("beforeend", newRowHtml);
-    totalFormsInput.value = formIndex + 1;
-  });
-
-  tableBody.addEventListener("click", function(e) {
-    if (e.target && e.target.matches(".remove-row")) {
-      const row = e.target.closest("tr");
-      const deleteInput = row.querySelector('input[name$="-DELETE"]');
-      if (deleteInput) {
-        deleteInput.checked = true;
-        row.style.display = "none";
-      } else {
-        row.remove();
-        const currentTotal = parseInt(totalFormsInput.value, 10);
-        if (currentTotal > 0) {
-          totalFormsInput.value = String(currentTotal - 1);
-        }
-      }
-    }
-  });
-});
+function previewPhoto(event) {
+  let output = document.getElementById('photo-preview');
+  output.src = URL.createObjectURL(event.target.files[0]);
+  output.style.display = 'block';
+}
 </script>
 {% endblock %}
