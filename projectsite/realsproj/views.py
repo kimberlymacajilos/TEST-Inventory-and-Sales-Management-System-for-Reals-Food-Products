@@ -48,7 +48,8 @@ from realsproj.forms import (
     StockChangesForm,
     BulkRawMaterialBatchForm,
     ProductRecipeForm,
-    UnifiedWithdrawForm
+    UnifiedWithdrawForm,
+    CustomUserCreationForm
     
 )
 
@@ -88,9 +89,7 @@ from django.db.models.functions import TruncMonth
 from django.contrib.auth.forms import UserCreationForm
 from datetime import datetime
 from django.db.models.functions import Cast
-
 from django.contrib.auth.models import User
-from .forms import CustomUserChangeForm
 import os
 from django.urls import reverse, reverse_lazy
 
@@ -1288,9 +1287,10 @@ def login_view(request):
 
 def register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()  # Save the new user to the database
+            user = form.save()  # Save the new user to the database
+            login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
             return redirect('login')  # Redirect to login page after successful registration
         else:

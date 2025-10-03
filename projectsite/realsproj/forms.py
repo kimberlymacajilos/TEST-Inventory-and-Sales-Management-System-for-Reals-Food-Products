@@ -324,7 +324,7 @@ class CustomUserCreationForm(forms.ModelForm):
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
     user_type = forms.ChoiceField(
         choices=[('staff', 'Staff'), ('superuser', 'Superuser')],
-        widget=forms.Select,  # This creates a dropdown
+        widget=forms.Select,
         required=True
     )
 
@@ -344,8 +344,10 @@ class CustomUserCreationForm(forms.ModelForm):
         if password1 != password2:
             raise ValidationError("Passwords do not match.")
         return password2
+    
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password1"])
         user_type = self.cleaned_data.get('user_type')
         if user_type == 'staff':
             user.is_staff = True
@@ -356,13 +358,3 @@ class CustomUserCreationForm(forms.ModelForm):
         if commit:
             user.save()
         return user
-    
-class CustomUserChangeForm(UserChangeForm):
-    def clean_email(self):
-        email = self.cleaned_data.get('email')
-
-        # Check if email is already taken by another user (excluding the current user)
-        if User.objects.exclude(id=self.instance.id).filter(email=email).exists():
-            raise ValidationError("This email address is already in use by another account.")
-
-        return email
