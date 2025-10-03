@@ -535,6 +535,7 @@ class Products(models.Model):
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     date_created = models.DateTimeField(default=timezone.now)
     size = models.ForeignKey('Sizes', models.DO_NOTHING, blank=True, null=True)
+    photo = models.ImageField(upload_to="product_photos/", blank=True, null=True)
 
     class Meta:
         managed = False
