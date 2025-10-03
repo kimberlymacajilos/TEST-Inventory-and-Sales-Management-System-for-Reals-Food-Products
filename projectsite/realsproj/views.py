@@ -46,7 +46,6 @@ from realsproj.forms import (
     BulkProductBatchForm,
     StockChangesForm,
     BulkRawMaterialBatchForm,
-    ProductRecipeFormSet,
     UnifiedWithdrawForm
     
 )
@@ -73,7 +72,6 @@ from realsproj.models import (
     StockChanges,
     SalesSummary,
     ExpensesSummary,
-    ProductRecipes,
     Discounts,
 )
 
@@ -90,6 +88,8 @@ from django.db.models.functions import Cast
 
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
+import os
+from django.urls import reverse, reverse_lazy
 
 
 @method_decorator(login_required, name='dispatch')
@@ -170,6 +170,7 @@ class ProductsList(ListView):
             super()
             .get_queryset()
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
+            .order_by("id")
         )
 
         query = self.request.GET.get("q", "").strip()
@@ -243,14 +244,6 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-
-        if self.request.method == 'POST':
-            context['recipe_formset'] = ProductRecipeFormSet(
-                self.request.POST,
-                instance=self.object if hasattr(self, 'object') else None
-            )
-        else:
-            context['recipe_formset'] = ProductRecipeFormSet()
         return context
     
     def get_form_kwargs(self):
@@ -263,25 +256,9 @@ class ProductCreateView(CreateView):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
         self.object = form.save()
-
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
-
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object 
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-        else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
-
         messages.success(self.request, "✅ Product added successfully.")
         return redirect(self.success_url)
-
+    
 
 class ProductsUpdateView(UpdateView):
     model = Products
@@ -289,51 +266,44 @@ class ProductsUpdateView(UpdateView):
     template_name = "prod_edit.html"
     success_url = reverse_lazy("products")
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['product_types'] = ProductTypes.objects.all()
-        context['variants'] = ProductVariants.objects.all()
-        context['sizes'] = Sizes.objects.all()
-        context['unit_prices'] = UnitPrices.objects.all()
-        context['srp_prices'] = SrpPrices.objects.all()
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
 
-        if self.request.method == "POST":
-            context["recipe_formset"] = ProductRecipeFormSet(
-                self.request.POST, instance=self.object
+        if "delete_photo" in request.POST:
+            if self.object.photo:
+                try:
+                    if os.path.isfile(self.object.photo.path):
+                        os.remove(self.object.photo.path)
+                except Exception:
+                    pass
+                self.object.photo = None
+                self.object.save()
+                messages.success(request, "Product photo deleted.")
+            else:
+                messages.info(request, "No photo to delete.")
+
+            return redirect(
+                reverse("product-edit", kwargs={"pk": self.object.pk})
             )
-        else:
-            context["recipe_formset"] = ProductRecipeFormSet(instance=self.object)
-        return context
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        kwargs['created_by_admin'] = auth_user
-        return kwargs
+
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user
-        self.object = form.save()
+        product = form.save(commit=False)
 
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
+        delete_photo = self.request.POST.get("delete_photo")
+        if delete_photo == "1" and product.photo:
+            if os.path.isfile(product.photo.path):
+                os.remove(product.photo.path)
+            product.photo.delete(save=False)
+            product.photo = None
 
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-            recipe_formset.save_m2m()  # <-- important
-        else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
+        if "photo" in form.changed_data:
+            if self.object.photo and os.path.isfile(self.object.photo.path):
+                os.remove(self.object.photo.path)
 
-        messages.success(self.request, "✅ Product added successfully.")
-        return redirect(self.success_url)
+        product.save()
+        return super().form_valid(form)
 
 
 class ProductsDeleteView(DeleteView):
@@ -352,7 +322,7 @@ class RawMaterialsList(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('id')
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
