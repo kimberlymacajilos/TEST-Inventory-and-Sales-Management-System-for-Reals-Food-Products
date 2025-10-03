@@ -1150,11 +1150,6 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {'form': form, 'raw_materials': form.rawmaterials})
 
-@login_required
-def profile_view(request):
-    return render(request, "profile.html")
-
-
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -1229,9 +1224,10 @@ def login_view(request):
 
 def register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()  # Save the new user to the database
+            user = form.save()  # Save the new user to the database
+            login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
             return redirect('login')  # Redirect to login page after successful registration
         else:

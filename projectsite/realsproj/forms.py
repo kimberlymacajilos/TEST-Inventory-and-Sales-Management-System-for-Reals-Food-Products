@@ -347,8 +347,10 @@ class CustomUserCreationForm(forms.ModelForm):
         if password1 != password2:
             raise ValidationError("Passwords do not match.")
         return password2
+    
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password1"])
         user_type = self.cleaned_data.get('user_type')
         if user_type == 'staff':
             user.is_staff = True
