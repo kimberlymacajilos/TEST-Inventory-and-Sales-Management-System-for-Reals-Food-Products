@@ -16,7 +16,8 @@
 
           <div class="col-md-10">
             <div class="card-body">
-              <form method="post">
+              <!-- enctype added for photo upload -->
+              <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 {% if form.errors %}
                   <div class="alert alert-danger">{{ form.errors }}</div>
@@ -30,6 +31,7 @@
                   {{ form.variant.label_tag }}
                   {% render_field form.variant class="form-control" %}
                 </div>
+
                 <div class="form-row">
                   <div class="form-group col-md-6">
                     {{ form.size.label_tag }}
@@ -40,19 +42,36 @@
                     {% render_field form.size_unit class="form-control" %}
                   </div>
                 </div>
-                <div class="form-group">
-                  {{ form.unit_price.label_tag }}
-                  {% render_field form.unit_price class="form-control" %}
-                </div>
-                <div class="form-group">
-                  {{ form.srp_price.label_tag }}
-                  {% render_field form.srp_price class="form-control" %}
-                </div>
-                <div class="form-group">
-                  {{ form.description.label_tag }}
-                  {% render_field form.description class="form-control" %}
+
+                <div class="form-row">
+                  <div class="form-group col-md-6">
+                    {{ form.unit_price.label_tag }}
+                    {% render_field form.unit_price class="form-control" %}
+                  </div>
+                  <div class="form-group col-md-6">
+                    {{ form.srp_price.label_tag }}
+                    {% render_field form.srp_price class="form-control" %}
+                  </div>
                 </div>
 
+                <!-- Description -->
+                <div class="form-group">
+                  {{ form.description.label_tag }}
+                  {% render_field form.description class="form-control" rows="3" %}
+                </div>
+
+                  <!-- Photo Upload -->
+                <div class="form-group">
+                  {{ form.photo.label_tag }}
+                  {% render_field form.photo class="form-control-file" %}
+                  {% if object.photo %}
+                    <div class="mt-2">
+                      <img src="{{ object.photo.url }}" class="img-thumbnail" style="max-height:120px;">
+                    </div>
+                  {% endif %}
+                </div>
+
+                <!-- Product Recipe Section -->
                 <hr>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <p class="mb-0">Product Recipe (Raw Materials)</p>
@@ -89,6 +108,7 @@
                   </tbody>
                 </table>
 
+                <!-- Template for new row -->
                 <template id="empty-row">
                   <tr>
                     <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
@@ -149,4 +169,3 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 {% endblock %}
-  

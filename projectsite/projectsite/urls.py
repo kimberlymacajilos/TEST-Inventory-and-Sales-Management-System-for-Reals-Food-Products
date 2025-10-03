@@ -114,4 +114,4 @@ urlpatterns = [
     path('profile/edit/', a.edit_profile, name='edit_profile'),
 
 
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -86,8 +86,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'reals',
-        'HOST': 'localhost',
+        'PASSWORD': 'Reals_db_123',
+        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
         'PORT': '5432',
     }
 }
@@ -151,3 +151,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "inventcaps@gmail.com"
 EMAIL_HOST_PASSWORD = "mwko idqd bjzv ujww"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
