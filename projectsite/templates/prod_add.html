@@ -86,62 +86,14 @@
                   <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
                 </div>
 
-                <!-- Product Recipe Section -->
-                <hr>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <p class="mb-0">Product Recipe (Raw Materials)</p>
-                  <button type="button" class="btn btn-secondary btn-sm" id="add-row">+ Add Row</button>
-                </div>
-
-                {% if recipe_formset.non_form_errors %}
-                  <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
-                {% endif %}
-
-                {{ recipe_formset.management_form }}
-
-                <table class="table table-bordered" id="recipe-table">
-                  <thead class="thead-light">
-                    <tr>
-                      <th style="width: 40%;">Raw Material</th>
-                      <th style="width: 20%;">Quantity Needed</th>
-                      <th style="width: 20%;">Yield Factor</th>
-                      <th style="width: 20%;">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for recipe_form in recipe_formset %}
-                      <tr>
-                        <td>{% render_field recipe_form.material class="form-control" %}</td>
-                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
-                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
-                        <td class="text-center">
-                          <span style="display:none">{{ recipe_form.DELETE }}</span>
-                          <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-
-                <!-- Hidden empty form -->
-                <div id="empty-form" style="display:none;">
-                  <table>
-                    <tr>
-                      <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
-                      <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
-                      <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
-                      <td class="text-center">
-                        <span style="display:none">{{ recipe_formset.empty_form.DELETE }}</span>
-                        <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-
-                <!-- Submit -->
                 <div class="mb-3">
-                  <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                  {% if object and object.id %}
+                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                  {% else %}
+                    <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
+                  {% endif %}
                 </div>
+
               </form>
             </div>
           </div>

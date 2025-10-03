@@ -26,6 +26,7 @@ from django.db.models import Avg, Count, Sum
 from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -46,7 +47,7 @@ from realsproj.forms import (
     BulkProductBatchForm,
     StockChangesForm,
     BulkRawMaterialBatchForm,
-    ProductRecipeFormSet,
+    ProductRecipeForm,
     UnifiedWithdrawForm
     
 )
@@ -170,6 +171,7 @@ class ProductsList(ListView):
             super()
             .get_queryset()
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
+            .order_by("id")
         )
 
         query = self.request.GET.get("q", "").strip()
@@ -243,14 +245,6 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-
-        if self.request.method == 'POST':
-            context['recipe_formset'] = ProductRecipeFormSet(
-                self.request.POST,
-                instance=self.object if hasattr(self, 'object') else None
-            )
-        else:
-            context['recipe_formset'] = ProductRecipeFormSet()
         return context
     
     def get_form_kwargs(self):
@@ -264,23 +258,8 @@ class ProductCreateView(CreateView):
         form.instance.created_by_admin = auth_user
         self.object = form.save()
 
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
-
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object 
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-        else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
-
         messages.success(self.request, "✅ Product added successfully.")
-        return redirect(self.success_url)
+        return redirect('recipe-list', product_id=self.object.id)
 
 
 class ProductsUpdateView(UpdateView):
@@ -297,12 +276,7 @@ class ProductsUpdateView(UpdateView):
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
 
-        if self.request.method == "POST":
-            context["recipe_formset"] = ProductRecipeFormSet(
-                self.request.POST, instance=self.object
-            )
-        else:
-            context["recipe_formset"] = ProductRecipeFormSet(instance=self.object)
+        context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
         return context
     
     def get_form_kwargs(self):
@@ -316,23 +290,7 @@ class ProductsUpdateView(UpdateView):
         form.instance.created_by_admin = auth_user
         self.object = form.save()
 
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
-
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-            recipe_formset.save_m2m()  # <-- important
-        else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
-
-        messages.success(self.request, "✅ Product added successfully.")
+        messages.success(self.request, "✅ Product updated successfully.")
         return redirect(self.success_url)
 
 
@@ -344,6 +302,61 @@ class ProductsDeleteView(DeleteView):
         messages.success(self.request, "🗑️ Product deleted successfully.")
         return super().get_success_url()
 
+class ProductRecipeListView(ListView):
+    model = ProductRecipes
+    template_name = "prodrecipe_list.html"
+    context_object_name = "recipes"
+
+    def get_queryset(self):
+        return ProductRecipes.objects.filter(product_id=self.kwargs['product_id']).select_related("material")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["product"] = Products.objects.get(pk=self.kwargs["product_id"])
+        return context
+
+class ProductRecipeBulkCreateView(View):
+    template_name = "prodrecipe_add.html"
+
+    def get(self, request, product_id):
+        product = Products.objects.get(pk=product_id)
+        RecipeFormSet = modelformset_factory(ProductRecipes, form=ProductRecipeForm, extra=1, can_delete=False)
+
+        formset = RecipeFormSet(queryset=ProductRecipes.objects.none())
+        return render(request, self.template_name, {"formset": formset, "product": product})
+
+    def post(self, request, product_id):
+        product = Products.objects.get(pk=product_id)
+        auth_user = AuthUser.objects.get(username=request.user.username)
+        RecipeFormSet = modelformset_factory(ProductRecipes, form=ProductRecipeForm, extra=0, can_delete=False)
+
+        formset = RecipeFormSet(request.POST)
+
+        if formset.is_valid():
+            instances = formset.save(commit=False)
+            for instance in instances:
+                instance.product = product
+                instance.created_by_admin = auth_user
+                instance.save()
+            messages.success(request, "✅ Recipes added successfully.")
+            return redirect("recipe-list", product_id=product.id)
+
+        return render(request, self.template_name, {"formset": formset, "product": product})
+
+class ProductRecipeUpdateView(UpdateView):
+    model = ProductRecipes
+    form_class = ProductRecipeForm
+    template_name = "prodrecipe_edit.html"
+
+    def get_success_url(self):
+        return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
+
+class ProductRecipeDeleteView(DeleteView):
+    model = ProductRecipes
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Recipe deleted successfully.")
+        return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class RawMaterialsList(ListView):
     model = RawMaterials

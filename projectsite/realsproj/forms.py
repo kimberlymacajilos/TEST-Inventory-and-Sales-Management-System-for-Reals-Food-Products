@@ -87,13 +87,10 @@ class ProductsForm(forms.ModelForm):
         )
         return obj
 
-ProductRecipeFormSet = inlineformset_factory(
-    Products,
-    ProductRecipes,
-    fields=("material", "quantity_needed", "yield_factor"),
-    extra=1,
-    can_delete=True
-)
+class ProductRecipeForm(forms.ModelForm):
+    class Meta:
+        model = ProductRecipes
+        fields = ["material", "quantity_needed", "yield_factor"]
 
 class RawMaterialsForm(ModelForm):
     class Meta:
