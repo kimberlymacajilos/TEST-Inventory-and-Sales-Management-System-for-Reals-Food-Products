@@ -11,25 +11,30 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Edit Product</div>
-            <div class="card-category">Update product and its recipe</div>
+            <div class="card-category">Update product</div>
           </div>
 
           <div class="col-md-10">
             <div class="card-body">
-              <form method="post">
+              <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 {% if form.errors %}
                   <div class="alert alert-danger">{{ form.errors }}</div>
                 {% endif %}
 
+                <!-- Product Type -->
                 <div class="form-group">
                   {{ form.product_type.label_tag }}
                   {% render_field form.product_type class="form-control" %}
                 </div>
+
+                <!-- Variant -->
                 <div class="form-group">
                   {{ form.variant.label_tag }}
                   {% render_field form.variant class="form-control" %}
                 </div>
+
+                <!-- Size + Size Unit -->
                 <div class="form-row">
                   <div class="form-group col-md-6">
                     {{ form.size.label_tag }}
@@ -40,19 +45,41 @@
                     {% render_field form.size_unit class="form-control" %}
                   </div>
                 </div>
-                <div class="form-group">
-                  {{ form.unit_price.label_tag }}
-                  {% render_field form.unit_price class="form-control" %}
-                </div>
-                <div class="form-group">
-                  {{ form.srp_price.label_tag }}
-                  {% render_field form.srp_price class="form-control" %}
-                </div>
-                <div class="form-group">
-                  {{ form.description.label_tag }}
-                  {% render_field form.description class="form-control" %}
+
+                <!-- Prices -->
+                <div class="form-row">
+                  <div class="form-group col-md-6">
+                    {{ form.unit_price.label_tag }}
+                    {% render_field form.unit_price class="form-control" %}
+                  </div>
+                  <div class="form-group col-md-6">
+                    {{ form.srp_price.label_tag }}
+                    {% render_field form.srp_price class="form-control" %}
+                  </div>
                 </div>
 
+                <!-- Description -->
+                <div class="form-group">
+                  {{ form.description.label_tag }}
+                  {% render_field form.description class="form-control" rows="3" %}
+                </div>
+
+                <!-- Photo Upload -->
+                <div class="form-group">
+                  {{ form.photo.label_tag }}
+                  {% render_field form.photo class="form-control-file" onchange="previewPhoto(event)" %}
+                  {% if object.photo %}
+                    <div class="mt-2">
+                      <img id="photo-preview" src="{{ object.photo.url }}" class="img-thumbnail" style="max-height:120px;">
+                    </div>
+                    <div class="mt-2">
+                      <button type="submit" name="delete_photo" value="1" class="btn btn-danger btn-sm">
+                        <i class="fa fa-trash"></i> Delete Photo
+                      </button>
+                    </div>
+                  {% else %}
+                    <img id="photo-preview" class="img-thumbnail mt-2" style="max-height:120px; display:none;">
+                  {% endif %}
                 <div class="mb-3">
                   {% if object and object.id %}
                     <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
@@ -73,40 +100,11 @@
     </div>
   </div>
 </div>
-
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
-  if (!totalFormsInput) return;
-  const prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
-  const tableBody = document.getElementById("recipe-body");
-  const emptyTemplate = document.getElementById("empty-row").innerHTML.trim();
-  const addRowBtn = document.getElementById("add-row");
-
-  addRowBtn.addEventListener("click", function() {
-    const formIndex = parseInt(totalFormsInput.value, 10);
-    const newRowHtml = emptyTemplate.replace(/__prefix__/g, formIndex);
-    tableBody.insertAdjacentHTML("beforeend", newRowHtml);
-    totalFormsInput.value = formIndex + 1;
-  });
-
-  tableBody.addEventListener("click", function(e) {
-    if (e.target && e.target.matches(".remove-row")) {
-      const row = e.target.closest("tr");
-      const deleteInput = row.querySelector('input[name$="-DELETE"]');
-      if (deleteInput) {
-        deleteInput.checked = true;
-        row.style.display = "none";
-      } else {
-        row.remove();
-        const currentTotal = parseInt(totalFormsInput.value, 10);
-        if (currentTotal > 0) {
-          totalFormsInput.value = String(currentTotal - 1);
-        }
-      }
-    }
-  });
-});
+function previewPhoto(event) {
+  let output = document.getElementById('photo-preview');
+  output.src = URL.createObjectURL(event.target.files[0]);
+  output.style.display = 'block';
+}
 </script>
 {% endblock %}
-  

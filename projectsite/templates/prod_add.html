@@ -15,7 +15,7 @@
 
           <div class="col-md-10">
             <div class="card-body">
-              <form method="post">
+              <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 {% if form.errors %}
@@ -86,6 +86,13 @@
                   <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
                 </div>
 
+                <!-- Photo Upload -->
+                <div class="form-group">
+                  <label>Product Photo</label>
+                  {% render_field form.photo class="form-control-file" %}
+                </div>
+
+                <!-- Submit -->
                 <div class="mb-3">
                   {% if object and object.id %}
                     <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
@@ -103,38 +110,4 @@
     </div>
   </div>
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const prefix = "{{ recipe_formset.prefix }}";
-  const totalForms = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
-  const addRowBtn = document.getElementById("add-row");
-  const tableBody = document.querySelector("#recipe-table tbody");
-  const emptyFormHTML = document.getElementById("empty-form").innerHTML;
-
-  addRowBtn.addEventListener("click", function() {
-    const formIndex = parseInt(totalForms.value, 10);
-    const newRowHtml = emptyFormHTML.replace(/__prefix__/g, formIndex);
-    tableBody.insertAdjacentHTML("beforeend", newRowHtml);
-    totalForms.value = formIndex + 1;
-  });
-
-  tableBody.addEventListener("click", function(e) {
-    if (e.target && e.target.matches(".remove-row")) {
-      const row = e.target.closest("tr");
-      const deleteInput = row.querySelector("input[name$='-DELETE']");
-      if (deleteInput) {
-        if (deleteInput.type === "checkbox") {
-          deleteInput.checked = true;
-        } else {
-          deleteInput.value = "on";
-        }
-        row.style.display = "none";
-      } else {
-        row.remove();
-      }
-    }
-  });
-});
-</script>
 {% endblock %}

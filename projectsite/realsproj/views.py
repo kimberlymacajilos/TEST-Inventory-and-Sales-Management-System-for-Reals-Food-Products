@@ -74,7 +74,6 @@ from realsproj.models import (
     StockChanges,
     SalesSummary,
     ExpensesSummary,
-    ProductRecipes,
     Discounts,
 )
 
@@ -91,6 +90,8 @@ from django.db.models.functions import Cast
 
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
+import os
+from django.urls import reverse, reverse_lazy
 
 
 @method_decorator(login_required, name='dispatch')
@@ -284,14 +285,48 @@ class ProductsUpdateView(UpdateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        if "delete_photo" in request.POST:
+            if self.object.photo:
+                try:
+                    if os.path.isfile(self.object.photo.path):
+                        os.remove(self.object.photo.path)
+                except Exception:
+                    pass
+                self.object.photo = None
+                self.object.save()
+                messages.success(request, "Product photo deleted.")
+            else:
+                messages.info(request, "No photo to delete.")
+
+            return redirect(
+                reverse("product-edit", kwargs={"pk": self.object.pk})
+            )
+
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
+        product = form.save(commit=False)
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
         self.object = form.save()
 
-        messages.success(self.request, "✅ Product updated successfully.")
-        return redirect(self.success_url)
+        delete_photo = self.request.POST.get("delete_photo")
+        if delete_photo == "1" and product.photo:
+            if os.path.isfile(product.photo.path):
+                os.remove(product.photo.path)
+            product.photo.delete(save=False)
+            product.photo = None
+
+        if "photo" in form.changed_data:
+            if self.object.photo and os.path.isfile(self.object.photo.path):
+                os.remove(self.object.photo.path)
+
+        product.save()
+        return super().form_valid(form)
 
 
 class ProductsDeleteView(DeleteView):
@@ -365,7 +400,7 @@ class RawMaterialsList(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('id')
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 

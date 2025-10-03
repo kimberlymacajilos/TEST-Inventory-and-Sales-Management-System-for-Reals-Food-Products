@@ -117,4 +117,4 @@ urlpatterns = [
     path("products/<int:product_id>/recipes/add/", a.ProductRecipeBulkCreateView.as_view(), name="recipe-add"),
     path("recipes/<int:pk>/edit/", a.ProductRecipeUpdateView.as_view(), name="recipe-edit"),
     path("recipes/<int:pk>/delete/", a.ProductRecipeDeleteView.as_view(), name="recipe-delete"),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
