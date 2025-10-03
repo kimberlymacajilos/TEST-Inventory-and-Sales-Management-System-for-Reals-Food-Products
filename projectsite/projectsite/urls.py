@@ -113,5 +113,8 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
 
+    path("report/", a.monthly_report, name="monthly-report"),
+    path("report/export/", a.monthly_report_export, name="monthly-report-export"),
+
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

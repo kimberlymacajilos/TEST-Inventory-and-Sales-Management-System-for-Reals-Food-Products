@@ -85,11 +85,12 @@ from django.db.models.functions import TruncMonth
 from django.contrib.auth.forms import UserCreationForm
 from datetime import datetime
 from django.db.models.functions import Cast
-
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
 import os
 from django.urls import reverse, reverse_lazy
+from django.http import HttpResponse
+import csv
 
 
 @method_decorator(login_required, name='dispatch')
@@ -158,6 +159,130 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+
+def monthly_report(request):
+    sales = (
+        Sales.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_sales=Sum("amount"))
+        .order_by("month")  # 👈 ascending (oldest first)
+    )
+
+    expenses = (
+        Expenses.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_expenses=Sum("amount"))
+        .order_by("month")  # 👈 keep aligned
+    )
+
+    expenses_dict = {e["month"]: e["total_expenses"] for e in expenses}
+
+    report = []
+    prev = None
+
+    for s in sales:
+        month = s["month"]
+        revenue = s["total_sales"] or 0
+        cost = expenses_dict.get(month, 0) or 0
+        profit = revenue - cost
+
+        revenue_change = None
+        profit_change = None
+        if prev:
+            revenue_change = revenue - prev["revenue"]
+            profit_change = profit - prev["profit"]
+
+        report.append({
+            "month": month,
+            "revenue": revenue,
+            "expenses": cost,
+            "profit": profit,
+            "revenue_change": revenue_change,
+            "profit_change": profit_change,
+        })
+        prev = report[-1]
+
+    summary = {
+        "total_revenue": sum(r["revenue"] for r in report),
+        "total_profit": sum(r["profit"] for r in report),
+        "average_profit": (sum(r["profit"] for r in report) / len(report)) if report else 0,
+    }
+
+    return render(request, "reports/monthly_report.html", {
+        "report": report,
+        "summary": summary,
+    })
+
+
+def monthly_report_export(request):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="financial_report.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    writer = csv.writer(response)
+    writer.writerow(["Month", "Revenue", "Expenses", "Profit", "Revenue Change", "Profit Change", "Trend"])
+    sales = (
+        Sales.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_sales=Sum("amount"))
+        .order_by("month")
+    )
+    expenses = (
+        Expenses.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_expenses=Sum("amount"))
+        .order_by("month")
+    )
+    sales_dict = {s["month"]: Decimal(s["total_sales"] or 0) for s in sales}
+    expenses_dict = {e["month"]: Decimal(e["total_expenses"] or 0) for e in expenses}
+    all_months = sorted(set(list(sales_dict.keys()) + list(expenses_dict.keys())))
+
+    report = []
+    for month in all_months:
+        revenue = sales_dict.get(month, Decimal(0))
+        cost = expenses_dict.get(month, Decimal(0))
+        profit = revenue - cost
+        report.append({
+            "month": month,
+            "revenue": revenue,
+            "expenses": cost,
+            "profit": profit,
+        })
+
+    for i in range(len(report)):
+        if i > 0: 
+            older = report[i - 1]
+            rc = report[i]["revenue"] - older["revenue"]
+            pc = report[i]["profit"] - older["profit"]
+
+            rev_change = f"↑ ₱{rc:,.2f}" if rc > 0 else f"↓ ₱{abs(rc):,.2f}" if rc < 0 else "₱0.00"
+            prof_change = f"↑ ₱{pc:,.2f}" if pc > 0 else f"↓ ₱{abs(pc):,.2f}" if pc < 0 else "₱0.00"
+
+            if rc > 0 and pc > 0:
+                trend = "Revenue & Profit Increased"
+            elif rc > 0 and pc < 0:
+                trend = "Revenue Increased, Profit Decreased"
+            elif rc < 0 and pc > 0:
+                trend = "Revenue Decreased, Profit Increased"
+            elif rc == 0 and pc == 0:
+                trend = "No Change"
+            else:
+                trend = "Revenue & Profit Decreased"
+        else:
+            rev_change = "-"
+            prof_change = "-"
+            trend = "-"
+
+        writer.writerow([
+            report[i]["month"].strftime("%B %Y"),
+            f"₱{report[i]['revenue']:,.2f}",
+            f"₱{report[i]['expenses']:,.2f}",
+            f"₱{report[i]['profit']:,.2f}",
+            rev_change,
+            prof_change,
+            trend,
+        ])
+
+    return response
 
 class ProductsList(ListView):
     model = Products
