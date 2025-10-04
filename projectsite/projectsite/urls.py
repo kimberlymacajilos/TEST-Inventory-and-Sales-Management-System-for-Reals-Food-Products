@@ -63,6 +63,10 @@ urlpatterns = [
     path('expenses/add', a.ExpensesCreateView.as_view(), name='expenses-add'),
     path('expenses/<pk>', a.ExpensesUpdateView.as_view(), name='expenses-edit'),
     path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
+    path('expenses/<int:pk>/archive/', a.ExpenseArchiveView.as_view(), name='expenses-archive'),
+    path('expenses/archive-old/', a.ExpenseArchiveOldView.as_view(), name='expenses-archive-old'),
+    path('expenses/archived/', a.ArchivedExpensesListView.as_view(), name='expenses-archived-list'),
+    path('expenses/<int:pk>/unarchive/', a.ExpenseUnarchiveView.as_view(), name='expenses-unarchive'),
 
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch'),
     path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),

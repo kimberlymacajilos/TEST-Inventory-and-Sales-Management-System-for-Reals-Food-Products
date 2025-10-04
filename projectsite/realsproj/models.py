@@ -141,6 +141,7 @@ class Expenses(models.Model):
     date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False) 
 
     class Meta:
         managed = False

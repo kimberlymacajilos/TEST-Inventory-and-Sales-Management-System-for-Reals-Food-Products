@@ -584,7 +584,7 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("created_by_admin").order_by("-date")
+        queryset = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         category = self.request.GET.get("category", "").strip()
@@ -601,9 +601,11 @@ class ExpensesList(ListView):
         if category:
             queryset = queryset.filter(category=category)
         if month:
-            # Filter by month (YYYY-MM)
-            queryset = queryset.filter(date__year=int(month.split("-")[0]),
-                                       date__month=int(month.split("-")[1]))
+            try:
+                year, month_num = month.split("-")
+                queryset = queryset.filter(date__year=year, date__month=month_num)
+            except (ValueError, IndexError):
+                pass # Ignore invalid format
 
         self.filtered_queryset = queryset
         return queryset
@@ -611,18 +613,49 @@ class ExpensesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        summary = self.filtered_queryset.aggregate(
+        qs_for_summary = getattr(self, 'filtered_queryset', Expenses.objects.filter(is_archived=False))
+
+        summary = qs_for_summary.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
 
         context["expenses_summary"] = summary
-            # Unique categories for dropdown
-        categories = Expenses.objects.values_list('category', flat=True).distinct()
+        
+        categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
         context["categories"] = categories
         return context
     
+class ExpenseArchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = True
+        expense.save()
+        return redirect('expenses')
+
+class ExpenseArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('expenses')
+
+class ArchivedExpensesListView(ListView):
+    model = Expenses
+    template_name = 'archived_expenses.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Expenses.objects.filter(is_archived=True).order_by('-date')
+
+class ExpenseUnarchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = False
+        expense.save()
+        return redirect('expenses-archived-list')
+
 class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
