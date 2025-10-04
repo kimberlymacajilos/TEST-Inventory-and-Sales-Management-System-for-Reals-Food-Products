@@ -170,9 +170,9 @@ class ProductsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        # Palitan ang super().get_queryset() para magsimula sa pag-filter ng HINDI naka-archive
         queryset = (
-            super()
-            .get_queryset()
+            Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
         )
 
@@ -234,6 +234,8 @@ class ProductsList(ListView):
         context["query_params"] = self.request.GET
         return context
     
+
+
 from django.shortcuts import render
 
 def product_add_barcode(request):
@@ -245,6 +247,34 @@ def product_scan_phone(request):
     # ito yung scanner-only view para sa phone
     return render(request, "product_scan_phone.html")
 
+class ProductArchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = True
+        product.save()
+        return redirect('product-list')
+
+class ArchivedProductsListView(ListView):
+    model = Products
+    template_name = 'archived_products.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Products.objects.filter(is_archived=True).order_by('-date_created')
+
+class ProductUnarchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = False
+        product.save()
+        return redirect('products-archived-list')
+
+class ProductArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('product-list')
 
 class ProductCreateView(CreateView):
     model = Products

@@ -536,6 +536,7 @@ class Products(models.Model):
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     date_created = models.DateTimeField(default=timezone.now)
     size = models.ForeignKey('Sizes', models.DO_NOTHING, blank=True, null=True)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False

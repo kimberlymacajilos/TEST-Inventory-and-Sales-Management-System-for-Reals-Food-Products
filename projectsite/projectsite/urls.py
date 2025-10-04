@@ -126,4 +126,10 @@ urlpatterns = [
 
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
+
+    path('products/', a.ProductsList.as_view(), name='product-list'),
+    path('products/<int:pk>/archive/', a.ProductArchiveView.as_view(), name='product-archive'),
+    path('products/archived/', a.ArchivedProductsListView.as_view(), name='products-archived-list'),
+    path('products/<int:pk>/unarchive/', a.ProductUnarchiveView.as_view(), name='product-unarchive'),
+    path('products/archive-old/', a.ProductArchiveOldView.as_view(), name='products-archive-old'), # <-- Idagdag ito
 ]
