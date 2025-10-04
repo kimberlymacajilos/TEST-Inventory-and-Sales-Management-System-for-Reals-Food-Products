@@ -89,7 +89,7 @@
                 <tbody id="salesTableBody">
                   {% for object in object_list %}
                   <tr>
-                    <td>{{ object.category }}</td>
+                    <td>{{ object.category|lower|capfirst|slugify|title }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td>{{ object.description }}</td>

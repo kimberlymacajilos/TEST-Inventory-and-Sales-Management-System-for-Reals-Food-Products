@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     function fetchInventory(query = "", pageUrl = null) {
-        let url = pageUrl || "{% url 'product-inventory' %}";
+        let url = "/product-inventory/";
         if (query && !pageUrl) {
             url += `?q=${encodeURIComponent(query)}`;
         } else if (query && pageUrl) {
