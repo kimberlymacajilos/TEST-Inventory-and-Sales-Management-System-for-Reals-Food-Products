@@ -19,7 +19,6 @@ from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum
@@ -94,6 +93,9 @@ import os
 from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 import csv
+from datetime import datetime, timedelta
+from django.db.models.signals import pre_save, post_delete
+from django.dispatch import receiver
 
 
 @method_decorator(login_required, name='dispatch')
@@ -457,24 +459,54 @@ class ProductsUpdateView(UpdateView):
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
+        old_photo = None
+        if self.object.photo:
+            old_photo = self.object.photo.path 
+
         product = form.save(commit=False)
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
         self.object = form.save()
 
         delete_photo = self.request.POST.get("delete_photo")
-        if delete_photo == "1" and product.photo:
-            if os.path.isfile(product.photo.path):
-                os.remove(product.photo.path)
-            product.photo.delete(save=False)
+        if delete_photo == "1" and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
             product.photo = None
 
-        if "photo" in form.changed_data:
-            if self.object.photo and os.path.isfile(self.object.photo.path):
-                os.remove(self.object.photo.path)
+        if "photo" in form.changed_data and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
 
         product.save()
-        return super().form_valid(form)
+        messages.success(self.request, "✅ Product updated successfully.")
+        return redirect(self.success_url)
+
+@receiver(pre_save, sender=Products)
+def delete_old_product_photo_on_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+
+    try:
+        old_instance = Products.objects.get(pk=instance.pk)
+    except Products.DoesNotExist:
+        return
+
+    old_file = old_instance.photo
+    new_file = instance.photo
+
+    if old_file and old_file.name:
+        if (not new_file) or (old_file.name != getattr(new_file, 'name', None)):
+            try:
+                old_file.delete(save=False)
+            except Exception:
+                pass
+
+@receiver(post_delete, sender=Products)
+def delete_product_photo_on_delete(sender, instance, **kwargs):
+    if instance.photo and instance.photo.name:
+        try:
+            instance.photo.delete(save=False)
+        except Exception:
+            pass
 
 
 class ProductsDeleteView(DeleteView):
@@ -1539,3 +1571,92 @@ def edit_profile(request):
     # GET
     form = UserChangeForm(instance=user)
     return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
+
+
+def export_sales(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Sales.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_sales = sum(s.amount for s in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="sales_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for s in qs:
+        writer.writerow([s.category, s.amount, s.date.strftime("%Y-%m-%d"), s.description, s.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL SALES', total_sales])
+    return response
+
+def export_expenses(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Expenses.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_expenses = sum(e.amount for e in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="expenses_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for e in qs:
+        writer.writerow([e.category, e.amount, e.date.strftime("%Y-%m-%d"), e.description, e.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL EXPENSES', total_expenses])
+    return response
