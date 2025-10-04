@@ -19,7 +19,6 @@ from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum
@@ -91,6 +90,7 @@ import os
 from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 import csv
+from datetime import datetime, timedelta
 
 
 @method_decorator(login_required, name='dispatch')
@@ -1437,3 +1437,92 @@ def edit_profile(request):
     # GET
     form = UserChangeForm(instance=user)
     return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
+
+
+def export_sales(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Sales.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_sales = sum(s.amount for s in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="sales_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for s in qs:
+        writer.writerow([s.category, s.amount, s.date.strftime("%Y-%m-%d"), s.description, s.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL SALES', total_sales])
+    return response
+
+def export_expenses(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Expenses.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_expenses = sum(e.amount for e in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="expenses_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for e in qs:
+        writer.writerow([e.category, e.amount, e.date.strftime("%Y-%m-%d"), e.description, e.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL EXPENSES', total_expenses])
+    return response

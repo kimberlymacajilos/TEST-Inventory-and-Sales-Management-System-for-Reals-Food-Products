@@ -116,5 +116,7 @@ urlpatterns = [
     path("report/", a.monthly_report, name="monthly-report"),
     path("report/export/", a.monthly_report_export, name="monthly-report-export"),
 
+    path('export-sales/', a.export_sales, name='export_sales'),
+    path('export-expenses/', a.export_expenses, name='export_expenses'),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

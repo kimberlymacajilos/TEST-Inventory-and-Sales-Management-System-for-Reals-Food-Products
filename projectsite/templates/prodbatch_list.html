@@ -8,31 +8,30 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <!-- Filter controls -->
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="card-title">List of Product Batches</div>
-                            <div class="card-category">Filter Batches</div>
-                        </div>
-                        <div class="pull-right">
-                            <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
-                                Add Product Batch
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="card-body">
-                        <form method="get" class="row mb-4" id="filterForm">
-                            <div class="col-md-3">
-                                <input type="text" id="batchSearchInput" name="q" class="form-control" style="width:260px;" placeholder="Search product batches..." value="{{ request.GET.q }}" />
-                            </div>
-                            <div class="col-md-3">
-                                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="dateFilter">
-                            </div>
-                        </form>
-                    </div>
-
                         <div class="card-body">
+                            <!-- Filter controls -->
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="card-title">List of Product Batches</div>
+                                    <div class="card-category">Filter Batches</div>
+                                </div>
+                                <div class="pull-right">
+                                    <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
+                                        Add Product Batch
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <form method="get" class="row mb-0" id="filterForm">
+                                    <div class="col-md-3">
+                                        <input type="text" id="batchSearchInput" name="q" class="form-control" style="width:260px;" placeholder="Search product batches..." value="{{ request.GET.q }}" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="dateFilter">
+                                    </div>
+                                </form>
+                            </div>
                             <table class="table table-striped mt-3" id="batchTable">
                                 <thead>
                                     <tr>
