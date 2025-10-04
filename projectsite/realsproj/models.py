@@ -578,6 +578,7 @@ class RawMaterials(models.Model):
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     size = models.DecimalField(max_digits=10, decimal_places=2)
     date_created = models.DateTimeField(default=timezone.now)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False

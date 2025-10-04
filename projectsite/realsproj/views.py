@@ -398,7 +398,9 @@ class RawMaterialsList(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        # Pinalitan ang super().get_queryset() para mag-filter ng HINDI naka-archive
+        queryset = RawMaterials.objects.filter(is_archived=False).select_related("unit", "created_by_admin").order_by('-id')
+        
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -423,7 +425,34 @@ class RawMaterialsList(ListView):
 
         return queryset
 
-        return queryset
+class RawMaterialArchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = True
+        item.save()
+        return redirect('rawmaterials-list')
+
+class RawMaterialArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('rawmaterials-list')
+
+class ArchivedRawMaterialsListView(ListView):
+    model = RawMaterials
+    template_name = 'archived_rawmaterials.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterials.objects.filter(is_archived=True).order_by('-date_created')
+
+class RawMaterialUnarchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = False
+        item.save()
+        return redirect('rawmaterials-archived-list')
 
 class RawMaterialsCreateView(CreateView):
     model = RawMaterials

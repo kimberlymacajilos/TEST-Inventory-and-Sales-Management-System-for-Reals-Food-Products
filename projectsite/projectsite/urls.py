@@ -42,11 +42,15 @@ urlpatterns = [
     path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
 
 
-
+    path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials-list'),
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
     path('rawmaterials/add', a.RawMaterialsCreateView.as_view(), name='rawmaterials-add'),
     path('rawmaterials/<pk>', a.RawMaterialsUpdateView.as_view(), name='rawmaterials-edit'),
     path('rawmaterials/<pk>/delete', a.RawMaterialsDeleteView.as_view(), name='rawmaterials-delete'),
+    path('rawmaterials/<int:pk>/archive/', a.RawMaterialArchiveView.as_view(), name='rawmaterials-archive'),
+    path('rawmaterials/archive-old/', a.RawMaterialArchiveOldView.as_view(), name='rawmaterials-archive-old'),
+    path('rawmaterials/archived/', a.ArchivedRawMaterialsListView.as_view(), name='rawmaterials-archived-list'),
+    path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
 
