@@ -91,6 +91,8 @@ from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 import csv
 from datetime import datetime, timedelta
+from django.db.models.signals import pre_save, post_delete
+from django.dispatch import receiver
 
 
 @method_decorator(login_required, name='dispatch')
@@ -414,21 +416,51 @@ class ProductsUpdateView(UpdateView):
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
+        old_photo = None
+        if self.object.photo:
+            old_photo = self.object.photo.path 
+
         product = form.save(commit=False)
 
         delete_photo = self.request.POST.get("delete_photo")
-        if delete_photo == "1" and product.photo:
-            if os.path.isfile(product.photo.path):
-                os.remove(product.photo.path)
-            product.photo.delete(save=False)
+        if delete_photo == "1" and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
             product.photo = None
 
-        if "photo" in form.changed_data:
-            if self.object.photo and os.path.isfile(self.object.photo.path):
-                os.remove(self.object.photo.path)
+        if "photo" in form.changed_data and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
 
         product.save()
-        return super().form_valid(form)
+        messages.success(self.request, "✅ Product updated successfully.")
+        return redirect(self.success_url)
+
+@receiver(pre_save, sender=Products)
+def delete_old_product_photo_on_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+
+    try:
+        old_instance = Products.objects.get(pk=instance.pk)
+    except Products.DoesNotExist:
+        return
+
+    old_file = old_instance.photo
+    new_file = instance.photo
+
+    if old_file and old_file.name:
+        if (not new_file) or (old_file.name != getattr(new_file, 'name', None)):
+            try:
+                old_file.delete(save=False)
+            except Exception:
+                pass
+
+@receiver(post_delete, sender=Products)
+def delete_product_photo_on_delete(sender, instance, **kwargs):
+    if instance.photo and instance.photo.name:
+        try:
+            instance.photo.delete(save=False)
+        except Exception:
+            pass
 
 
 class ProductsDeleteView(DeleteView):
