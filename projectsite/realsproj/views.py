@@ -162,6 +162,28 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+def revenue_change_api(request):
+    sales_data = (
+        Sales.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    months = [s['month'].strftime("%Y-%m") for s in sales_data]
+    revenues = [float(s['total']) for s in sales_data]
+
+    revenue_changes = [0] 
+    for i in range(1, len(revenues)):
+        change = revenues[i] - revenues[i-1]
+        revenue_changes.append(change)
+
+    return JsonResponse({
+        "months": months,
+        "revenue_changes": revenue_changes,
+    })
+
 
 def monthly_report(request):
     sales = (
