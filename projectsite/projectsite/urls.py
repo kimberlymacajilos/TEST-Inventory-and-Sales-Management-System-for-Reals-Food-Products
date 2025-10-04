@@ -54,6 +54,10 @@ urlpatterns = [
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
     path('sales/<pk>', a.SalesUpdateView.as_view(), name='sales-edit'),
     path('sales/<pk>/delete', a.SalesDeleteView.as_view(), name='sales-delete'),
+    path('sales/<int:pk>/archive/', a.SaleArchiveView.as_view(), name='sales-archive'),
+    path('sales/archive-old/', a.SaleArchiveOldView.as_view(), name='sales-archive-old'),
+    path('sales/archived/', a.ArchivedSalesListView.as_view(), name='sales-archived-list'),
+    path('sales/<int:pk>/unarchive/', a.SaleUnarchiveView.as_view(), name='sales-unarchive'),
 
     path('expenses/', a.ExpensesList.as_view(), name='expenses'),
     path('expenses/add', a.ExpensesCreateView.as_view(), name='expenses-add'),

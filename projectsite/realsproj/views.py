@@ -90,7 +90,11 @@ from django.db.models.functions import Cast
 
 from django.contrib.auth.models import User
 from .forms import CustomUserChangeForm
-
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.utils import timezone
+from datetime import timedelta
+from .models import Sales # Siguraduhing na-import ang Sales model
 
 @method_decorator(login_required, name='dispatch')
 
@@ -229,6 +233,18 @@ class ProductsList(ListView):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
+    
+from django.shortcuts import render
+
+def product_add_barcode(request):
+    return render(request, "product_add_barcode.html")
+
+from django.shortcuts import render
+
+def product_scan_phone(request):
+    # ito yung scanner-only view para sa phone
+    return render(request, "product_scan_phone.html")
+
 
 class ProductCreateView(CreateView):
     model = Products
@@ -446,6 +462,34 @@ class HistoryLogList(ListView):
         context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
         return context
     
+class SaleArchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = True
+        sale.save()
+        return redirect('sales')
+
+class SaleArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Sales.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('sales')
+    
+class ArchivedSalesListView(ListView):
+    model = Sales
+    template_name = 'archived_sales.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Sales.objects.filter(is_archived=True).order_by('-date')
+
+class SaleUnarchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = False
+        sale.save()
+        return redirect('sales-archived-list')
 
 class SalesList(ListView):
     model = Sales
@@ -454,7 +498,8 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Sales.objects.select_related("created_by_admin").order_by("-date")
+        # Pagsamahin ang filter dito. Magsimula sa pagkuha lang ng HINDI naka-archive.
+        qs = Sales.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         # --- Search filter ---
         query = self.request.GET.get("q", "").strip()

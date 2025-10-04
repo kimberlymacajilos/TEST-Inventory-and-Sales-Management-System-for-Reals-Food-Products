@@ -592,6 +592,7 @@ class Sales(models.Model):
     date = models.DateTimeField()
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False) # <-- Idagdag ito
 
     class Meta:
         managed = False
