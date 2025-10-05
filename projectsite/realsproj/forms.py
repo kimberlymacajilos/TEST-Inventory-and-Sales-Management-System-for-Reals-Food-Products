@@ -247,7 +247,6 @@ class UnifiedWithdrawForm(forms.Form):
             if not cleaned_data.get("price_type"):
                 self.add_error("price_type", "This field is required when reason is SOLD.")
 
-            # require either a discount or a custom discount
             if not cleaned_data.get("discount") and not cleaned_data.get("custom_discount_value"):
                 self.add_error("discount", "Select a discount or enter a custom discount.")
 

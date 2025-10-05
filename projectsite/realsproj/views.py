@@ -1217,7 +1217,7 @@ def login_view(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return redirect('home')  
+                return redirect('home') 
             else:
                 messages.error(request, "Your account is not active.")
         else:
@@ -1226,20 +1226,20 @@ def login_view(request):
 
 def register(request):
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save() 
-            login(request, user)
+            user = form.save()  
             messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')
+            return redirect('login')  
         else:
-            
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = CustomUserCreationForm() 
-
+        form = UserCreationForm()  
     return render(request, 'registration/register.html', {'form': form})
 
+@login_required
+def profile_view(request):
+    return render(request, 'profile.html') 
 
 @login_required
 def edit_profile(request):
