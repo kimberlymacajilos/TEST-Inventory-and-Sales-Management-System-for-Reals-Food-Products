@@ -94,8 +94,13 @@
 
                 <!-- Submit -->
                 <div class="mb-3">
-                  <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                  {% if object and object.id %}
+                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                  {% else %}
+                    <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
+                  {% endif %}
                 </div>
+
               </form>
             </div>
           </div>
