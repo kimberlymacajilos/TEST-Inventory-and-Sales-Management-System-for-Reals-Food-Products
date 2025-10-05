@@ -87,7 +87,7 @@ DATABASES = {
         'NAME': 'reals_local',
         'USER': 'postgres',
         'PASSWORD': 'reals',
-        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }

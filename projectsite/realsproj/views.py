@@ -1217,50 +1217,35 @@ def login_view(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return redirect('home')  # Redirect to home after successful login
+                return redirect('home') 
             else:
                 messages.error(request, "Your account is not active.")
         else:
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
 
-# def register(request):
-#     if request.method == 'POST':
-#         form = UserCreationForm(request.POST)
-#         if form.is_valid():
-#             form.save()  # Save the new user to the database
-#             messages.success(request, 'Your account has been created successfully! You can now log in.')
-#             return redirect('login')  # Redirect to login page after successful registration
-#     else:
-#         form = UserCreationForm()  # Instantiate a blank form
-
-#     return render(request, 'register.html', {'form': form})
-
 def register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()  # Save the new user to the database
+            user = form.save() 
+            login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')  # Redirect to login page after successful registration
+            return redirect('login')
         else:
-            # If the form is not valid, the errors will automatically be shown in the template
+            
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = CustomUserCreationForm()  # Instantiate a blank form
+        form = CustomUserCreationForm() 
 
     return render(request, 'registration/register.html', {'form': form})
 
-@login_required
-def profile_view(request):
-    return render(request, 'profile.html') 
 
 @login_required
 def edit_profile(request):
     user = request.user
 
     if request.method == "POST":
-        # --- General fields ---
         username = request.POST.get("username")
         first_name = request.POST.get("first_name")
         last_name = request.POST.get("last_name")
@@ -1271,7 +1256,6 @@ def edit_profile(request):
         new_password = (request.POST.get("new_password") or "").strip()
         repeat_new_password = (request.POST.get("repeat_new_password") or "").strip()
 
-        # ===== HARD GUARDS: block partial password inputs =====
         if current_password and not (new_password or repeat_new_password):
             messages.error(request, "To change your password, please enter both New Password and Repeat New Password.")
             form = UserChangeForm(request.POST, instance=user)
@@ -1292,7 +1276,6 @@ def edit_profile(request):
             form = UserChangeForm(request.POST, instance=user)
             return render(request, "editprofile.html", {"form": form, "active_tab": "account-change-password"})
 
-        # ===== Full password change flow (all three provided) =====
         password_change_requested = False
         if current_password and new_password and repeat_new_password:
             if not user.check_password(current_password):
@@ -1315,20 +1298,17 @@ def edit_profile(request):
 
             password_change_requested = True
 
-        # --- Email uniqueness (exclude self) ---
         if User.objects.exclude(id=user.id).filter(email=email).exists():
             messages.error(request, "This email address is already in use by another account.")
             form = UserChangeForm(request.POST, instance=user)
             return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
 
-        # --- Apply profile changes ---
         user.username = username
         user.first_name = first_name
         user.last_name = last_name
         user.email = email
         user.save()
 
-        # --- Apply password change if requested ---
         if password_change_requested:
             user.set_password(new_password)
             user.save()
@@ -1338,6 +1318,5 @@ def edit_profile(request):
         messages.success(request, "Profile updated successfully!")
         return redirect("profile")
 
-    # GET
     form = UserChangeForm(instance=user)
     return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
