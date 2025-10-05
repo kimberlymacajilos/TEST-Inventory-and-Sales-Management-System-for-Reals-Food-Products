@@ -16,6 +16,16 @@
               <div class="card-category">Page Subtitle</div>
             </div>
             <div>
+              <!-- Actions Dropdown -->
+              <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Actions
+              </button>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
+                <a class="dropdown-item" href="{% url 'expenses-archived-list' %}">Show Archived</a>
+                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldExpensesModal">
+                  Archive Old Data
+                </button>
+              </div>
               <!-- Export Button -->
               <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportExpensesModal">
                 <i class="la la-download"></i> Export Expenses
@@ -23,6 +33,7 @@
               <!-- Add Button -->
               <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expenses</a>
             </div>
+
           </div>
 
           <div class="card-body">
@@ -42,18 +53,7 @@
               <!-- Search -->
               <input id="searchInput" class="form-control" style="width:220px;" placeholder="Search expenses..." />
 
-                            <!-- Actions Dropdown -->
-                            <div class="dropdown">
-                                <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                Actions
-                                </button>
-                                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
-                                <a class="dropdown-item" href="{% url 'expenses-archived-list' %}">Show Archived</a>
-                                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldExpensesModal">
-                                    Archive Old Data
-                                </button>
-                                </div>
-                            </div>
+
 
               <!-- Date Filter -->
               <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />

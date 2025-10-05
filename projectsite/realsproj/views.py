@@ -879,7 +879,7 @@ class ExpensesList(ListView):
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
@@ -890,7 +890,7 @@ class ExpensesList(ListView):
         # --- Category filter ---
         category = self.request.GET.get("category", "").strip()
         if category:
-            qs = qs.filter(category__iexact=category)
+            queryset = queryset.filter(category__iexact=category)
 
         # --- Month filter (YYYY-MM) ---
         month = self.request.GET.get("month", "").strip()
@@ -901,8 +901,8 @@ class ExpensesList(ListView):
             except (ValueError, IndexError):
                 pass # Ignore invalid format
 
-        self._full_queryset = qs
-        return qs
+        self._full_queryset = queryset
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

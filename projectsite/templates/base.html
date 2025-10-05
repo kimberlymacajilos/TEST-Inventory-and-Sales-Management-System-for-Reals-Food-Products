@@ -226,7 +226,7 @@
                     <div class="collapse {% if request.resolver_match.url_name in 'report sales expenses' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
                             <li class="{% if request.resolver_match.url_name == 'report' %}active{% endif %}">
-                                <a href="#index"><span class="sub-item">Report</span></a>
+                               <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'sales' %}active{% endif %}">
                                 <a href="{% url 'sales' %}"><span class="sub-item">Sales</span></a>
