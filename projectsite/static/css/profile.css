@@ -1,11 +1,3 @@
-/* =========================================
-   Profile Page (scoped) — no conflicts
-   ========================================= */
-
-/* Wrapper only; wag gagalawin ang global <body> styles */
-.profile-page { /* optional page-specific spacing here if needed */ }
-
-/* Avatar helper */
 .profile-page .ui-w-80 { width: 80px !important; height: auto; }
 
 /* Buttons (scoped) */

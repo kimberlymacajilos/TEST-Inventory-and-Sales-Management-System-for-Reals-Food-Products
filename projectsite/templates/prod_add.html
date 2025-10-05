@@ -15,7 +15,6 @@
 
           <div class="col-md-10">
             <div class="card-body">
-              <!-- ✅ added enctype -->
               <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
 
@@ -93,58 +92,6 @@
                   {% render_field form.photo class="form-control-file" %}
                 </div>
 
-                <!-- Product Recipe Section -->
-                <hr>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <p class="mb-0">Product Recipe (Raw Materials)</p>
-                  <button type="button" class="btn btn-secondary btn-sm" id="add-row">+ Add Row</button>
-                </div>
-
-                {% if recipe_formset.non_form_errors %}
-                  <div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>
-                {% endif %}
-
-                {{ recipe_formset.management_form }}
-
-                <table class="table table-bordered" id="recipe-table">
-                  <thead class="thead-light">
-                    <tr>
-                      <th style="width: 40%;">Raw Material</th>
-                      <th style="width: 20%;">Quantity Needed</th>
-                      <th style="width: 20%;">Yield Factor</th>
-                      <th style="width: 20%;">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for recipe_form in recipe_formset %}
-                      <tr>
-                        <td>{% render_field recipe_form.material class="form-control" %}</td>
-                        <td>{% render_field recipe_form.quantity_needed class="form-control" %}</td>
-                        <td>{% render_field recipe_form.yield_factor class="form-control" %}</td>
-                        <td class="text-center">
-                          <span style="display:none">{{ recipe_form.DELETE }}</span>
-                          <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-
-                <!-- Hidden empty form -->
-                <div id="empty-form" style="display:none;">
-                  <table>
-                    <tr>
-                      <td>{% render_field recipe_formset.empty_form.material class="form-control" %}</td>
-                      <td>{% render_field recipe_formset.empty_form.quantity_needed class="form-control" %}</td>
-                      <td>{% render_field recipe_formset.empty_form.yield_factor class="form-control" %}</td>
-                      <td class="text-center">
-                        <span style="display:none">{{ recipe_formset.empty_form.DELETE }}</span>
-                        <button type="button" class="btn btn-danger btn-sm remove-row">Remove</button>
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-
                 <!-- Submit -->
                 <div class="mb-3">
                   <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
@@ -158,38 +105,4 @@
     </div>
   </div>
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const prefix = "{{ recipe_formset.prefix }}";
-  const totalForms = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
-  const addRowBtn = document.getElementById("add-row");
-  const tableBody = document.querySelector("#recipe-table tbody");
-  const emptyFormHTML = document.getElementById("empty-form").innerHTML;
-
-  addRowBtn.addEventListener("click", function() {
-    const formIndex = parseInt(totalForms.value, 10);
-    const newRowHtml = emptyFormHTML.replace(/__prefix__/g, formIndex);
-    tableBody.insertAdjacentHTML("beforeend", newRowHtml);
-    totalForms.value = formIndex + 1;
-  });
-
-  tableBody.addEventListener("click", function(e) {
-    if (e.target && e.target.matches(".remove-row")) {
-      const row = e.target.closest("tr");
-      const deleteInput = row.querySelector("input[name$='-DELETE']");
-      if (deleteInput) {
-        if (deleteInput.type === "checkbox") {
-          deleteInput.checked = true;
-        } else {
-          deleteInput.value = "on";
-        }
-        row.style.display = "none";
-      } else {
-        row.remove();
-      }
-    }
-  });
-});
-</script>
 {% endblock %}
