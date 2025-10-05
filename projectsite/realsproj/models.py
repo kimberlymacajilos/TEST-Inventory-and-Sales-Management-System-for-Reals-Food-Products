@@ -141,6 +141,7 @@ class Expenses(models.Model):
     date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False) 
 
     class Meta:
         managed = False
@@ -167,6 +168,7 @@ class HistoryLog(models.Model):
     entity_type = models.CharField(max_length=50)
     entity_id = models.BigIntegerField()
     details = models.JSONField(null=True, blank=True)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -357,6 +359,7 @@ class Notifications(models.Model):
     notification_timestamp = models.DateTimeField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -364,7 +367,6 @@ class Notifications(models.Model):
 
     @property
     def css_class(self):
-        """Return CSS class for background color of notification icon."""
         mapping = {
             "EXPIRATION_ALERT": "notif-warning",
             "LOW_STOCK": "notif-info",
@@ -375,7 +377,6 @@ class Notifications(models.Model):
 
     @property
     def icon_class(self):
-        """Return icon class (using Line Awesome)."""
         mapping = {
             "EXPIRATION_ALERT": "la la-hourglass-half",
             "LOW_STOCK": "la la-arrow-down",
@@ -386,24 +387,23 @@ class Notifications(models.Model):
 
     @property
     def formatted_message(self):
-        """Return a clean, human-readable notification message without 'Product:' or 'Raw Material:'."""
+        """Generate readable message dynamically."""
         notif_type = self.notification_type.upper()
-
         item_name = "Unknown Item"
-        if self.item_type.upper() == "PRODUCT":
-            try:
-                from .models import Products
-                product = Products.objects.get(id=self.item_id)
+
+        try:
+            if self.item_type.upper() == "PRODUCT":
+                from .models import ProductBatches, Products
+                batch = ProductBatches.objects.get(id=self.item_id)
+                product = Products.objects.get(id=batch.product_id)
                 item_name = str(product)
-            except Products.DoesNotExist:
-                item_name = f"Unknown Product (ID {self.item_id})"
-        elif self.item_type.upper() == "RAW_MATERIAL":
-            try:
-                from .models import RawMaterials
-                material = RawMaterials.objects.get(id=self.item_id)
+            elif self.item_type.upper() == "RAW_MATERIAL":
+                from .models import RawMaterialBatches, RawMaterials
+                batch = RawMaterialBatches.objects.get(id=self.item_id)
+                material = RawMaterials.objects.get(id=batch.material_id)
                 item_name = str(material)
-            except RawMaterials.DoesNotExist:
-                item_name = f"Unknown Raw Material (ID {self.item_id})"
+        except Exception:
+            item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
         if notif_type == "EXPIRATION_ALERT":
             return f"{item_name} {self._expiration_message()}"
@@ -413,24 +413,23 @@ class Notifications(models.Model):
             return f"OUT OF STOCK: {item_name}"
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
-
         return f"{notif_type}: {item_name}"
 
     def _expiration_message(self):
-        """Helper to return expiration timing message based on timestamp."""
+        """Determine expiration timing."""
         from datetime import date
         today = date.today()
 
         try:
             if self.item_type.upper() == "PRODUCT":
                 from .models import ProductBatches
-                batch = ProductBatches.objects.filter(product_id=self.item_id).order_by('expiration_date').first()
+                batch = ProductBatches.objects.get(id=self.item_id)
             else:
                 from .models import RawMaterialBatches
-                batch = RawMaterialBatches.objects.filter(material_id=self.item_id).order_by('expiration_date').first()
+                batch = RawMaterialBatches.objects.get(id=self.item_id)
 
-            if not batch or not batch.expiration_date:
-                return "has unknown expiration date"
+            if not batch.expiration_date:
+                return "has no expiration date"
 
             delta_days = (batch.expiration_date - today).days
             if delta_days > 30:
@@ -456,6 +455,7 @@ class ProductBatches(models.Model):
     manufactured_date = models.DateTimeField(default=timezone.now)
     created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
+    is_archived = models.BooleanField(default=False)
 
     expiration_date = models.GeneratedField( 
         expression="manufactured_date + interval '1 year'",
@@ -536,6 +536,7 @@ class Products(models.Model):
     date_created = models.DateTimeField(default=timezone.now)
     size = models.ForeignKey('Sizes', models.DO_NOTHING, blank=True, null=True)
     photo = models.ImageField(upload_to="product_photos/", blank=True, null=True)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -553,6 +554,7 @@ class RawMaterialBatches(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -577,6 +579,7 @@ class RawMaterials(models.Model):
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     size = models.DecimalField(max_digits=10, decimal_places=2)
     date_created = models.DateTimeField(default=timezone.now)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -593,6 +596,7 @@ class Sales(models.Model):
     date = models.DateTimeField()
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False) # <-- Idagdag ito
 
     class Meta:
         managed = False
@@ -658,6 +662,7 @@ class StockChanges(models.Model):
     category = models.TextField()
     date = models.DateTimeField()
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False
@@ -784,6 +789,7 @@ class Withdrawals(models.Model):
         null=True,
         blank=True
     )
+    is_archived = models.BooleanField(default=False)
 
     class Meta:
         managed = False  # existing table
