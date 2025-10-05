@@ -96,7 +96,11 @@ import csv
 from datetime import datetime, timedelta
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
-
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.utils import timezone
+from datetime import timedelta
+from .models import Sales # Siguraduhing na-import ang Sales model
 
 @method_decorator(login_required, name='dispatch')
 
@@ -318,9 +322,9 @@ class ProductsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        # Palitan ang super().get_queryset() para magsimula sa pag-filter ng HINDI naka-archive
         queryset = (
-            super()
-            .get_queryset()
+            Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
             .order_by("id")
         )
@@ -382,6 +386,48 @@ class ProductsList(ListView):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
+    
+
+
+from django.shortcuts import render
+
+def product_add_barcode(request):
+    return render(request, "product_add_barcode.html")
+
+from django.shortcuts import render
+
+def product_scan_phone(request):
+    # ito yung scanner-only view para sa phone
+    return render(request, "product_scan_phone.html")
+
+class ProductArchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = True
+        product.save()
+        return redirect('product-list')
+
+class ArchivedProductsListView(ListView):
+    model = Products
+    template_name = 'archived_products.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Products.objects.filter(is_archived=True).order_by('-date_created')
+
+class ProductUnarchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = False
+        product.save()
+        return redirect('products-archived-list')
+
+class ProductArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('product-list')
 
 class ProductCreateView(CreateView):
     model = Products
@@ -580,7 +626,8 @@ class RawMaterialsList(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('id')
+        queryset = RawMaterials.objects.filter(is_archived=False).select_related("unit", "created_by_admin").order_by('-id')
+        
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -605,7 +652,34 @@ class RawMaterialsList(ListView):
 
         return queryset
 
-        return queryset
+class RawMaterialArchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = True
+        item.save()
+        return redirect('rawmaterials-list')
+
+class RawMaterialArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('rawmaterials-list')
+
+class ArchivedRawMaterialsListView(ListView):
+    model = RawMaterials
+    template_name = 'archived_rawmaterials.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterials.objects.filter(is_archived=True).order_by('-date_created')
+
+class RawMaterialUnarchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = False
+        item.save()
+        return redirect('rawmaterials-archived-list')
 
 class RawMaterialsCreateView(CreateView):
     model = RawMaterials
@@ -674,6 +748,34 @@ class HistoryLogList(ListView):
         context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
         return context
     
+class SaleArchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = True
+        sale.save()
+        return redirect('sales')
+
+class SaleArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Sales.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('sales')
+    
+class ArchivedSalesListView(ListView):
+    model = Sales
+    template_name = 'archived_sales.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Sales.objects.filter(is_archived=True).order_by('-date')
+
+class SaleUnarchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = False
+        sale.save()
+        return redirect('sales-archived-list')
 
 class SalesList(ListView):
     model = Sales
@@ -682,7 +784,8 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Sales.objects.select_related("created_by_admin").order_by("-date")
+        # Pagsamahin ang filter dito. Magsimula sa pagkuha lang ng HINDI naka-archive.
+        qs = Sales.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
@@ -772,7 +875,7 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
+        queryset = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
@@ -793,15 +896,10 @@ class ExpensesList(ListView):
         month = self.request.GET.get("month", "").strip()
         if month:
             try:
-                year_str, month_str = month.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                qs = qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        else:
-            today = timezone.now()
-            qs = qs.filter(date__year=today.year, date__month=today.month)
+                year, month_num = month.split("-")
+                queryset = queryset.filter(date__year=year, date__month=month_num)
+            except (ValueError, IndexError):
+                pass # Ignore invalid format
 
         self._full_queryset = qs
         return qs
@@ -809,18 +907,48 @@ class ExpensesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
+        qs_for_summary = getattr(self, 'filtered_queryset', Expenses.objects.filter(is_archived=False))
 
-        context["expenses_summary"] = full_qs.aggregate(
+        summary = qs_for_summary.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
-        categories = Expenses.objects.values_list('category', flat=True).distinct()
-        context['categories'] = categories
 
+        context["expenses_summary"] = summary
+        
+        categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
+        context["categories"] = categories
         return context
+    
+class ExpenseArchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = True
+        expense.save()
+        return redirect('expenses')
 
+class ExpenseArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('expenses')
+
+class ArchivedExpensesListView(ListView):
+    model = Expenses
+    template_name = 'archived_expenses.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Expenses.objects.filter(is_archived=True).order_by('-date')
+
+class ExpenseUnarchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = False
+        expense.save()
+        return redirect('expenses-archived-list')
 
 class ExpensesCreateView(CreateView):
     model = Expenses

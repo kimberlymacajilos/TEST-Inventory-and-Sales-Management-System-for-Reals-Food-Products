@@ -26,6 +26,8 @@ from django.conf.urls.static import static
 
 
 
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
@@ -36,11 +38,19 @@ urlpatterns = [
     path('products/add', a.ProductCreateView.as_view(), name='product-add'),
     path('products/<pk>', a.ProductsUpdateView.as_view(), name='product-edit'),
     path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
+    path("products/add-barcode/", a.product_add_barcode, name="product-add-barcode"),
+    path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
 
+
+    path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials-list'),
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
     path('rawmaterials/add', a.RawMaterialsCreateView.as_view(), name='rawmaterials-add'),
     path('rawmaterials/<pk>', a.RawMaterialsUpdateView.as_view(), name='rawmaterials-edit'),
     path('rawmaterials/<pk>/delete', a.RawMaterialsDeleteView.as_view(), name='rawmaterials-delete'),
+    path('rawmaterials/<int:pk>/archive/', a.RawMaterialArchiveView.as_view(), name='rawmaterials-archive'),
+    path('rawmaterials/archive-old/', a.RawMaterialArchiveOldView.as_view(), name='rawmaterials-archive-old'),
+    path('rawmaterials/archived/', a.ArchivedRawMaterialsListView.as_view(), name='rawmaterials-archived-list'),
+    path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
 
@@ -48,11 +58,19 @@ urlpatterns = [
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
     path('sales/<pk>', a.SalesUpdateView.as_view(), name='sales-edit'),
     path('sales/<pk>/delete', a.SalesDeleteView.as_view(), name='sales-delete'),
+    path('sales/<int:pk>/archive/', a.SaleArchiveView.as_view(), name='sales-archive'),
+    path('sales/archive-old/', a.SaleArchiveOldView.as_view(), name='sales-archive-old'),
+    path('sales/archived/', a.ArchivedSalesListView.as_view(), name='sales-archived-list'),
+    path('sales/<int:pk>/unarchive/', a.SaleUnarchiveView.as_view(), name='sales-unarchive'),
 
     path('expenses/', a.ExpensesList.as_view(), name='expenses'),
     path('expenses/add', a.ExpensesCreateView.as_view(), name='expenses-add'),
     path('expenses/<pk>', a.ExpensesUpdateView.as_view(), name='expenses-edit'),
     path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
+    path('expenses/<int:pk>/archive/', a.ExpenseArchiveView.as_view(), name='expenses-archive'),
+    path('expenses/archive-old/', a.ExpenseArchiveOldView.as_view(), name='expenses-archive-old'),
+    path('expenses/archived/', a.ArchivedExpensesListView.as_view(), name='expenses-archived-list'),
+    path('expenses/<int:pk>/unarchive/', a.ExpenseUnarchiveView.as_view(), name='expenses-unarchive'),
 
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch'),
     path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
@@ -115,7 +133,11 @@ urlpatterns = [
     path('profile/', profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
 
-    path("products/<int:product_id>/recipes/", a.ProductRecipeListView.as_view(), name="recipe-list"),
+    path('products/', a.ProductsList.as_view(), name='product-list'),
+    path('products/<int:pk>/archive/', a.ProductArchiveView.as_view(), name='product-archive'),
+    path('products/archived/', a.ArchivedProductsListView.as_view(), name='products-archived-list'),
+    path('products/<int:pk>/unarchive/', a.ProductUnarchiveView.as_view(), name='product-unarchive'),
+    path('products/archive-old/', a.ProductArchiveOldView.as_view(), name='products-archive-old'), # <-- Idagdag ito    path("products/<int:product_id>/recipes/", a.ProductRecipeListView.as_view(), name="recipe-list"),
     path("products/<int:product_id>/recipes/add/", a.ProductRecipeBulkCreateView.as_view(), name="recipe-add"),
     path("recipes/<int:pk>/edit/", a.ProductRecipeUpdateView.as_view(), name="recipe-edit"),
     path("recipes/<int:pk>/delete/", a.ProductRecipeDeleteView.as_view(), name="recipe-delete"),    path("report/", a.monthly_report, name="monthly-report"),

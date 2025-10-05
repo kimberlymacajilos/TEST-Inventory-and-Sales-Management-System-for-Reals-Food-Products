@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Phone Scanner</h4>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Use your phone camera</div>
+        <div class="card-category text-danger">
+          ⚠ Camera requires HTTPS (use ngrok link)
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="reader" style="width:100%; min-height:400px; border:1px solid #ccc;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- html5-qrcode -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const socket = new WebSocket("wss://{{ request.get_host }}/ws/scan/");
+  // ^ ito automatic gagamit ng ngrok host (https → wss)
+
+  const html5QrCode = new Html5Qrcode("reader");
+  let lastScannedCode = null; // <-- Idagdag ito
+
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      let backCamera = cameras.find(cam => cam.label.toLowerCase().includes("back")) || cameras[0];
+      html5QrCode.start(
+        backCamera.id,
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        function(decodedText) {
+          // --- Simula ng pagbabago ---
+          // Ipadala lang kung iba sa huling na-scan
+          if (decodedText !== lastScannedCode) {
+            lastScannedCode = decodedText;
+            console.log("Scanned:", decodedText);
+
+            // send scanned barcode via WebSocket to Django Channels
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ barcode: decodedText }));
+            }
+          }
+          // --- Wakas ng pagbabago ---
+        }
+      ).catch(err => console.error("Camera start failed:", err));
+    } else {
+      alert("No cameras found.");
+    }
+  }).catch(err => {
+    console.error("Camera error:", err);
+    alert("Camera access failed. Use HTTPS (ngrok).");
+  });
+});
+</script>
+{% endblock %}
