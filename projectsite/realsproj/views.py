@@ -722,7 +722,13 @@ class HistoryLogList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("admin", "log_type").order_by("-log_date")
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("admin", "log_type")
+            .filter(is_archived=False)
+            .order_by("-log_date")
+        )
 
         admin_filter = self.request.GET.get("admin", "").strip()
         if admin_filter:
@@ -744,8 +750,8 @@ class HistoryLogList(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['admins'] = HistoryLog.objects.values_list('admin__username', flat=True).distinct()
-        context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
+        context['admins'] = HistoryLog.objects.filter(is_archived=False).values_list('admin__username', flat=True).distinct()
+        context['logs'] = HistoryLog.objects.filter(is_archived=False).values_list('log_type__category', flat=True).distinct()
         return context
     
 class SaleArchiveView(View):
@@ -991,7 +997,14 @@ class ProductBatchList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("product", "created_by_admin")
+            .filter(is_archived=False)
+            .order_by('-id')
+        )
+
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -1006,7 +1019,6 @@ class ProductBatchList(ListView):
 
         if date_filter:
             try:
-                # Parse only year and month (from YYYY-MM)
                 parsed_date = datetime.strptime(date_filter, "%Y-%m")
                 queryset = queryset.filter(
                     Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
@@ -1014,7 +1026,7 @@ class ProductBatchList(ListView):
                     Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
                 )
             except ValueError:
-                pass  # Ignore invalid format
+                pass
 
         return queryset
     
@@ -1105,9 +1117,16 @@ class RawMaterialBatchList(ListView):
     context_object_name = 'rawmatbatch'
     template_name = "rawmatbatch_list.html"
     paginate_by = 10
-    
+
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("material", "created_by_admin")
+            .filter(is_archived=False)
+            .order_by('-id')
+        )
+
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -1120,7 +1139,7 @@ class RawMaterialBatchList(ListView):
                 Q(expiration_date__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-        
+
         if date_filter:
             try:
                 # Parse only year and month (from YYYY-MM)
@@ -1131,7 +1150,7 @@ class RawMaterialBatchList(ListView):
                     Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
                 )
             except ValueError:
-                pass  # Ignore invalid format
+                pass
 
         return queryset
 
@@ -1435,12 +1454,15 @@ class NotificationsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Notifications.objects.order_by('-created_at')
+        return (
+            Notifications.objects
+            .filter(is_archived=False)
+            .order_by('-created_at')
+        )
 
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
-
 
 class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
@@ -1570,7 +1592,11 @@ class StockChangesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return StockChanges.objects.all().order_by('-date')
+        return (
+            StockChanges.objects
+            .filter(is_archived=False)
+            .order_by('-date')
+        )
     
 def login_view(request):
     if request.method == 'POST':
