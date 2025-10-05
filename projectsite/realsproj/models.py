@@ -15,6 +15,7 @@ from django.db.models import Q
 from datetime import timedelta
 from django.utils.safestring import mark_safe
 import json
+from django.utils import timezone
 
 
 class AuthGroup(models.Model):
@@ -138,7 +139,7 @@ class Expenses(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField(default=timezone.now)
+    date = models.DateField(default=timezone.localdate)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     is_archived = models.BooleanField(default=False) 
@@ -164,7 +165,7 @@ class HistoryLog(models.Model):
     id = models.BigAutoField(primary_key=True)
     admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     log_type = models.ForeignKey('HistoryLogTypes', models.DO_NOTHING)
-    log_date = models.DateTimeField()
+    log_date = models.DateTimeField(default=timezone.now)
     entity_type = models.CharField(max_length=50)
     entity_id = models.BigIntegerField()
     details = models.JSONField(null=True, blank=True)
@@ -449,10 +450,10 @@ class Notifications(models.Model):
 
 class ProductBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
-    batch_date = models.DateTimeField(default=timezone.now)
+    batch_date = models.DateField(default=timezone.localdate)
     product = models.ForeignKey('Products', models.DO_NOTHING)
     quantity = models.IntegerField()
-    manufactured_date = models.DateTimeField(default=timezone.now)
+    manufactured_date = models.DateField(default=timezone.localdate)
     created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
     is_archived = models.BooleanField(default=False)
@@ -466,6 +467,9 @@ class ProductBatches(models.Model):
     class Meta:
         managed = False
         db_table = 'product_batches'
+
+    def __str__(self):
+        local_date = timezone.localtime(self.date)
 
 
 class ProductInventory(models.Model):
@@ -549,8 +553,8 @@ class Products(models.Model):
 class RawMaterialBatches(models.Model):
     id = models.BigAutoField(primary_key=True)
     material = models.ForeignKey('RawMaterials', models.DO_NOTHING)
-    batch_date = models.DateTimeField(default=timezone.now)
-    received_date = models.DateTimeField(default=timezone.now)
+    batch_date = models.DateField(default=timezone.localdate)
+    received_date = models.DateField(default=timezone.localdate)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
@@ -593,7 +597,7 @@ class Sales(models.Model):
     id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateTimeField()
+    date = models.DateField(default=timezone.localdate)
     description = models.TextField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     is_archived = models.BooleanField(default=False) # <-- Idagdag ito
