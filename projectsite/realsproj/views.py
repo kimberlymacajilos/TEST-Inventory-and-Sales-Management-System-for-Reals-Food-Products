@@ -1031,6 +1031,8 @@ class ProductBatchUpdateView(UpdateView):
     success_url = reverse_lazy('product-batch')
 
     def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
         messages.success(self.request, "✅ Product Batch updated successfully.")
         return super().form_valid(form)
 
@@ -1144,7 +1146,12 @@ class RawMaterialBatchUpdateView(UpdateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
-    success_url = reverse_lazy('rawmaterial-batch') 
+    success_url = reverse_lazy('rawmaterial-batch')
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
     
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
