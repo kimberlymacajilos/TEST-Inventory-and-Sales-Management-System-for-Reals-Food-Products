@@ -60,41 +60,41 @@
 
                     <!-- Notifications Dropdown -->
                     <li class="nav-item dropdown hidden-caret">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
-                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="la la-bell"></i>
-                            {% if unread_count > 0 %}
-                                <span class="notification">{{ unread_count }}</span>
-                            {% endif %}
-                        </a>
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="la la-bell"></i>
+                        {% if unread_count > 0 %}
+                        <span class="notification">{{ unread_count }}</span>
+                        {% endif %}
+                    </a>
 
-                        <ul class="dropdown-menu notif-box" aria-labelledby="navbarDropdown">
-                            <li>
-                                <div class="dropdown-title">
-                                    You have {{ unread_count }} new notification{{ unread_count|pluralize }}
+                    <ul class="dropdown-menu notif-box animated fadeIn" aria-labelledby="navbarDropdown">
+                        <li>
+                        <div class="dropdown-header">
+                            <h6>You have {{ unread_count }} new notification{{ unread_count|pluralize }}</h6>
+                        </div>
+                        </li>
+                        <li>
+                        <div class="notif-center">
+                            {% for notif in notifications|slice:":5" %}
+                            <a href="#" class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
+                                <div class="notif-icon {{ notif.css_class }}">
+                                <i class="{{ notif.icon_class }}"></i>
                                 </div>
-                            </li>
-                            <li>
-                                <div class="notif-center">
-                                    {% for notif in notifications|slice:":5" %}
-                                        <a href="#" class="{% if not notif.is_read %}unread{% else %}read{% endif %}">
-                                            <div class="notif-icon {{ notif.css_class }}">
-                                                <i class="{{ notif.icon_class }}"></i>
-                                            </div>
-                                            <div class="notif-content">
-                                                <span class="block">{{ notif.formatted_message }}</span>
-                                                <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                            </div>
-                                        </a>
-                                    {% empty %}
-                                        <div class="text-center p-2">No new notifications</div>
-                                    {% endfor %}
+                                <div class="notif-content">
+                                <span class="notif-title">{{ notif.formatted_message }}</span>
+                                <span class="notif-time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
                                 </div>
-                            </li>
-                            <li class="dropdown-footer text-center">
-                                <a href="{% url 'notifications' %}">View All Notifications</a>
-                            </li>
-                        </ul>
+                            </a>
+                            {% empty %}
+                            <div class="text-center p-2">No new notifications</div>
+                            {% endfor %}
+                        </div>
+                        </li>
+                        <li class="dropdown-footer text-center">
+                        <a href="{% url 'notifications' %}">View All Notifications</a>
+                        </li>
+                    </ul>
                     </li>
 
                     <!-- User Profile Dropdown -->
