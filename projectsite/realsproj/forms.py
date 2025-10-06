@@ -131,7 +131,7 @@ class ProductBatchForm(ModelForm):
     class Meta:
         model = ProductBatches
         fields = "__all__"   
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             "batch_date": forms.DateInput(attrs={"type": "date"}),
             "manufactured_date": forms.DateInput(attrs={"type": "date"}),
@@ -151,7 +151,7 @@ class RawMaterialBatchForm(ModelForm):
     class Meta:
         model = RawMaterialBatches
         fields = "__all__"
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'received_date': forms.DateInput(attrs={'type': 'date'}),

@@ -487,42 +487,20 @@ class ProductsUpdateView(UpdateView):
 
         if "delete_photo" in request.POST:
             if self.object.photo:
-                try:
-                    if os.path.isfile(self.object.photo.path):
-                        os.remove(self.object.photo.path)
-                except Exception:
-                    pass
                 self.object.photo = None
-                self.object.save()
+                self.object.save(update_fields=["photo"])
                 messages.success(request, "Product photo deleted.")
             else:
                 messages.info(request, "No photo to delete.")
 
-            return redirect(
-                reverse("product-edit", kwargs={"pk": self.object.pk})
-            )
+            return redirect(reverse("product-edit", kwargs={"pk": self.object.pk}))
 
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        old_photo = None
-        if self.object.photo:
-            old_photo = self.object.photo.path 
-
-        product = form.save(commit=False)
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
-        self.object = form.save()
-
-        delete_photo = self.request.POST.get("delete_photo")
-        if delete_photo == "1" and old_photo and os.path.isfile(old_photo):
-            os.remove(old_photo)
-            product.photo = None
-
-        if "photo" in form.changed_data and old_photo and os.path.isfile(old_photo):
-            os.remove(old_photo)
-
-        product.save()
+        product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
         return redirect(self.success_url)
 
