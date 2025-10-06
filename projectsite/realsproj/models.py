@@ -16,6 +16,7 @@ from datetime import timedelta
 from django.utils.safestring import mark_safe
 import json
 from django.utils import timezone
+from django.conf import settings
 
 
 class AuthGroup(models.Model):
@@ -722,6 +723,7 @@ class Discounts(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        managed = False
         db_table = "discounts"
 
     def __str__(self):
@@ -729,6 +731,20 @@ class Discounts(models.Model):
             return f"{self.name} ({self.value}%)"
         return f"{self.name} (-{self.value})"
     
+
+class UserActivity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    last_logout = models.DateTimeField(blank=True, null=True)
+    active = models.BooleanField(default=False)
+
+    class Meta:
+        managed = False
+        db_table = "user_activity"
+
+    def __str__(self):
+        return f"{self.user.username} Activity"
+
+
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
 

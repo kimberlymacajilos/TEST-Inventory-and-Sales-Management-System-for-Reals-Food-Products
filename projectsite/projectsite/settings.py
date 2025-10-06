@@ -30,7 +30,7 @@ INSTALLED_APPS = [
     'realsproj',
     'widget_tweaks',
     'django.contrib.humanize',
-    "channels"
+    "channels",
 ]
 
 ASGI_APPLICATION = "projectsite.asgi.application"
