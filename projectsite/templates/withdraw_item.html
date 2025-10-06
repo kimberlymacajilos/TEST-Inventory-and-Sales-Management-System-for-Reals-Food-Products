@@ -36,23 +36,28 @@
 
           <!-- Sales section -->
           <div id="sales-price-section" style="display:none; margin-top:10px;">
-            <label for="sales_channel">Sales Channel</label>
-            <select name="sales_channel" id="sales_channel">
-              <option value="">-- Select --</option>
-              <option value="ORDER">Order</option>
-              <option value="CONSIGNMENT">Consignment</option>
-              <option value="RESELLER">Reseller</option>
-              <option value="PHYSICAL_STORE">Physical Store</option>
-            </select>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="sales_channel">Sales Channel</label>
+                <select name="sales_channel" id="sales_channel" class="form-control">
+                  <option value="">-- Select --</option>
+                  <option value="ORDER">Order</option>
+                  <option value="CONSIGNMENT">Consignment</option>
+                  <option value="RESELLER">Reseller</option>
+                  <option value="PHYSICAL_STORE">Physical Store</option>
+                </select>
+              </div>
 
-            <label for="price_type">Price Type</label>
-            <select name="price_type" id="price_type">
-              <option value="">-- Select --</option>
-              <option value="UNIT">Unit Price</option>
-              <option value="SRP">SRP</option>
-            </select>
-          </div>
-          
+              <div class="form-group col-md-6">
+                <label for="price_type">Price Type</label>
+                <select name="price_type" id="price_type" class="form-control">
+                  <option value="">-- Select --</option>
+                  <option value="UNIT">Unit Price</option>
+                  <option value="SRP">SRP</option>
+                </select>
+              </div>
+            </div>
+          </div>          
           <!-- Products table -->
           <div id="products_table" class="mt-3" style="display:none;">
             <h5>Products</h5>

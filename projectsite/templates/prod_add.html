@@ -86,12 +86,14 @@
                   <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
                 </div>
 
-                <!-- Photo Upload -->
-                <div class="form-group">
-                  <label>Product Photo</label>
-                  {% render_field form.photo class="form-control-file" %}
+              <!-- Photo Upload -->
+              <div class="form-group">
+                <label for="photo">Product Photo</label>
+                <div class="custom-file">
+                  {% render_field form.photo class="custom-file-input" id="photo" onchange="updateFileName()" %}
+                  <label class="custom-file-label" for="photo">Choose file</label>
                 </div>
-
+              </div>            
                 <!-- Submit -->
                 <div class="mb-3">
                   {% if object and object.id %}

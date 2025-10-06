@@ -444,13 +444,7 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-
-        if self.request.POST:
-            context['recipe_formset'] = ProductRecipeFormSet(self.request.POST)
-        else:
-            context['recipe_formset'] = ProductRecipeFormSet()
-        return context
-
+        
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
