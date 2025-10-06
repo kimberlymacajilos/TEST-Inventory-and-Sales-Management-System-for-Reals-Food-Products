@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductRecipes, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductRecipes, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts, ProductRecipes
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
@@ -87,18 +87,15 @@ class ProductsForm(forms.ModelForm):
         )
         return obj
 
-ProductRecipeFormSet = inlineformset_factory(
-    Products,
-    ProductRecipes,
-    fields=("material", "quantity_needed", "yield_factor"),
-    extra=1,
-    can_delete=True
-)
+class ProductRecipeForm(forms.ModelForm):
+    class Meta:
+        model = ProductRecipes
+        fields = ["material", "quantity_needed", "yield_factor"]
 
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        exclude = ['created_by_admin', 'date_created'] 
+        exclude = ['created_by_admin', 'date_created', 'is_archived'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -111,7 +108,7 @@ class HistoryLogForm(ModelForm):
 class SalesForm(ModelForm):
     class Meta:
         model = Sales
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -119,16 +116,22 @@ class SalesForm(ModelForm):
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
 
 
 class ProductBatchForm(ModelForm):
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        label="Deduct raw material"
+    )
+    
     class Meta:
         model = ProductBatches
         fields = "__all__"   
+        exclude = ['created_by_admin'] 
         widgets = {
             "batch_date": forms.DateInput(attrs={"type": "date"}),
             "manufactured_date": forms.DateInput(attrs={"type": "date"}),
@@ -148,6 +151,7 @@ class RawMaterialBatchForm(ModelForm):
     class Meta:
         model = RawMaterialBatches
         fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'received_date': forms.DateInput(attrs={'type': 'date'}),
@@ -327,6 +331,7 @@ class CustomUserCreationForm(forms.ModelForm):
     user_type = forms.ChoiceField(
         choices=[('staff', 'Staff'), ('superuser', 'Superuser')],
         widget=forms.Select,
+        required=True
     )
 
     class Meta:

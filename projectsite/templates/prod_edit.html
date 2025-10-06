@@ -21,40 +21,60 @@
                 {% if form.errors %}
                   <div class="alert alert-danger">{{ form.errors }}</div>
                 {% endif %}
-
+                
                 <!-- Product Type -->
                 <div class="form-group">
-                  {{ form.product_type.label_tag }}
-                  {% render_field form.product_type class="form-control" %}
+                  <label>Product Type</label>
+                  <input type="text" name="product_type" list="product_type-options"
+                        class="form-control" value="{{ form.product_type.value|default:'' }}">
+                  <datalist id="product_type-options">
+                    {% for pt in product_types %}
+                      <option value="{{ pt.name }}">
+                    {% endfor %}
+                  </datalist>
                 </div>
 
                 <!-- Variant -->
                 <div class="form-group">
-                  {{ form.variant.label_tag }}
-                  {% render_field form.variant class="form-control" %}
+                  <label>Variant</label>
+                  <input type="text" name="variant" list="variant-options"
+                        class="form-control" value="{{ form.variant.value|default:'' }}">
+                  <datalist id="variant-options">
+                    {% for v in variants %}
+                      <option value="{{ v.name }}">
+                    {% endfor %}
+                  </datalist>
                 </div>
 
                 <!-- Size + Size Unit -->
                 <div class="form-row">
                   <div class="form-group col-md-6">
-                    {{ form.size.label_tag }}
-                    {% render_field form.size class="form-control" %}
+                    <label>Size</label>
+                    <input type="text" name="size" list="size-options"
+                          class="form-control" value="{{ form.size.value|default:'' }}">
+                    <datalist id="size-options">
+                      {% for s in sizes %}
+                        <option value="{{ s.size_label }}">
+                      {% endfor %}
+                    </datalist>
                   </div>
                   <div class="form-group col-md-6">
-                    {{ form.size_unit.label_tag }}
+                    <label>Size Unit</label>
                     {% render_field form.size_unit class="form-control" %}
                   </div>
                 </div>
 
-                <!-- Prices -->
+                <!-- Unit Price + SRP Price -->
                 <div class="form-row">
                   <div class="form-group col-md-6">
-                    {{ form.unit_price.label_tag }}
-                    {% render_field form.unit_price class="form-control" %}
+                    <label>Unit Price</label>
+                    <input type="number" step="0.01" name="unit_price"
+                          class="form-control" value="{{ form.unit_price.value|default:'' }}">
                   </div>
                   <div class="form-group col-md-6">
-                    {{ form.srp_price.label_tag }}
-                    {% render_field form.srp_price class="form-control" %}
+                    <label>SRP Price</label>
+                    <input type="number" step="0.01" name="srp_price"
+                          class="form-control" value="{{ form.srp_price.value|default:'' }}">
                   </div>
                 </div>
 
@@ -81,8 +101,14 @@
                     <img id="photo-preview" class="img-thumbnail mt-2" style="max-height:120px; display:none;">
                   {% endif %}
                 </div>
+                <div class="mb-3">
+                  {% if object and object.id %}
+                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                  {% else %}
+                    <button type="submit" class="btn btn-primary btn-rounded">Save Update</button>
+                  {% endif %}
+                </div>
 
-                <!-- Submit -->
                 <div class="mb-3">
                   <button type="submit" class="btn btn-primary btn-rounded">Update</button>
                 </div>

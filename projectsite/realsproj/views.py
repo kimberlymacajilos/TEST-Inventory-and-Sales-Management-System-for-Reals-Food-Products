@@ -19,13 +19,13 @@ from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from .forms import CustomUserCreationForm
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum
 from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
     RawMaterialsForm,
@@ -46,8 +46,9 @@ from realsproj.forms import (
     BulkProductBatchForm,
     StockChangesForm,
     BulkRawMaterialBatchForm,
-    ProductRecipeFormSet,
-    UnifiedWithdrawForm
+    ProductRecipeForm,
+    UnifiedWithdrawForm,
+    CustomUserCreationForm
     
 )
 
@@ -75,6 +76,7 @@ from realsproj.models import (
     ExpensesSummary,
     ProductRecipes,
     Discounts,
+    ProductRecipes
 )
 
 from django.db.models import Q, CharField
@@ -87,10 +89,19 @@ from django.db.models.functions import TruncMonth
 from django.contrib.auth.forms import UserCreationForm
 from datetime import datetime
 from django.db.models.functions import Cast
-
 from django.contrib.auth.models import User
-from .forms import CustomUserChangeForm
-
+import os
+from django.urls import reverse, reverse_lazy
+from django.http import HttpResponse
+import csv
+from datetime import datetime, timedelta
+from django.db.models.signals import pre_save, post_delete
+from django.dispatch import receiver
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.utils import timezone
+from datetime import timedelta
+from .models import Sales # Siguraduhing na-import ang Sales model
 
 @method_decorator(login_required, name='dispatch')
 
@@ -158,6 +169,152 @@ def sales_vs_expenses(request):
         "expenses": expenses_totals,
     })
 
+def revenue_change_api(request):
+    sales_data = (
+        Sales.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+
+    months = [s['month'].strftime("%Y-%m") for s in sales_data]
+    revenues = [float(s['total']) for s in sales_data]
+
+    revenue_changes = [0] 
+    for i in range(1, len(revenues)):
+        change = revenues[i] - revenues[i-1]
+        revenue_changes.append(change)
+
+    return JsonResponse({
+        "months": months,
+        "revenue_changes": revenue_changes,
+    })
+
+
+def monthly_report(request):
+    sales = (
+        Sales.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_sales=Sum("amount"))
+        .order_by("month")  # 👈 ascending (oldest first)
+    )
+
+    expenses = (
+        Expenses.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_expenses=Sum("amount"))
+        .order_by("month")  # 👈 keep aligned
+    )
+
+    expenses_dict = {e["month"]: e["total_expenses"] for e in expenses}
+
+    report = []
+    prev = None
+
+    for s in sales:
+        month = s["month"]
+        revenue = s["total_sales"] or 0
+        cost = expenses_dict.get(month, 0) or 0
+        profit = revenue - cost
+
+        revenue_change = None
+        profit_change = None
+        if prev:
+            revenue_change = revenue - prev["revenue"]
+            profit_change = profit - prev["profit"]
+
+        report.append({
+            "month": month,
+            "revenue": revenue,
+            "expenses": cost,
+            "profit": profit,
+            "revenue_change": revenue_change,
+            "profit_change": profit_change,
+        })
+        prev = report[-1]
+
+    summary = {
+        "total_revenue": sum(r["revenue"] for r in report),
+        "total_profit": sum(r["profit"] for r in report),
+        "average_profit": (sum(r["profit"] for r in report) / len(report)) if report else 0,
+    }
+
+    return render(request, "reports/monthly_report.html", {
+        "report": report,
+        "summary": summary,
+    })
+
+
+def monthly_report_export(request):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="financial_report.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    writer = csv.writer(response)
+    writer.writerow(["Month", "Revenue", "Expenses", "Profit", "Revenue Change", "Profit Change", "Trend"])
+    sales = (
+        Sales.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_sales=Sum("amount"))
+        .order_by("month")
+    )
+    expenses = (
+        Expenses.objects.annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total_expenses=Sum("amount"))
+        .order_by("month")
+    )
+    sales_dict = {s["month"]: Decimal(s["total_sales"] or 0) for s in sales}
+    expenses_dict = {e["month"]: Decimal(e["total_expenses"] or 0) for e in expenses}
+    all_months = sorted(set(list(sales_dict.keys()) + list(expenses_dict.keys())))
+
+    report = []
+    for month in all_months:
+        revenue = sales_dict.get(month, Decimal(0))
+        cost = expenses_dict.get(month, Decimal(0))
+        profit = revenue - cost
+        report.append({
+            "month": month,
+            "revenue": revenue,
+            "expenses": cost,
+            "profit": profit,
+        })
+
+    for i in range(len(report)):
+        if i > 0: 
+            older = report[i - 1]
+            rc = report[i]["revenue"] - older["revenue"]
+            pc = report[i]["profit"] - older["profit"]
+
+            rev_change = f"↑ ₱{rc:,.2f}" if rc > 0 else f"↓ ₱{abs(rc):,.2f}" if rc < 0 else "₱0.00"
+            prof_change = f"↑ ₱{pc:,.2f}" if pc > 0 else f"↓ ₱{abs(pc):,.2f}" if pc < 0 else "₱0.00"
+
+            if rc > 0 and pc > 0:
+                trend = "Revenue & Profit Increased"
+            elif rc > 0 and pc < 0:
+                trend = "Revenue Increased, Profit Decreased"
+            elif rc < 0 and pc > 0:
+                trend = "Revenue Decreased, Profit Increased"
+            elif rc == 0 and pc == 0:
+                trend = "No Change"
+            else:
+                trend = "Revenue & Profit Decreased"
+        else:
+            rev_change = "-"
+            prof_change = "-"
+            trend = "-"
+
+        writer.writerow([
+            report[i]["month"].strftime("%B %Y"),
+            f"₱{report[i]['revenue']:,.2f}",
+            f"₱{report[i]['expenses']:,.2f}",
+            f"₱{report[i]['profit']:,.2f}",
+            rev_change,
+            prof_change,
+            trend,
+        ])
+
+    return response
 
 class ProductsList(ListView):
     model = Products
@@ -166,9 +323,9 @@ class ProductsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        # Palitan ang super().get_queryset() para magsimula sa pag-filter ng HINDI naka-archive
         queryset = (
-            super()
-            .get_queryset()
+            Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
         )
 
@@ -229,6 +386,48 @@ class ProductsList(ListView):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
+    
+
+
+from django.shortcuts import render
+
+def product_add_barcode(request):
+    return render(request, "product_add_barcode.html")
+
+from django.shortcuts import render
+
+def product_scan_phone(request):
+    # ito yung scanner-only view para sa phone
+    return render(request, "product_scan_phone.html")
+
+class ProductArchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = True
+        product.save()
+        return redirect('product-list')
+
+class ArchivedProductsListView(ListView):
+    model = Products
+    template_name = 'archived_products.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Products.objects.filter(is_archived=True).order_by('-date_created')
+
+class ProductUnarchiveView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Products, pk=pk)
+        product.is_archived = False
+        product.save()
+        return redirect('products-archived-list')
+
+class ProductArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('product-list')
 
 class ProductCreateView(CreateView):
     model = Products
@@ -263,23 +462,9 @@ class ProductCreateView(CreateView):
         # Save ONE product
         self.object = form.save()
 
-        # Attach formset recipes to the product
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
-
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object 
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-        else:
-            return self.form_invalid(form)
-
         messages.success(self.request, "✅ Product added successfully.")
-        return redirect(self.success_url)
-
+        return redirect('recipe-list', product_id=self.object.id)
+    
 
 
 class ProductsUpdateView(UpdateView):
@@ -296,12 +481,7 @@ class ProductsUpdateView(UpdateView):
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
 
-        if self.request.method == "POST":
-            context["recipe_formset"] = ProductRecipeFormSet(
-                self.request.POST, instance=self.object
-            )
-        else:
-            context["recipe_formset"] = ProductRecipeFormSet(instance=self.object)
+        context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
         return context
     
     def get_form_kwargs(self):
@@ -309,30 +489,78 @@ class ProductsUpdateView(UpdateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        if "delete_photo" in request.POST:
+            if self.object.photo:
+                try:
+                    if os.path.isfile(self.object.photo.path):
+                        os.remove(self.object.photo.path)
+                except Exception:
+                    pass
+                self.object.photo = None
+                self.object.save()
+                messages.success(request, "Product photo deleted.")
+            else:
+                messages.info(request, "No photo to delete.")
+
+            return redirect(
+                reverse("product-edit", kwargs={"pk": self.object.pk})
+            )
+
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
+        old_photo = None
+        if self.object.photo:
+            old_photo = self.object.photo.path 
+
+        product = form.save(commit=False)
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
         self.object = form.save()
 
-        recipe_formset = ProductRecipeFormSet(self.request.POST, instance=self.object)
+        delete_photo = self.request.POST.get("delete_photo")
+        if delete_photo == "1" and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
+            product.photo = None
 
-        if recipe_formset.is_valid():
-            recipes = recipe_formset.save(commit=False)
-            for recipe in recipes:
-                recipe.created_by_admin = auth_user
-                recipe.products = self.object
-                recipe.save()
-            for obj in recipe_formset.deleted_objects:
-                obj.delete()
-            recipe_formset.save_m2m()  # <-- important
-        else:
-            return self.render_to_response(
-                self.get_context_data(form=form, recipe_formset=recipe_formset)
-            )
+        if "photo" in form.changed_data and old_photo and os.path.isfile(old_photo):
+            os.remove(old_photo)
 
-        messages.success(self.request, "✅ Product added successfully.")
+        product.save()
+        messages.success(self.request, "✅ Product updated successfully.")
         return redirect(self.success_url)
+
+@receiver(pre_save, sender=Products)
+def delete_old_product_photo_on_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return
+
+    try:
+        old_instance = Products.objects.get(pk=instance.pk)
+    except Products.DoesNotExist:
+        return
+
+    old_file = old_instance.photo
+    new_file = instance.photo
+
+    if old_file and old_file.name:
+        if (not new_file) or (old_file.name != getattr(new_file, 'name', None)):
+            try:
+                old_file.delete(save=False)
+            except Exception:
+                pass
+
+@receiver(post_delete, sender=Products)
+def delete_product_photo_on_delete(sender, instance, **kwargs):
+    if instance.photo and instance.photo.name:
+        try:
+            instance.photo.delete(save=False)
+        except Exception:
+            pass
 
 
 class ProductsDeleteView(DeleteView):
@@ -343,6 +571,61 @@ class ProductsDeleteView(DeleteView):
         messages.success(self.request, "🗑️ Product deleted successfully.")
         return super().get_success_url()
 
+class ProductRecipeListView(ListView):
+    model = ProductRecipes
+    template_name = "prodrecipe_list.html"
+    context_object_name = "recipes"
+
+    def get_queryset(self):
+        return ProductRecipes.objects.filter(product_id=self.kwargs['product_id']).select_related("material")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["product"] = Products.objects.get(pk=self.kwargs["product_id"])
+        return context
+
+class ProductRecipeBulkCreateView(View):
+    template_name = "prodrecipe_add.html"
+
+    def get(self, request, product_id):
+        product = Products.objects.get(pk=product_id)
+        RecipeFormSet = modelformset_factory(ProductRecipes, form=ProductRecipeForm, extra=1, can_delete=False)
+
+        formset = RecipeFormSet(queryset=ProductRecipes.objects.none())
+        return render(request, self.template_name, {"formset": formset, "product": product})
+
+    def post(self, request, product_id):
+        product = Products.objects.get(pk=product_id)
+        auth_user = AuthUser.objects.get(username=request.user.username)
+        RecipeFormSet = modelformset_factory(ProductRecipes, form=ProductRecipeForm, extra=0, can_delete=False)
+
+        formset = RecipeFormSet(request.POST)
+
+        if formset.is_valid():
+            instances = formset.save(commit=False)
+            for instance in instances:
+                instance.product = product
+                instance.created_by_admin = auth_user
+                instance.save()
+            messages.success(request, "✅ Recipes added successfully.")
+            return redirect("recipe-list", product_id=product.id)
+
+        return render(request, self.template_name, {"formset": formset, "product": product})
+
+class ProductRecipeUpdateView(UpdateView):
+    model = ProductRecipes
+    form_class = ProductRecipeForm
+    template_name = "prodrecipe_edit.html"
+
+    def get_success_url(self):
+        return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
+
+class ProductRecipeDeleteView(DeleteView):
+    model = ProductRecipes
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Recipe deleted successfully.")
+        return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class RawMaterialsList(ListView):
     model = RawMaterials
@@ -351,7 +634,8 @@ class RawMaterialsList(ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("unit", "created_by_admin").order_by('-id')
+        queryset = RawMaterials.objects.filter(is_archived=False).select_related("unit", "created_by_admin").order_by('-id')
+        
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -376,7 +660,34 @@ class RawMaterialsList(ListView):
 
         return queryset
 
-        return queryset
+class RawMaterialArchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = True
+        item.save()
+        return redirect('rawmaterials-list')
+
+class RawMaterialArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
+        return redirect('rawmaterials-list')
+
+class ArchivedRawMaterialsListView(ListView):
+    model = RawMaterials
+    template_name = 'archived_rawmaterials.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterials.objects.filter(is_archived=True).order_by('-date_created')
+
+class RawMaterialUnarchiveView(View):
+    def post(self, request, pk):
+        item = get_object_or_404(RawMaterials, pk=pk)
+        item.is_archived = False
+        item.save()
+        return redirect('rawmaterials-archived-list')
 
 class RawMaterialsCreateView(CreateView):
     model = RawMaterials
@@ -419,7 +730,13 @@ class HistoryLogList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("admin", "log_type").order_by("-log_date")
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("admin", "log_type")
+            .filter(is_archived=False)
+            .order_by("-log_date")
+        )
 
         admin_filter = self.request.GET.get("admin", "").strip()
         if admin_filter:
@@ -441,10 +758,38 @@ class HistoryLogList(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['admins'] = HistoryLog.objects.values_list('admin__username', flat=True).distinct()
-        context['logs'] = HistoryLog.objects.values_list('log_type__category', flat=True).distinct()
+        context['admins'] = HistoryLog.objects.filter(is_archived=False).values_list('admin__username', flat=True).distinct()
+        context['logs'] = HistoryLog.objects.filter(is_archived=False).values_list('log_type__category', flat=True).distinct()
         return context
     
+class SaleArchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = True
+        sale.save()
+        return redirect('sales')
+
+class SaleArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Sales.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('sales')
+    
+class ArchivedSalesListView(ListView):
+    model = Sales
+    template_name = 'archived_sales.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Sales.objects.filter(is_archived=True).order_by('-date')
+
+class SaleUnarchiveView(View):
+    def post(self, request, pk):
+        sale = get_object_or_404(Sales, pk=pk)
+        sale.is_archived = False
+        sale.save()
+        return redirect('sales-archived-list')
 
 class SalesList(ListView):
     model = Sales
@@ -453,7 +798,8 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Sales.objects.select_related("created_by_admin").order_by("-date")
+        # Pagsamahin ang filter dito. Magsimula sa pagkuha lang ng HINDI naka-archive.
+        qs = Sales.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
@@ -543,11 +889,11 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Expenses.objects.select_related("created_by_admin").order_by("-date")
+        queryset = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
@@ -558,40 +904,65 @@ class ExpensesList(ListView):
         # --- Category filter ---
         category = self.request.GET.get("category", "").strip()
         if category:
-            qs = qs.filter(category__iexact=category)
+            queryset = queryset.filter(category__iexact=category)
 
         # --- Month filter (YYYY-MM) ---
         month = self.request.GET.get("month", "").strip()
         if month:
             try:
-                year_str, month_str = month.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                qs = qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        else:
-            today = timezone.now()
-            qs = qs.filter(date__year=today.year, date__month=today.month)
+                year, month_num = month.split("-")
+                queryset = queryset.filter(date__year=year, date__month=month_num)
+            except (ValueError, IndexError):
+                pass # Ignore invalid format
 
-        self._full_queryset = qs
-        return qs
+        self._full_queryset = queryset
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Expenses.objects.all())
+        qs_for_summary = getattr(self, 'filtered_queryset', Expenses.objects.filter(is_archived=False))
 
-        context["expenses_summary"] = full_qs.aggregate(
+        summary = qs_for_summary.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
-        categories = Expenses.objects.values_list('category', flat=True).distinct()
-        context['categories'] = categories
 
+        context["expenses_summary"] = summary
+        
+        categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
+        context["categories"] = categories
         return context
+    
+class ExpenseArchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = True
+        expense.save()
+        return redirect('expenses')
 
+class ExpenseArchiveOldView(View):
+    def post(self, request):
+        one_year_ago = timezone.now() - timedelta(days=365)
+        Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        return redirect('expenses')
+
+class ArchivedExpensesListView(ListView):
+    model = Expenses
+    template_name = 'archived_expenses.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Expenses.objects.filter(is_archived=True).order_by('-date')
+
+class ExpenseUnarchiveView(View):
+    def post(self, request, pk):
+        expense = get_object_or_404(Expenses, pk=pk)
+        expense.is_archived = False
+        expense.save()
+        return redirect('expenses-archived-list')
 
 class ExpensesCreateView(CreateView):
     model = Expenses
@@ -634,7 +1005,14 @@ class ProductBatchList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("product", "created_by_admin").order_by('-id')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("product", "created_by_admin")
+            .filter(is_archived=False)
+            .order_by('-id')
+        )
+
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -649,7 +1027,6 @@ class ProductBatchList(ListView):
 
         if date_filter:
             try:
-                # Parse only year and month (from YYYY-MM)
                 parsed_date = datetime.strptime(date_filter, "%Y-%m")
                 queryset = queryset.filter(
                     Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
@@ -657,7 +1034,7 @@ class ProductBatchList(ListView):
                     Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
                 )
             except ValueError:
-                pass  # Ignore invalid format
+                pass
 
         return queryset
     
@@ -674,6 +1051,8 @@ class ProductBatchUpdateView(UpdateView):
     success_url = reverse_lazy('product-batch')
 
     def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
         messages.success(self.request, "✅ Product Batch updated successfully.")
         return super().form_valid(form)
 
@@ -746,9 +1125,16 @@ class RawMaterialBatchList(ListView):
     context_object_name = 'rawmatbatch'
     template_name = "rawmatbatch_list.html"
     paginate_by = 10
-    
+
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("material", "created_by_admin").order_by('-id')
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("material", "created_by_admin")
+            .filter(is_archived=False)
+            .order_by('-id')
+        )
+
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
 
@@ -761,7 +1147,7 @@ class RawMaterialBatchList(ListView):
                 Q(expiration_date__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-        
+
         if date_filter:
             try:
                 # Parse only year and month (from YYYY-MM)
@@ -772,7 +1158,7 @@ class RawMaterialBatchList(ListView):
                     Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
                 )
             except ValueError:
-                pass  # Ignore invalid format
+                pass
 
         return queryset
 
@@ -787,7 +1173,12 @@ class RawMaterialBatchUpdateView(UpdateView):
     model = RawMaterialBatches
     form_class = RawMaterialBatchForm
     template_name = 'rawmatbatch_edit.html'
-    success_url = reverse_lazy('rawmaterial-batch') 
+    success_url = reverse_lazy('rawmaterial-batch')
+
+    def form_valid(self, form):
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        form.instance.created_by_admin = auth_user
+        return super().form_valid(form)
     
 class RawMaterialBatchDeleteView(DeleteView):
     model = RawMaterialBatches
@@ -1071,12 +1462,15 @@ class NotificationsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Notifications.objects.order_by('-created_at')
+        return (
+            Notifications.objects
+            .filter(is_archived=False)
+            .order_by('-created_at')
+        )
 
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
-
 
 class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
@@ -1206,7 +1600,11 @@ class StockChangesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return StockChanges.objects.all().order_by('-date')
+        return (
+            StockChanges.objects
+            .filter(is_archived=False)
+            .order_by('-date')
+        )
     
 def login_view(request):
     if request.method == 'POST':
@@ -1226,9 +1624,10 @@ def login_view(request):
 
 def register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()  
+            user = form.save()  # Save the new user to the database
+            login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
             return redirect('login')  
         else:
@@ -1319,3 +1718,92 @@ def edit_profile(request):
 
     form = UserChangeForm(instance=user)
     return render(request, "editprofile.html", {"form": form, "active_tab": "account-general"})
+
+
+def export_sales(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Sales.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_sales = sum(s.amount for s in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="sales_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for s in qs:
+        writer.writerow([s.category, s.amount, s.date.strftime("%Y-%m-%d"), s.description, s.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL SALES', total_sales])
+    return response
+
+def export_expenses(request):
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    qs = Expenses.objects.all()
+
+    if filter_type == "date" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        qs = qs.filter(date__date=start.date())
+
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        qs = qs.filter(date__year=start.year, date__month=start.month)
+
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        qs = qs.filter(date__year=year)
+
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        qs = qs.filter(date__date__range=(start, end))
+
+    total_expenses = sum(e.amount for e in qs)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="expenses_{filter_type}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Category', 'Amount', 'Date', 'Description', 'Created By'])
+
+    for e in qs:
+        writer.writerow([e.category, e.amount, e.date.strftime("%Y-%m-%d"), e.description, e.created_by_admin.username])
+
+    writer.writerow([])
+    writer.writerow(['', 'TOTAL EXPENSES', total_expenses])
+    return response

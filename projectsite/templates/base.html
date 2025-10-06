@@ -208,28 +208,42 @@
                     </div>
                 </li>
                 <li class="nav-item">
-                    <a data-toggle="collapse" href="#financialMenu" aria-expanded="false">
+                    <a data-toggle="collapse" href="#financialMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'report sales expenses' %}true{% else %}false{% endif %}">
                         <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
                     </a>
-                    <div class="collapse" id="financialMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'report sales expenses' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
-                            <li><a href="#index"><span class="sub-item">Report</span></a></li>
-                            <li><a href="{% url 'sales' %}"><span class="sub-item">Sales</span></a></li>
-                            <li><a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a></li>
+                            <li class="{% if request.resolver_match.url_name == 'report' %}active{% endif %}">
+                               <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'sales' %}active{% endif %}">
+                                <a href="{% url 'sales' %}"><span class="sub-item">Sales</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'expenses' %}active{% endif %}">
+                                <a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a>
+                            </li>
                         </ul>
                     </div>
                 </li>
-                                <li class="nav-item">
-                    <a data-toggle="collapse" href="#withdrawalsMenu" aria-expanded="false">
+
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#withdrawalsMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'withdrawals stock-changes' %}true{% else %}false{% endif %}">
                         <i class="la la-trash"></i><p>Withdrawals</p><span class="caret"></span>
                     </a>
-                    <div class="collapse" id="withdrawalsMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'withdrawals stock-changes' %}show{% endif %}" id="withdrawalsMenu">
                         <ul class="nav nav-collapse">
-                            <li><a href="{% url 'withdrawals' %}"><span class="sub-item">Withdrawn Items</span></a></li>
-                            <li><a href="{% url 'stock-changes' %}"><span class="sub-item">Stock Changes</span></a></li>
+                            <li class="{% if request.resolver_match.url_name == 'withdrawals' %}active{% endif %}">
+                                <a href="{% url 'withdrawals' %}"><span class="sub-item">Withdrawn Items</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'stock-changes' %}active{% endif %}">
+                                <a href="{% url 'stock-changes' %}"><span class="sub-item">Stock Changes</span></a>
+                            </li>
                         </ul>
                     </div>
                 </li>
+                
                 <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
             </ul>
         </div>
@@ -322,8 +336,7 @@
   document.addEventListener("DOMContentLoaded", function() {
     {% for message in messages %}
       const type = "{{ message.tags }}";
-      const text = "{{ message|escapejs }}".replace(
-        "Product batch hindi nag add kasi kulang yung raw materials.",
+      const text = "{{ message|escapejs }}"(
         "Product batch was not added — insufficient raw materials."
       );
 
