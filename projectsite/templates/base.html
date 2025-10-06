@@ -36,12 +36,8 @@
                     <button id="themeToggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Toggle color mode">
                         <span class="track"></span>
                         <span class="knob">
-                        <!-- Sun / Moon icons (inline SVG para no external deps) -->
                         <span class="icon sun" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zm10.48 14.32l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM12 5V2h-0v3h0zm0 17v-3h0v3h0zM4.84 17.24l-1.8 1.79 1.41 1.41 1.79-1.8-1.4-1.4zM19.16 6.76l1.8-1.79-1.41-1.41-1.79 1.8 1.4 1.4zM22 12h-3v0h3v0zM5 12H2v0h3v0zm7 5a5 5 0 110-10 5 5 0 010 10z"/></svg>
-                        </span>
-                        <span class="icon moon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                         </span>
                         </span>
                     </button>
@@ -49,41 +45,41 @@
 
                     <!-- Notifications Dropdown -->
                     <li class="nav-item dropdown hidden-caret">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
-                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="la la-bell"></i>
-                            {% if unread_count > 0 %}
-                                <span class="notification">{{ unread_count }}</span>
-                            {% endif %}
-                        </a>
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="la la-bell"></i>
+                        {% if unread_count > 0 %}
+                        <span class="notification">{{ unread_count }}</span>
+                        {% endif %}
+                    </a>
 
-                        <ul class="dropdown-menu notif-box" aria-labelledby="navbarDropdown">
-                            <li>
-                                <div class="dropdown-title">
-                                    You have {{ unread_count }} new notification{{ unread_count|pluralize }}
+                    <ul class="dropdown-menu notif-box animated fadeIn" aria-labelledby="navbarDropdown">
+                        <li>
+                        <div class="dropdown-header">
+                            <h6>You have {{ unread_count }} new notification{{ unread_count|pluralize }}</h6>
+                        </div>
+                        </li>
+                        <li>
+                        <div class="notif-center">
+                            {% for notif in notifications|slice:":5" %}
+                            <a href="#" class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
+                                <div class="notif-icon {{ notif.css_class }}">
+                                <i class="{{ notif.icon_class }}"></i>
                                 </div>
-                            </li>
-                            <li>
-                                <div class="notif-center">
-                                    {% for notif in notifications|slice:":5" %}
-                                        <a href="#" class="{% if not notif.is_read %}unread{% else %}read{% endif %}">
-                                            <div class="notif-icon {{ notif.css_class }}">
-                                                <i class="{{ notif.icon_class }}"></i>
-                                            </div>
-                                            <div class="notif-content">
-                                                <span class="block">{{ notif.formatted_message }}</span>
-                                                <span class="time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                            </div>
-                                        </a>
-                                    {% empty %}
-                                        <div class="text-center p-2">No new notifications</div>
-                                    {% endfor %}
+                                <div class="notif-content">
+                                <span class="notif-title">{{ notif.formatted_message }}</span>
+                                <span class="notif-time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
                                 </div>
-                            </li>
-                            <li class="dropdown-footer text-center">
-                                <a href="{% url 'notifications' %}">View All Notifications</a>
-                            </li>
-                        </ul>
+                            </a>
+                            {% empty %}
+                            <div class="text-center p-2">No new notifications</div>
+                            {% endfor %}
+                        </div>
+                        </li>
+                        <li class="dropdown-footer text-center">
+                        <a href="{% url 'notifications' %}">View All Notifications</a>
+                        </li>
+                    </ul>
                     </li>
 
                     <!-- User Profile Dropdown -->
@@ -275,7 +271,6 @@
 <script src="{% static 'js/plugin/chart-circle/circles.min.js' %}"></script>
 <script src="{% static 'js/plugin/jquery-scrollbar/jquery.scrollbar.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <div id="liveToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
   <div class="d-flex">

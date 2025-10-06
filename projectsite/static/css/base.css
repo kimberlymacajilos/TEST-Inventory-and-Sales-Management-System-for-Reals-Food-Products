@@ -158,16 +158,119 @@ body, .main-panel{
 .table thead th{ background: var(--primary-100) !important; border-bottom: 1px solid var(--border) !important; font-weight: 700; }
 .table tbody tr:hover{ background: #fafdf6; }
 
-/* Notifications */
-.notif-center a{
-  display:flex; align-items:center; gap:10px; padding:8px 12px;
-  border-radius:12px; border:1px solid transparent; transition: background .15s ease, border-color .15s ease;
+/* Notifications Dropdown */
+.notif-box {
+  width: 340px;
+  background: #fefefe;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
 }
-.notif-icon{ width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; box-shadow: var(--shadow-sm); }
-.notif-danger{ background:#e74c3c; } .notif-warning{ background:#f1c40f; color:#111; } .notif-info{ background:#3498db; }
-.notif-content .block{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-a.unread{ background:#fff; border-color: var(--primary-100); box-shadow: var(--shadow-xs); font-weight:700; }
-a.read{ background:#fff; font-weight:500; }
+
+/* Header */
+.dropdown-header {
+  background: #e8f5e9;
+  text-align: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #d7e8d8;
+}
+.dropdown-header h6 {
+  margin: 0;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+/* Notification Items */
+.notif-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: #333;
+  border-bottom: 1px solid #f1f1f1;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.notif-item:hover {
+  background: #f9f9f9;
+  transform: scale(1.01);
+}
+
+/* Icons */
+.notif-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.notif-danger { background: #e74c3c; }
+.notif-warning { background: #f1c40f; color: #111; }
+.notif-info { background: #3498db; }
+
+/* Content */
+.notif-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.notif-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-time {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* States */
+a.unread {
+  background: #f3f7ff;
+  font-weight: 700;
+}
+a.read {
+  background: #fff;
+  font-weight: 500;
+}
+
+/* Footer */
+.dropdown-footer {
+  background: #e8f5e9;
+  border-top: 1px solid #d7e8d8;
+  padding: 8px 0;
+}
+.dropdown-footer a {
+  color: #2e7d32;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.dropdown-footer a:hover {
+  color: #1b5e20;
+}
+
+/* Animation (optional) */
+.animated.fadeIn {
+  animation: fadeIn 0.25s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* Bell badge */
 .navbar .notification{
