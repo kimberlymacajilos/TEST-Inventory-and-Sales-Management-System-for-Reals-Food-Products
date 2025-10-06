@@ -263,7 +263,6 @@ class NotificationsForm(forms.Form):
         fields = "__all__"
 
 class BulkProductBatchForm(forms.Form):
-    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     manufactured_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     deduct_raw_material = forms.BooleanField(
         required=False,
@@ -277,7 +276,7 @@ class BulkProductBatchForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.products = []
-        for product in Products.objects.all():
+        for product in Products.objects.all().order_by('id'):
             field_name = f'product_{product.id}_qty'
             self.fields[field_name] = forms.DecimalField(
                 required=False,
@@ -291,7 +290,6 @@ class BulkProductBatchForm(forms.Form):
             })
 
 class BulkRawMaterialBatchForm(forms.Form):
-    batch_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     received_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
 
     def __init__(self, *args, **kwargs):
