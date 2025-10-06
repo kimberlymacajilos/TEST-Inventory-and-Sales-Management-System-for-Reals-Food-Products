@@ -95,7 +95,7 @@ class ProductRecipeForm(forms.ModelForm):
 class RawMaterialsForm(ModelForm):
     class Meta:
         model = RawMaterials
-        exclude = ['created_by_admin', 'date_created'] 
+        exclude = ['created_by_admin', 'date_created', 'is_archived'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -108,7 +108,7 @@ class HistoryLogForm(ModelForm):
 class SalesForm(ModelForm):
     class Meta:
         model = Sales
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -116,16 +116,22 @@ class SalesForm(ModelForm):
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
-        exclude = ['created_by_admin'] 
+        exclude = ['created_by_admin', 'is_archived'] 
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
 
 
 class ProductBatchForm(ModelForm):
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        label="Deduct raw material"
+    )
+    
     class Meta:
         model = ProductBatches
         fields = "__all__"   
+        exclude = ['created_by_admin'] 
         widgets = {
             "batch_date": forms.DateInput(attrs={"type": "date"}),
             "manufactured_date": forms.DateInput(attrs={"type": "date"}),
@@ -145,6 +151,7 @@ class RawMaterialBatchForm(ModelForm):
     class Meta:
         model = RawMaterialBatches
         fields = "__all__"
+        exclude = ['created_by_admin'] 
         widgets = {
             'batch_date': forms.DateInput(attrs={'type': 'date'}),
             'received_date': forms.DateInput(attrs={'type': 'date'}),
