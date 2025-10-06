@@ -119,7 +119,7 @@ urlpatterns = [
 
     path("register/", a.register, name="register"),
 
-    path("api/revenue-change/", a.revenue_change_api, name="revenue-change"),
+    path("api/daily_revenue_change_api/", a.daily_revenue_change_api, name="daily-revenue-change"),
 
     path("api/best-sellers/", a.best_sellers_api, name="best_sellers_api"),
 

@@ -85,7 +85,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.db.models import Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, TruncDay
 from django.contrib.auth.forms import UserCreationForm
 from datetime import datetime
 from django.db.models.functions import Cast
@@ -132,15 +132,14 @@ class HomePageView(LoginRequiredMixin, TemplateView):
 
 
 def sales_vs_expenses(request):
-    sales_data = (
+    sales_monthly = (
         Sales.objects
         .annotate(month=TruncMonth('date'))
         .values('month')
         .annotate(total=Sum('amount'))
         .order_by('month')
     )
-
-    expenses_data = (
+    expenses_monthly = (
         Expenses.objects
         .annotate(month=TruncMonth('date'))
         .values('month')
@@ -149,8 +148,8 @@ def sales_vs_expenses(request):
     )
 
     months = sorted(
-        set([s['month'].strftime("%Y-%m") for s in sales_data] +
-            [e['month'].strftime("%Y-%m") for e in expenses_data])
+        set([s['month'].strftime("%Y-%m") for s in sales_monthly] +
+            [e['month'].strftime("%Y-%m") for e in expenses_monthly])
     )
 
     sales_totals = []
@@ -158,38 +157,84 @@ def sales_vs_expenses(request):
 
     for m in months:
         sales_totals.append(
-            next((float(s['total']) for s in sales_data if s['month'].strftime("%Y-%m") == m), 0)
+            next((float(s['total']) for s in sales_monthly if s['month'].strftime("%Y-%m") == m), 0)
         )
         expenses_totals.append(
-            next((float(e['total']) for e in expenses_data if e['month'].strftime("%Y-%m") == m), 0)
+            next((float(e['total']) for e in expenses_monthly if e['month'].strftime("%Y-%m") == m), 0)
+        )
+
+    sales_daily = (
+        Sales.objects
+        .annotate(day=TruncDay('date'))
+        .values('day')
+        .annotate(total=Sum('amount'))
+        .order_by('day')
+    )
+    expenses_daily = (
+        Expenses.objects
+        .annotate(day=TruncDay('date'))
+        .values('day')
+        .annotate(total=Sum('amount'))
+        .order_by('day')
+    )
+
+    daily_dates = sorted(
+        set([s['day'].strftime("%Y-%m-%d") for s in sales_daily] +
+            [e['day'].strftime("%Y-%m-%d") for e in expenses_daily])
+    )
+
+    sales_daily_totals = []
+    expenses_daily_totals = []
+
+    for d in daily_dates:
+        sales_daily_totals.append(
+            next((float(s['total']) for s in sales_daily if s['day'].strftime("%Y-%m-%d") == d), 0)
+        )
+        expenses_daily_totals.append(
+            next((float(e['total']) for e in expenses_daily if e['day'].strftime("%Y-%m-%d") == d), 0)
         )
 
     return JsonResponse({
         "months": months,
         "sales": sales_totals,
         "expenses": expenses_totals,
+        "daily_dates": daily_dates,
+        "sales_daily": sales_daily_totals,
+        "expenses_daily": expenses_daily_totals,
     })
 
 def revenue_change_api(request):
-    sales_data = (
-        Sales.objects
-        .annotate(month=TruncMonth('date'))
-        .values('month')
-        .annotate(total=Sum('amount'))
-        .order_by('month')
-    )
+    year = request.GET.get("year")
+    month = request.GET.get("month")
 
-    months = [s['month'].strftime("%Y-%m") for s in sales_data]
+    sales_qs = Sales.objects.all()
+
+    if year:
+        sales_qs = sales_qs.filter(date__year=year)
+
+    if month and month != "all":
+        sales_qs = sales_qs.filter(date__month=month)
+        sales_data = (
+            sales_qs.annotate(day=TruncDay('date'))
+            .values('day')
+            .annotate(total=Sum('amount'))
+            .order_by('day')
+        )
+        labels = [s['day'].strftime("%Y-%m-%d") for s in sales_data]
+    else:
+        sales_data = (
+            sales_qs.annotate(month=TruncMonth('date'))
+            .values('month')
+            .annotate(total=Sum('amount'))
+            .order_by('month')
+        )
+        labels = [s['month'].strftime("%Y-%m") for s in sales_data]
+
     revenues = [float(s['total']) for s in sales_data]
 
-    revenue_changes = [0] 
-    for i in range(1, len(revenues)):
-        change = revenues[i] - revenues[i-1]
-        revenue_changes.append(change)
-
     return JsonResponse({
-        "months": months,
-        "revenue_changes": revenue_changes,
+        "labels": labels,
+        "revenues": revenues,
     })
 
 
@@ -198,14 +243,14 @@ def monthly_report(request):
         Sales.objects.annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(total_sales=Sum("amount"))
-        .order_by("month")  # 👈 ascending (oldest first)
+        .order_by("month")
     )
 
     expenses = (
         Expenses.objects.annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(total_expenses=Sum("amount"))
-        .order_by("month")  # 👈 keep aligned
+        .order_by("month") 
     )
 
     expenses_dict = {e["month"]: e["total_expenses"] for e in expenses}

@@ -89,7 +89,11 @@
                 <!-- Photo Upload -->
                 <div class="form-group">
                   <label>Product Photo</label>
-                  {% render_field form.photo class="form-control-file" %}
+                  <div class="custom-file">
+                    <input type="file" name="photo" class="custom-file-input" id="customFile" accept="image/*">
+                    <label class="custom-file-label" for="customFile">Choose file</label>
+                  </div>
+                  {% render_field form.photo class="form-control-file d-none" %}
                 </div>
 
                 <!-- Submit -->
@@ -110,4 +114,11 @@
     </div>
   </div>
 </div>
+
+<script>
+  document.querySelector('#customFile').addEventListener('change', function(e) {
+    var fileName = e.target.files[0].name;
+    e.target.nextElementSibling.textContent = fileName;
+  });
+</script>
 {% endblock %}
