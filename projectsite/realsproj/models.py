@@ -16,6 +16,7 @@ from datetime import timedelta
 from django.utils.safestring import mark_safe
 import json
 from django.utils import timezone
+from django.conf import settings
 
 
 class AuthGroup(models.Model):
@@ -400,14 +401,26 @@ class Notifications(models.Model):
         try:
             if self.item_type.upper() == "PRODUCT":
                 from .models import ProductBatches, Products
-                batch = ProductBatches.objects.get(id=self.item_id)
-                product = Products.objects.get(id=batch.product_id)
-                item_name = str(product)
+                batch = ProductBatches.objects.filter(id=self.item_id).first()
+                if batch:
+                    product = batch.product
+                    item_name = str(product)
+                else:
+                    product = Products.objects.filter(id=self.item_id).first()
+                    if product:
+                        item_name = str(product)
+
             elif self.item_type.upper() == "RAW_MATERIAL":
                 from .models import RawMaterialBatches, RawMaterials
-                batch = RawMaterialBatches.objects.get(id=self.item_id)
-                material = RawMaterials.objects.get(id=batch.material_id)
-                item_name = str(material)
+                batch = RawMaterialBatches.objects.filter(id=self.item_id).first()
+                if batch:
+                    material = batch.material
+                    item_name = str(material)
+                else:
+                    material = RawMaterials.objects.filter(id=self.item_id).first()
+                    if material:
+                        item_name = str(material)
+
         except Exception:
             item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
@@ -419,22 +432,22 @@ class Notifications(models.Model):
             return f"OUT OF STOCK: {item_name}"
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
+
         return f"{notif_type}: {item_name}"
 
     def _expiration_message(self):
-        """Determine expiration timing."""
         from datetime import date
         today = date.today()
 
         try:
             if self.item_type.upper() == "PRODUCT":
                 from .models import ProductBatches
-                batch = ProductBatches.objects.get(id=self.item_id)
+                batch = ProductBatches.objects.filter(id=self.item_id).first()
             else:
                 from .models import RawMaterialBatches
-                batch = RawMaterialBatches.objects.get(id=self.item_id)
+                batch = RawMaterialBatches.objects.filter(id=self.item_id).first()
 
-            if not batch.expiration_date:
+            if not batch or not batch.expiration_date:
                 return "has no expiration date"
 
             delta_days = (batch.expiration_date - today).days
@@ -727,6 +740,7 @@ class Discounts(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        managed = False
         db_table = "discounts"
 
     def __str__(self):
@@ -734,6 +748,20 @@ class Discounts(models.Model):
             return f"{self.name} ({self.value}%)"
         return f"{self.name} (-{self.value})"
     
+
+class UserActivity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    last_logout = models.DateTimeField(blank=True, null=True)
+    active = models.BooleanField(default=False)
+
+    class Meta:
+        managed = False
+        db_table = "user_activity"
+
+    def __str__(self):
+        return f"{self.user.username} Activity"
+
+
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
 

@@ -75,7 +75,8 @@ from realsproj.models import (
     SalesSummary,
     ExpensesSummary,
     Discounts,
-    ProductRecipes
+    ProductRecipes,
+    UserActivity
 )
 
 from django.db.models import Q, CharField
@@ -100,7 +101,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.utils import timezone
 from datetime import timedelta
-from .models import Sales # Siguraduhing na-import ang Sales model
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+
 
 @method_decorator(login_required, name='dispatch')
 
@@ -1799,3 +1801,33 @@ def export_expenses(request):
     writer.writerow([])
     writer.writerow(['', 'TOTAL EXPENSES', total_expenses])
     return response
+
+class UserActivityList(ListView):
+    model = User
+    context_object_name = 'users'
+    template_name = "user_activity_list.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        users = User.objects.all().select_related('useractivity').order_by('username')
+        if query:
+            users = users.filter(username__icontains=query)
+        return users
+
+
+@receiver(user_logged_in)
+def set_user_active(sender, user, request, **kwargs):
+    activity, created = UserActivity.objects.get_or_create(user=user)
+    activity.active = True
+    activity.save()
+
+@receiver(user_logged_out)
+def set_user_inactive(sender, user, request, **kwargs):
+    try:
+        activity = UserActivity.objects.get(user=user)
+        activity.active = False
+        activity.last_logout = timezone.now()
+        activity.save()
+    except UserActivity.DoesNotExist:
+        pass
