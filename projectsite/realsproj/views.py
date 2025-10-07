@@ -120,8 +120,8 @@ class HomePageView(LoginRequiredMixin, TemplateView):
 
         context['total_revenue'] = total_sales - total_expenses
 
-        context['total_stocks'] = ProductBatches.objects.aggregate(
-            total=Sum('quantity')
+        context['total_stocks'] = ProductInventory.objects.aggregate(
+            total=Sum('total_stock')
         )['total'] or 0
 
         context['recent_sales'] = Withdrawals.objects.filter(
@@ -1429,7 +1429,7 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
-        products = Products.objects.all().select_related(
+        products = Products.objects.all().order_by('id').select_related(
             "product_type", "variant", "size", "size_unit", "productinventory"
         )
         rawmaterials = RawMaterials.objects.all().select_related(
