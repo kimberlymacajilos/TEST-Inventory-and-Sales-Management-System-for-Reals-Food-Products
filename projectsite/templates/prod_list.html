@@ -3,37 +3,37 @@
 {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Products</h4>
+        <h4 class="page-title">Product List</h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <!-- Header -->
-<!-- Header -->
-<div class="card-header d-flex justify-content-between align-items-center">
-    <div>
-        <div class="card-title">List of Products</div>
-    </div>
-    <div class="d-flex align-items-center" style="gap:0.5rem;">
-<!-- Add Product button (standalone) -->
-<a href="{% url 'product-add' %}" class="btn btn-success btn-rounded">
-    Add Product
-</a>
 
-<!-- Dropdown for archive actions -->
-<div class="dropdown d-inline">
-    <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="archiveMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        Archive Options
-    </button>
-    <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
-        <a class="dropdown-item" href="{% url 'products-archived-list' %}">Show Archived</a>
-        <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldProductsModal">
-            Archive Old Data
-        </button>
-    </div>
-</div>
+                <!-- Header -->
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="card-title">List of Products</div>
+                    </div>
+                    <div class="d-flex align-items-center" style="gap:0.5rem;">
+                        
+                <!-- Dropdown for archive actions -->
+                <div class="dropdown d-inline">
+                    <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="archiveMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Archive Options
+                    </button>
+                    <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
+                        <a class="dropdown-item" href="{% url 'products-archived-list' %}">Show Archived</a>
+                        <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldProductsModal">
+                            Archive Old Data
+                        </button>
+                    </div>
+                </div>
 
-    </div>
-</div>
+                <!-- Add Product button (standalone) -->
+                <a href="{% url 'product-add' %}" class="btn btn-success btn-rounded">
+                    Add Product
+                </a>
+            </div>
+        </div>
 
 
                     <!-- Filters -->
@@ -63,13 +63,9 @@
                         <table class="table table-striped mt-3" id="productsTable">
                             <thead>
                                 <tr>
-                                    <th scope="col">Product Type</th>
-                                    <th scope="col">Product Variant</th>
-                                    <th scope="col">Size</th>
-                                    <th scope="col">Size Unit</th>
+                                    <th scope="col">Product</th>
                                     <th scope="col">Unit Price</th>
                                     <th scope="col">SRP Price</th>
-                                    <th scope="col">Barcode</th>
                                     <th scope="col">Date Created</th>
                                     <th scope="col">Description/Photo</th>
                                     <th scope="col">Actions</th>
@@ -78,13 +74,9 @@
                             <tbody id="productsTableBody">
                                 {% for object in products %}
                                 <tr>
-                                    <td>{{ object.product_type.name }}</td>
-                                    <td>{{ object.variant.name }}</td>
-                                    <td>{{ object.size.size_label }}</td>
-                                    <td>{{ object.size_unit.unit_name }}</td>
+                                    <td>{{ object.product_type.name }} - {{ object.variant.name }} ({{ object.size.size_label }} {{ object.size_unit.unit_name }})</td>
                                     <td>{{ object.unit_price.unit_price }}</td>
                                     <td>{{ object.srp_price.srp_price }}</td>
-                                    <td>{{ object.barcode|default:"N/A" }}</td>
                                     <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                     <td>
                                         <a href="#" data-toggle="modal" data-target="#viewProductModal{{ object.id }}">View</a>
