@@ -17,33 +17,46 @@
 
           <!-- Card Body -->
           <div class="card-body">
-            <!-- Search bar above table -->
-            <div class="row mb-3">
-              <div class="col-md-4">
-                <form id="inventorySearchForm">
-                  <input type="text" id="inventorySearchInput" class="form-control" placeholder="Search raw material inventory...">
-                </form>
+            <!-- Search bar -->
+            <form method="get" action="" id="filterForm">
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <div class="input-group">
+                    <input type="text" name="q" value="{{ request.GET.q }}" 
+                      class="form-control" placeholder="Search raw material inventory...">
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Table -->
-            <div class="table-responsive">
-              <table class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Material</th>
-                    <th>Current Stock</th>
-                    <th>Restock Threshold</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="inventoryTableBody">
-                  {% for item in rawmatinvent %}
-                  <tr>
-                    <td>{{ item.material.name }}</td>
-                    <td>{{ item.total_stock }}</td>
-                    <td>{{ item.reorder_threshold }}</td>
-                    <td>
+              <!-- Table -->
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Material</th>
+                      <th>Current Stock</th>
+                      <th>Restock Threshold</th>
+                      <th>
+                        <span class="fw-bold me-2">Status</span>
+                        <select name="status"
+                          style="border:none; background:transparent; font-weight:500; cursor:pointer;"
+                          onchange="document.getElementById('filterForm').submit();">
+                          <option value="" {% if not request.GET.status %}selected{% endif %}>All</option>
+                          <option value="on_stock" {% if request.GET.status == 'on_stock' %}selected{% endif %}>On Stock</option>
+                          <option value="low_stock" {% if request.GET.status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                          <option value="warning" {% if request.GET.status == 'warning' %}selected{% endif %}>Warning</option>
+                          <option value="out_of_stock" {% if request.GET.status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                        </select>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="inventoryTableBody">
+                    {% for item in rawmatinvent %}
+                    <tr>
+                      <td>{{ item.material.name }}</td>
+                      <td>{{ item.total_stock }}</td>
+                      <td>{{ item.reorder_threshold }}</td>
+                      <td>
                         {% if item.total_stock == 0 %}
                           <span class="badge bg-danger">Out of Stock</span>
                         {% elif item.total_stock < item.reorder_threshold %}
@@ -53,12 +66,17 @@
                         {% else %}
                           <span class="badge bg-success">On Stock</span>
                         {% endif %}
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="4" class="text-center">No inventory found.</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </form>
 
             <!-- Pagination -->
             <div class="pagination-container">
@@ -70,7 +88,4 @@
     </div>
   </div>
 </div>
-
-<!-- Include JS for AJAX search -->
-<script src="{% static 'js/rawmaterial_search.js' %}"></script>
 {% endblock %}

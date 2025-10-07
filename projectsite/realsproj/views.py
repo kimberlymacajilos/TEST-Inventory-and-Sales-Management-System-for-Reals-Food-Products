@@ -102,6 +102,8 @@ from django.views import View
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.db.models import Q, F, CharField
+from django.db.models.functions import Cast
 
 
 @method_decorator(login_required, name='dispatch')
@@ -1188,14 +1190,26 @@ class ProductInventoryList(ListView):
             queryset = queryset.annotate(
                 total_stock_str=Cast("total_stock", CharField()),
                 restock_threshold_str=Cast("restock_threshold", CharField()),
+            ).filter(
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
-            queryset = queryset.filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q)
-            )
+        status = self.request.GET.get("status", "")
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("restock_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("restock_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("restock_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset.order_by("product_id")
+
+
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'
@@ -1291,14 +1305,25 @@ class RawMaterialInventoryList(ListView):
     
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material").order_by('-material_id')
-        query = self.request.GET.get("q", "").strip()
 
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+
+        if q:
             queryset = queryset.filter(
-                Q(material__name__icontains=query) |
-                Q(total_stock__icontains=query) |
-                Q(reorder_threshold__icontains=query)
+                Q(material__name__icontains=q) |
+                Q(total_stock__icontains=q) |
+                Q(reorder_threshold__icontains=q)
             )
+
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("reorder_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("reorder_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("reorder_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset
 

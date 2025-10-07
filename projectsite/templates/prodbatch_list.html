@@ -16,14 +16,13 @@
                             <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
                                 Add Product Batch
                             </a>
-
                         </div>
                     </div>
 
                     <!-- Body -->
                     <div class="card-body">
                         <!-- Search + Filter -->
-                        <form class="row mb-4" id="filterForm" method="get">
+                        <form class="row mb-3" id="filterForm" method="get">
                             <div class="col-md-3">
                                 <input type="text" id="batchSearchInput" name="q" class="form-control"
                                     placeholder="Search product batches..." value="{{ request.GET.q }}">

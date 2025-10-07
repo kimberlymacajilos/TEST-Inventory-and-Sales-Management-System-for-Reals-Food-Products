@@ -22,9 +22,7 @@
                     </button>
                     <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
                         <a class="dropdown-item" href="{% url 'products-archived-list' %}">Show Archived</a>
-                        <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldProductsModal">
-                            Archive Old Data
-                        </button>
+                        <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldProductsModal">Archive Old Data</button>
                     </div>
                 </div>
 
@@ -38,7 +36,7 @@
 
                     <!-- Filters -->
                     <div class="card-body">
-                        <form method="get" id="filterForm" class="mb-4">
+                        <form method="get" id="filterForm" class="mb-3">
                             <div class="row">
                                 <div class="col-md-2">
                                     <input type="text" name="product_type" class="form-control"
