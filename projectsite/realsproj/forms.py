@@ -9,6 +9,16 @@ from django.forms import inlineformset_factory
 
 
 class ProductsForm(forms.ModelForm):
+    # ADD THIS - Barcode field
+    barcode = forms.CharField(
+        required=False,  # Optional, in case manual entry
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Scan or enter barcode',
+            'id': 'barcode-input'  # Important for WebSocket
+        })
+    )
+    
     product_type = forms.CharField(
         widget=forms.TextInput(attrs={'list': 'product_type-options'}))
     variant = forms.CharField(
@@ -40,12 +50,38 @@ class ProductsForm(forms.ModelForm):
             self.fields['size'].initial = self.instance.size.size_label if self.instance.size else ''
             self.fields['unit_price'].initial = self.instance.unit_price.unit_price
             self.fields['srp_price'].initial = self.instance.srp_price.srp_price
+            # ADD THIS - for edit mode
+            self.fields['barcode'].initial = self.instance.barcode
 
             self.initial['product_type'] = self.fields['product_type'].initial
             self.initial['variant'] = self.fields['variant'].initial
             self.initial['size'] = self.fields['size'].initial
             self.initial['unit_price'] = self.fields['unit_price'].initial
             self.initial['srp_price'] = self.fields['srp_price'].initial
+            # ADD THIS
+            self.initial['barcode'] = self.fields['barcode'].initial
+
+    # ADD THIS - Clean barcode method
+    def clean_barcode(self):
+        barcode = self.cleaned_data.get('barcode', '').strip()
+        
+        # If empty on edit, keep existing barcode instead of clearing it
+        if not barcode:
+            if self.instance and self.instance.pk:
+                return self.instance.barcode
+            return barcode
+        
+        # Check for duplicate barcode (exclude current instance if editing)
+        qs = Products.objects.filter(barcode=barcode)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        
+        if qs.exists():
+            raise forms.ValidationError(
+                f"Barcode '{barcode}' is already used by another product."
+            )
+        
+        return barcode
 
     def clean_product_type(self):
         name = self.cleaned_data['product_type'].strip()

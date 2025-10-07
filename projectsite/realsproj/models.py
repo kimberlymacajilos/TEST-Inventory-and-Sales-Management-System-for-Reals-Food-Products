@@ -541,6 +541,7 @@ class Products(models.Model):
     size = models.ForeignKey('Sizes', models.DO_NOTHING, blank=True, null=True)
     photo = models.ImageField(upload_to="product_photos/", blank=True, null=True)
     is_archived = models.BooleanField(default=False)
+    barcode = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         managed = False
