@@ -102,6 +102,8 @@ from django.views import View
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+import re
+from urllib.parse import urlparse, parse_qs
 
 
 @method_decorator(login_required, name='dispatch')
@@ -522,43 +524,37 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-        return context
-    
+        return context  
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user
-        
-        # Optional: Log barcode for debugging
-        barcode = form.cleaned_data.get('barcode')
-        if barcode:
-            print(f"📦 Saving product with barcode: {barcode}")
-        
-        self.object = form.save()
+        try:
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+            form.instance.created_by_admin = auth_user
 
-        messages.success(
-            self.request, 
-            f"✅ Product added successfully. Barcode: {self.object.barcode or 'N/A'}"
-        )
+            # Save ONE product
+            self.object = form.save()
+
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"❌ Product did not save. {e}")
+            return redirect(self.request.path)  
+
+        messages.success(self.request, "✅ Product added successfully.")
         return redirect('recipe-list', product_id=self.object.id)
-    
-    def form_invalid(self, form):
-        """Handle validation errors (e.g., duplicate barcode)"""
-        # Check if barcode error exists
-        if 'barcode' in form.errors:
-            messages.error(self.request, f"❌ {form.errors['barcode'][0]}")
-        else:
-            messages.error(self.request, "❌ Please correct the errors below.")
-        
-        return super().form_invalid(form)
 
-import re
-from urllib.parse import urlparse, parse_qs
+    def form_invalid(self, form):
+        messages.error(self.request, "⚠️ Please fill up all fields.")
+        return redirect(self.request.path)
+
+
+
 
 class ProductsUpdateView(UpdateView):
     model = Products
@@ -793,12 +789,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Raw Material created successfully.")
-        return response
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Raw material creation failed: {e}")
+            return redirect(self.request.path)  
+        messages.success(self.request, "✅ Raw material created successfully.")
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  
+
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -952,13 +959,23 @@ class SalesCreateView(CreateView):
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-    
+
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Sale creation failed: {e}")
+            return redirect(self.request.path)
         messages.success(self.request, "✅ Sale recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path) 
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -1068,12 +1085,22 @@ class ExpensesCreateView(CreateView):
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Expense creation failed: {e}")
+            return redirect(self.request.path)  # reset form
         messages.success(self.request, "✅ Expense recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  # reset form
 
 
 class ExpensesUpdateView(UpdateView):
