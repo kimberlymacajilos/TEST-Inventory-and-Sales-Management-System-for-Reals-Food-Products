@@ -348,20 +348,20 @@
   document.addEventListener("DOMContentLoaded", function() {
     {% for message in messages %}
       const type = "{{ message.tags }}";
-      const text = "{{ message|escapejs }}"(
-        "Product batch was not added — insufficient raw materials."
-      );
+      const text = "{{ message|escapejs }}";
+
+      const icon = {
+        success: 'la la-check-circle text-success',
+        error:   'la la-times-circle text-danger',
+        warning: 'la la-exclamation-circle text-warning',
+        info:    'la la-info-circle text-info'
+      }[type] || 'la la-info-circle text-info';
 
       const toastHTML = `
         <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
           <div class="toast-header">
-            <i class="me-2 ${
-              type === 'success' ? 'la la-check-circle text-success' :
-              type === 'error'   ? 'la la-times-circle text-danger' :
-              type === 'warning' ? 'la la-exclamation-circle text-warning' :
-                                   'la la-info-circle text-info'
-            }"></i>
-            <strong class="me-auto">Notification</strong>
+            <i class="me-2 ${icon}"></i>
+            <strong class="me-auto text-capitalize">${type}</strong>
             <small>Just now</small>
             <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>
@@ -371,9 +371,8 @@
       const container = document.getElementById("toast-container");
       container.insertAdjacentHTML("beforeend", toastHTML);
 
-      // Use Bootstrap 5 API
       const toastEl = container.querySelector(".toast:last-child");
-      const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 5000 });
+      const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
       bsToast.show();
     {% endfor %}
   });
