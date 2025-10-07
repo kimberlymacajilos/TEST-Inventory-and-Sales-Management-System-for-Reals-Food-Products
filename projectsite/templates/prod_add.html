@@ -86,12 +86,14 @@
                   <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
                 </div>
 
-              <!-- Photo Upload -->
-              <div class="form-group">
-                <label for="photo">Product Photo</label>
-                <div class="custom-file">
-                  {% render_field form.photo class="custom-file-input" id="photo" onchange="updateFileName()" %}
-                  <label class="custom-file-label" for="photo">Choose file</label>
+                <!-- Photo Upload -->
+                <div class="form-group">
+                  <label>Product Photo</label>
+                  <div class="custom-file">
+                    <input type="file" name="photo" class="custom-file-input" id="customFile" accept="image/*">
+                    <label class="custom-file-label" for="customFile">Choose file</label>
+                  </div>
+                  {% render_field form.photo class="form-control-file d-none" %}
                 </div>
               </div>            
                 <!-- Submit -->
@@ -112,4 +114,11 @@
     </div>
   </div>
 </div>
+
+<script>
+  document.querySelector('#customFile').addEventListener('change', function(e) {
+    var fileName = e.target.files[0].name;
+    e.target.nextElementSibling.textContent = fileName;
+  });
+</script>
 {% endblock %}

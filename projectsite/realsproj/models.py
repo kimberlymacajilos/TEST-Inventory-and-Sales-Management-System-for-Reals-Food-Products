@@ -209,7 +209,11 @@ class HistoryLog(models.Model):
             elif self.entity_type == "withdrawal":
                 w = Withdrawals.objects.get(pk=self.entity_id)
                 return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
-
+            
+            elif self.entity_type == "product_recipe":
+                pr = ProductRecipes.objects.select_related("product__product_type", "product__variant", "product__size_unit", "product__size", "material").get(pk=self.entity_id)
+                return f"{pr.product.product_type.name} - {pr.product.variant.name} ({pr.product.size.size_label if pr.product.size else ''} {pr.product.size_unit.unit_name}), Material: {pr.material.name}"
+            
             else:
                 return f"Entity #{self.entity_id}"
         except Exception:
@@ -317,7 +321,8 @@ class HistoryLog(models.Model):
                     b, a = humanize_field(key, before.get(key)), humanize_field(key, after.get(key))
                     if b != a:
                         diffs.append(f"{format_key(key)}: {b} → {a}")
-                return " | ".join(diffs) if diffs else "No changes"
+
+                return " | ".join(diffs) if diffs else "None"
 
             elif "after" in self.details:
                 after = self.details["after"]
