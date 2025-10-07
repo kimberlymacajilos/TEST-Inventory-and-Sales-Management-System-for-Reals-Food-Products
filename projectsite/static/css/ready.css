@@ -5264,8 +5264,8 @@ body {
 }
 
 [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
-  position: absolute;
-  left: -9999px;
+  position: static;
+  left: auto;
 }
 [type="checkbox"]:not(:checked) + .form-check-sign, [type="checkbox"]:checked + .form-check-sign {
   position: relative;
