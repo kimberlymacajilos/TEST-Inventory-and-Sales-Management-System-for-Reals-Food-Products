@@ -467,6 +467,9 @@ class ProductArchiveView(View):
         product = get_object_or_404(Products, pk=pk)
         product.is_archived = True
         product.save()
+        page = request.POST.get('page')
+        if page:
+            return redirect(f"{reverse('product-list')}?page={page}")
         return redirect('product-list')
 
 class ArchivedProductsListView(ListView):
@@ -648,6 +651,9 @@ class ProductsDeleteView(DeleteView):
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Product deleted successfully.")
+        page = self.request.POST.get('page')
+        if page:
+            return f"{reverse_lazy('products')}?page={page}"
         return super().get_success_url()
 
 class ProductRecipeListView(ListView):
