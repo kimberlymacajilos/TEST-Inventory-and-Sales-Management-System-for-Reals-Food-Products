@@ -107,8 +107,8 @@ class HomePageView(LoginRequiredMixin, TemplateView):
 
         context['total_revenue'] = total_sales - total_expenses
 
-        context['total_stocks'] = ProductBatches.objects.aggregate(
-            total=Sum('quantity')
+        context['total_stocks'] = ProductInventory.objects.aggregate(
+            total=Sum('total_stock')
         )['total'] or 0
 
         context['recent_sales'] = Withdrawals.objects.filter(
@@ -1358,7 +1358,7 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.all().order_by('-date')
+        queryset = Withdrawals.objects.all().order_by('date')
         request = self.request
 
         q = request.GET.get("q")
@@ -1410,7 +1410,7 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
-        products = Products.objects.all().select_related(
+        products = Products.objects.all().order_by('id').select_related(
             "product_type", "variant", "size", "size_unit", "productinventory"
         )
         rawmaterials = RawMaterials.objects.all().select_related(
@@ -1551,52 +1551,77 @@ class NotificationsList(ListView):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
 
+
 class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
 
     def get(self, request):
         form = BulkProductBatchForm()
-        return render(request, self.template_name, {'form': form, 'products': form.products})
+        return render(request, self.template_name, {
+            'form': form,
+            'products': form.products
+        })
 
     def post(self, request):
         form = BulkProductBatchForm(request.POST)
-        if form.is_valid():
-            batch_date = date.today() 
-            manufactured_date = form.cleaned_data['manufactured_date']
-            deduct_raw_material = form.cleaned_data['deduct_raw_material']
-            auth_user = AuthUser.objects.get(id=request.user.id)
 
-            try:
+        if not form.is_valid():
+            messages.error(request, "❌ Please fix the errors below before submitting.")
+            return render(request, self.template_name, {
+                'form': form,
+                'products': form.products
+            })
+
+        batch_date = date.today()
+        manufactured_date = form.cleaned_data['manufactured_date']
+        deduct_raw_material = form.cleaned_data['deduct_raw_material']
+        auth_user = AuthUser.objects.get(id=request.user.id)
+
+        try:
+            with transaction.atomic():
                 added_any = False
+
                 for product_info in form.products:
                     product = product_info['product']
                     qty = form.cleaned_data.get(f'product_{product.id}_qty')
-                    if qty:
-                        ProductBatches.objects.create(
-                            product=product,
-                            quantity=qty,
-                            batch_date=batch_date,
-                            manufactured_date=manufactured_date,
-                            created_by_admin=auth_user,
-                            deduct_raw_material=deduct_raw_material
-                        )
-                        added_any = True
 
-                if added_any:
-                    messages.success(request, "✅ Product Batch added successfully.")
-                else:
-                    messages.warning(request, "⚠️ No product quantities were entered.")
+                    if not qty or float(qty) <= 0:
+                        continue
 
-                return redirect("product-batch")
+                    ProductBatches.objects.create(
+                        product=product,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        manufactured_date=manufactured_date,
+                        created_by_admin=auth_user,
+                        deduct_raw_material=deduct_raw_material,
+                    )
+                    added_any = True
 
-            except Exception as e:
-                messages.error(
-                    request,
-                    f"❌ Product Batch not added: insufficient raw materials."
-                )
-                return redirect("product-batch")
+                if not added_any:
+                    raise ValueError("⚠️ No product quantities were entered.")
 
-        return render(request, self.template_name, {'form': form, 'products': form.products})
+        except Exception as e:
+            error_message = str(e)
+
+            if "Not enough stock" in error_message:
+                error_message = error_message.split("CONTEXT:")[0].strip()
+            elif "insufficient" in error_message.lower():
+                error_message = "❌ Insufficient raw materials to create this batch."
+            elif "No product quantities" in error_message:
+                error_message = "⚠️ No product quantities were entered."
+            else:
+                error_message = f"❌ {error_message}"
+
+            messages.error(request, error_message)
+
+            return render(request, self.template_name, {
+                'form': form,
+                'products': form.products
+            })
+
+        messages.success(request, "✅ Product Batch added successfully.")
+        return redirect("product-batch")
 
 
 class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
