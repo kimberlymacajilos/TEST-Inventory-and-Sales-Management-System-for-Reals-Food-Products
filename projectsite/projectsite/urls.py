@@ -40,7 +40,7 @@ urlpatterns = [
     path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
     path("products/add-barcode/", a.product_add_barcode, name="product-add-barcode"),
     path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
-
+   
 
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials-list'),
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
@@ -76,6 +76,8 @@ urlpatterns = [
     path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
     path('prodbatch/<pk>', a.ProductBatchUpdateView.as_view(), name='product-batch-edit'),
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
+    path('prodbatch/add_barcode/', a.product_batch_add_barcode, name='product-batch-add-barcode'),
+    path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'), # Add this line
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
 

@@ -8,12 +8,26 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">Use your phone camera</div>
-        <div class="card-category text-danger">
-          ⚠ Camera requires HTTPS (use ngrok link)
+        <div class="card-category">
+          <span id="scanner-conn" class="badge badge-secondary">WS: Connecting…</span>
+          <span id="scanner-cam" class="badge badge-info">Camera: -</span>
+          <span id="scanner-last" class="badge badge-light">Last: -</span>
         </div>
       </div>
       <div class="card-body">
-        <div id="reader" style="width:100%; min-height:400px; border:1px solid #ccc;"></div>
+        <div class="mb-3 d-flex align-items-center" style="gap:0.5rem; flex-wrap:wrap;">
+          <select id="cameraSelect" class="form-control" style="max-width:260px;"></select>
+          <button id="switchCamera" type="button" class="btn btn-outline-primary btn-sm">Switch</button>
+          <button id="toggleTorch" type="button" class="btn btn-outline-warning btn-sm" disabled>Torch</button>
+          <button id="toggleSound" type="button" class="btn btn-outline-secondary btn-sm" aria-pressed="true">Sound: On</button>
+        </div>
+        <div id="reader-wrap" style="position:relative; width:100%; min-height:420px;">
+          <div id="reader" style="width:100%; min-height:420px; border:1px solid #ccc; border-radius:8px; overflow:hidden;"></div>
+          <div class="scan-overlay" aria-hidden="true"></div>
+        </div>
+        <audio id="beep" preload="auto">
+          <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg">
+        </audio>
       </div>
     </div>
   </div>
@@ -22,42 +36,166 @@
 <!-- html5-qrcode -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 
+<style>
+.scan-overlay { position:absolute; inset:0; pointer-events:none; }
+.scan-overlay::before {
+  content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:70vmin; max-width:80%; aspect-ratio:1/1; border:2px solid rgba(0,0,0,0.0);
+  box-shadow: 0 0 0 200vmax rgba(0,0,0,0.35) inset; border-radius:12px;
+}
+.scan-overlay::after {
+  content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:70vmin; max-width:80%; aspect-ratio:1/1; border-radius:12px;
+  box-shadow:
+    0 -16px 0 -14px #00d1b2,
+    16px 0 0 -14px #00d1b2,
+    0 16px 0 -14px #00d1b2,
+    -16px 0 0 -14px #00d1b2;
+}
+</style>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  const socket = new WebSocket("wss://{{ request.get_host }}/ws/scan/");
-  // ^ ito automatic gagamit ng ngrok host (https → wss)
+  const connBadge = document.getElementById("scanner-conn");
+  const camBadge = document.getElementById("scanner-cam");
+  const lastBadge = document.getElementById("scanner-last");
+  const cameraSelect = document.getElementById("cameraSelect");
+  const switchBtn = document.getElementById("switchCamera");
+  const torchBtn = document.getElementById("toggleTorch");
+  const soundBtn = document.getElementById("toggleSound");
+  const beep = document.getElementById('beep');
 
-  const html5QrCode = new Html5Qrcode("reader");
-  let lastScannedCode = null; // <-- Idagdag ito
+  let playSound = true;
+  let socket = null;
+  let reconnectAttempts = 0;
+  let html5QrCode = null;
+  let activeCameraId = null;
+  let lastScanned = "";
+  let lastTime = 0;
+  let torchOn = false;
+
+  function updateConn(status, cls){
+    connBadge.textContent = `WS: ${status}`;
+    connBadge.className = `badge ${cls}`;
+  }
+  function updateCam(label){ camBadge.textContent = `Camera: ${label||'-'}`; }
+  function updateLast(code){ lastBadge.textContent = `Last: ${code||'-'}`; }
+
+  function wsUrl(){
+    const proto = (location.protocol === 'https:') ? 'wss://' : 'ws://';
+    return proto + location.host + '/ws/scan/';
+  }
+
+  function connectSocket(){
+    try { if (socket) { socket.close(); } } catch(e){}
+    updateConn('Connecting…','badge-secondary');
+    socket = new WebSocket(wsUrl());
+    socket.onopen = () => { reconnectAttempts = 0; updateConn('Connected','badge-success'); };
+    socket.onclose = () => {
+      updateConn('Disconnected','badge-danger');
+      const timeout = Math.min(10000, 1000 * Math.pow(2, reconnectAttempts++));
+      setTimeout(connectSocket, timeout);
+    };
+    socket.onerror = () => { updateConn('Error','badge-danger'); };
+  }
+
+  function sendScan(code){
+    if (!code) return;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ barcode: code }));
+    }
+  }
+
+  async function startCamera(cameraId){
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    if (html5QrCode._isScanning) {
+      try { await html5QrCode.stop(); } catch(e){}
+    }
+    activeCameraId = cameraId;
+    updateCam('starting…');
+    const aspect = Math.min(window.innerWidth * 0.8, 500);
+    try {
+      await html5QrCode.start(
+        cameraId,
+        { fps: 15, qrbox: { width: aspect, height: aspect } },
+        onScan
+      );
+      updateCam(cameraSelect.options[cameraSelect.selectedIndex]?.text || 'Active');
+      // Try enabling torch capability check (may fail silently)
+      torchBtn.disabled = false;
+    } catch (err) {
+      console.error('Camera start failed:', err);
+      alert('Failed to start camera. Please allow camera permission.');
+    }
+  }
+
+  async function toggleTorch(){
+    if (!html5QrCode) return;
+    try {
+      await html5QrCode.applyVideoConstraints({ advanced: [{ torch: !torchOn }] });
+      torchOn = !torchOn;
+      torchBtn.classList.toggle('btn-warning', !torchOn);
+      torchBtn.classList.toggle('btn-success', torchOn);
+      torchBtn.textContent = torchOn ? 'Torch: On' : 'Torch';
+    } catch(e) {
+      // Torch not supported
+      torchBtn.disabled = true;
+    }
+  }
+
+  function onScan(decodedText){
+    const now = Date.now();
+    // Debounce: ignore scans within 800ms
+    if (now - lastTime < 800) return;
+    // Suppress duplicates
+    if (decodedText === lastScanned) return;
+
+    lastScanned = decodedText;
+    lastTime = now;
+
+    updateLast(decodedText);
+    if (playSound) { try { beep.currentTime = 0; beep.play(); } catch(e){} }
+    if (navigator.vibrate) { navigator.vibrate(50); }
+    sendScan(decodedText);
+
+    // clear last after 1.2s to allow same code again later
+    setTimeout(() => { lastScanned = ""; }, 1200);
+  }
 
   Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-      let backCamera = cameras.find(cam => cam.label.toLowerCase().includes("back")) || cameras[0];
-      html5QrCode.start(
-        backCamera.id,
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        function(decodedText) {
-          // --- Simula ng pagbabago ---
-          // Ipadala lang kung iba sa huling na-scan
-          if (decodedText !== lastScannedCode) {
-            lastScannedCode = decodedText;
-            console.log("Scanned:", decodedText);
-
-            // send scanned barcode via WebSocket to Django Channels
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ barcode: decodedText }));
-            }
-          }
-          // --- Wakas ng pagbabago ---
-        }
-      ).catch(err => console.error("Camera start failed:", err));
-    } else {
-      alert("No cameras found.");
-    }
+    if (!cameras || !cameras.length) { alert('No cameras found.'); return; }
+    cameraSelect.innerHTML = '';
+    cameras.forEach((cam, idx) => {
+      const opt = document.createElement('option');
+      opt.value = cam.id;
+      opt.text = cam.label || `Camera ${idx+1}`;
+      cameraSelect.appendChild(opt);
+    });
+    const back = cameras.find(c => (c.label||'').toLowerCase().includes('back')) || cameras[0];
+    cameraSelect.value = back.id;
+    startCamera(back.id);
   }).catch(err => {
-    console.error("Camera error:", err);
-    alert("Camera access failed. Use HTTPS (ngrok).");
+    console.error('Camera error:', err);
+    alert('Camera access failed. Use HTTPS when on phone.');
   });
+
+  switchBtn.addEventListener('click', () => {
+    const idx = cameraSelect.selectedIndex;
+    const next = (idx + 1) % cameraSelect.options.length;
+    cameraSelect.selectedIndex = next;
+    startCamera(cameraSelect.value);
+  });
+
+  cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
+  torchBtn.addEventListener('click', toggleTorch);
+  soundBtn.addEventListener('click', () => {
+    playSound = !playSound;
+    soundBtn.classList.toggle('btn-outline-secondary', playSound);
+    soundBtn.classList.toggle('btn-secondary', !playSound);
+    soundBtn.textContent = playSound ? 'Sound: On' : 'Sound: Off';
+  });
+
+  connectSocket();
 });
 </script>
 {% endblock %}

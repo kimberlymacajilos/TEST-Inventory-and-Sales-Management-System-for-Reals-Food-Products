@@ -438,10 +438,43 @@ class ProductsList(ListView):
 
 from django.shortcuts import render
 
+from django.shortcuts import render, redirect
+from .forms import ProductsForm  # Import your ProductsForm
+from .models import Products, ProductTypes, ProductVariants, Sizes  # Import your Products model
+
 def product_add_barcode(request):
-    return render(request, "product_add_barcode.html")
+    if request.method == 'POST':
+        form = ProductsForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Check if a product with the given barcode already exists
+            barcode = request.POST.get('barcode')
+            if Products.objects.filter(barcode=barcode).exists():
+                form.add_error('barcode', 'Product with this barcode already exists.')
+                return render(request, "product_add_barcode.html", {
+                    'form': form,
+                    'product_types': ProductTypes.objects.all(),
+                    'variants': ProductVariants.objects.all(),
+                    'sizes': Sizes.objects.all(),
+                })
+
+            product = form.save()
+            return redirect('products')  # Redirect to product list or detail view
+    else:
+        form = ProductsForm()
+
+    return render(request, "product_add_barcode.html", {
+        'form': form,
+        'product_types': ProductTypes.objects.all(),
+        'variants': ProductVariants.objects.all(),
+        'sizes': Sizes.objects.all(),
+    })
+
 
 from django.shortcuts import render
+
+def product_batch_add_barcode(request):
+    # Add your logic here to handle adding a product batch via barcode
+    return render(request, 'product_batch_add_barcode.html')
 
 def product_scan_phone(request):
     # ito yung scanner-only view para sa phone
@@ -500,38 +533,85 @@ class ProductCreateView(CreateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+        
+        # Optional: Log barcode for debugging
+        barcode = form.cleaned_data.get('barcode')
+        if barcode:
+            print(f"📦 Saving product with barcode: {barcode}")
+        
         self.object = form.save()
 
-        messages.success(self.request, "✅ Product added successfully.")
+        messages.success(
+            self.request, 
+            f"✅ Product added successfully. Barcode: {self.object.barcode or 'N/A'}"
+        )
         return redirect('recipe-list', product_id=self.object.id)
+    
+    def form_invalid(self, form):
+        """Handle validation errors (e.g., duplicate barcode)"""
+        # Check if barcode error exists
+        if 'barcode' in form.errors:
+            messages.error(self.request, f"❌ {form.errors['barcode'][0]}")
+        else:
+            messages.error(self.request, "❌ Please correct the errors below.")
+        
+        return super().form_invalid(form)
 
+import re
+from urllib.parse import urlparse, parse_qs
 
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
     template_name = "prod_edit.html"
-    success_url = reverse_lazy("products")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Add all required context data
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-
         context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
+        
+        # Store the current page number
+        referer = self.request.META.get('HTTP_REFERER', '')
+        if 'page=' in referer:
+            try:
+                context['current_page'] = re.search(r'page=(\d+)', referer).group(1)
+            except (AttributeError, IndexError):
+                pass
+        
         return context
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        kwargs['created_by_admin'] = auth_user
-        return kwargs
-    
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
 
+    def get_success_url(self):
+        # Try to get page from POST data first
+        page = self.request.POST.get('current_page')
+        
+        # If not in POST, try to get from session
+        if not page and 'current_page' in self.request.session:
+            page = self.request.session['current_page']
+            
+        # Construct URL with page if available
+        url = reverse('products')
+        if page:
+            url = f'{url}?page={page}'
+            
+        return url
+
+    def post(self, request, *args, **kwargs):
+        # Store the current page in session
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'page=' in referer:
+            try:
+                page = re.search(r'page=(\d+)', referer).group(1)
+                request.session['current_page'] = page
+            except (AttributeError, IndexError):
+                pass
+
+        # Handle photo deletion
+        self.object = self.get_object()
         if "delete_photo" in request.POST:
             if self.object.photo:
                 self.object.photo = None
@@ -539,7 +619,6 @@ class ProductsUpdateView(UpdateView):
                 messages.success(request, "Product photo deleted.")
             else:
                 messages.info(request, "No photo to delete.")
-
             return redirect(reverse("product-edit", kwargs={"pk": self.object.pk}))
 
         return super().post(request, *args, **kwargs)
@@ -549,7 +628,9 @@ class ProductsUpdateView(UpdateView):
         form.instance.created_by_admin = auth_user
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
-        return redirect(self.success_url)
+        
+        # Use get_success_url() to maintain the page number
+        return redirect(self.get_success_url())
 
 @receiver(pre_save, sender=Products)
 def delete_old_product_photo_on_change(sender, instance, **kwargs):
