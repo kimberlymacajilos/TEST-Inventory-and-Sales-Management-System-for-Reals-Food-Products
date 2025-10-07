@@ -71,7 +71,7 @@
                                     <th scope="col">SRP Price</th>
                                     <th scope="col">Barcode</th>
                                     <th scope="col">Date Created</th>
-                                    <th scope="col">Description/Photo</th>
+                                    <th scope="col" class="text-nowrap">Description/Photo</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -87,7 +87,9 @@
                                     <td>{{ object.barcode|default:"N/A" }}</td>
                                     <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
                                     <td>
-                                        <a href="#" data-toggle="modal" data-target="#viewProductModal{{ object.id }}">View</a>
+                                        <a href="#" data-toggle="modal" data-target="#viewProductModal{{ object.id }}" class="text-secondary" title="View">
+                                            <i class="la la-eye la-lg"></i>
+                                        </a>
                                     </td>
                                     <td>
                                         <a href="{% url 'product-edit' object.id %}" class="text-primary" title="Edit">
