@@ -476,6 +476,12 @@ class ProductArchiveOldView(View):
         Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('product-list')
 
+from django.views.generic import CreateView
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.db import transaction
+
 class ProductCreateView(CreateView):
     model = Products
     form_class = ProductsForm
@@ -489,22 +495,35 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-        
+        return context  # ✅ importante!
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user
+        try:
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+            form.instance.created_by_admin = auth_user
 
-        # Save ONE product
-        self.object = form.save()
+            # Save ONE product
+            self.object = form.save()
+
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"❌ Product did not save. {e}")
+            return redirect(self.request.path)  
 
         messages.success(self.request, "✅ Product added successfully.")
         return redirect('recipe-list', product_id=self.object.id)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "⚠️ Please fill up all fied.")
+        return redirect(self.request.path)  
+
     
 
 
@@ -714,13 +733,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Raw Material created successfully.")
-        return response
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Raw material creation failed: {e}")
+            return redirect(self.request.path)  
+        messages.success(self.request, "✅ Raw material created successfully.")
+        return redirect(self.success_url)
 
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  
+    
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
     form_class = RawMaterialsForm
@@ -873,13 +902,23 @@ class SalesCreateView(CreateView):
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-    
+
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Sale creation failed: {e}")
+            return redirect(self.request.path)
         messages.success(self.request, "✅ Sale recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path) 
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -989,12 +1028,22 @@ class ExpensesCreateView(CreateView):
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Expense creation failed: {e}")
+            return redirect(self.request.path)  # reset form
         messages.success(self.request, "✅ Expense recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  # reset form
 
 
 class ExpensesUpdateView(UpdateView):
