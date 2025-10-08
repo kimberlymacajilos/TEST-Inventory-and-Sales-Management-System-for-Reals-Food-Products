@@ -9,11 +9,11 @@ body {
 /* CONTAINER */
 .login-container {
   display: flex;
-  height: 100vh;      /* buong taas */
-  width: 100vw;       /* buong lapad */
-  margin: 0;          /* alisin centering */
-  border-radius: 0;   /* alisin rounded corners */
-  box-shadow: none;   /* alisin shadow */
+  height: 100vh;      
+  width: 100vw;      
+  margin: 0;         
+  border-radius: 0;  
+  box-shadow: none;  
 }
 
 /* LEFT SIDE */
@@ -241,4 +241,3 @@ button:hover {
     padding: 10px;
   }
 }
-/* END OF CSS FILE */

@@ -1,201 +1,319 @@
-{% extends 'base.html' %}
-{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Phone Scanner - Real's Food Products</title>
 
-{% block content %}
-<div class="content">
-  <div class="container-fluid">
-    <h4 class="page-title">Phone Scanner</h4>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Use your phone camera</div>
-        <div class="card-category">
-          <span id="scanner-conn" class="badge badge-secondary">WS: Connecting…</span>
-          <span id="scanner-cam" class="badge badge-info">Camera: -</span>
-          <span id="scanner-last" class="badge badge-light">Last: -</span>
+    <!-- Bootstrap CSS (minimal) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .scanner-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            background: linear-gradient(135deg, #BBD8A3, #F0F1C5);
+        }
+
+        .scanner-header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .scanner-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .status-badges {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            font-size: 0.875rem;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+        }
+
+        .reader-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            min-height: 300px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        #reader {
+            width: 100%;
+            height: 100%;
+            border-radius: 15px;
+        }
+
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .scan-overlay::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70vmin;
+            max-width: 85%;
+            aspect-ratio: 1/1;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 0 200vmax rgba(0,0,0,0.5) inset;
+            border-radius: 12px;
+        }
+
+        .scan-overlay::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70vmin;
+            max-width: 85%;
+            aspect-ratio: 1/1;
+            border-radius: 12px;
+            box-shadow:
+                0 -16px 0 -14px #00d1b2,
+                16px 0 0 -14px #00d1b2,
+                0 16px 0 -14px #00d1b2,
+                -16px 0 0 -14px #00d1b2;
+        }
+
+        .mobile-optimized {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Hide scrollbar for cleaner look */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Ensure full screen on mobile */
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="mobile-optimized">
+    <div class="scanner-container">
+        <div class="scanner-header">
+            <h1 class="scanner-title">Real's Phone Scanner</h1>
+            <div class="status-badges">
+                <span id="scanner-conn" class="badge badge-secondary">WS: Connecting…</span>
+                <span id="scanner-cam" class="badge badge-info">Camera: -</span>
+                <span id="scanner-last" class="badge badge-light">Last: -</span>
+            </div>
         </div>
-      </div>
-      <div class="card-body">
-        <div class="mb-3 d-flex align-items-center" style="gap:0.5rem; flex-wrap:wrap;">
-          <select id="cameraSelect" class="form-control" style="max-width:260px;"></select>
-          <button id="switchCamera" type="button" class="btn btn-outline-primary btn-sm">Switch</button>
-          <button id="toggleTorch" type="button" class="btn btn-outline-warning btn-sm" disabled>Torch</button>
-          <button id="toggleSound" type="button" class="btn btn-outline-secondary btn-sm" aria-pressed="true">Sound: On</button>
+
+        <div class="controls">
+            <button id="toggleTorch" type="button" class="btn btn-warning btn-sm" disabled>🔦 Torch</button>
+            <button id="toggleSound" type="button" class="btn btn-outline-light btn-sm" aria-pressed="true">🔊 Sound: On</button>
         </div>
-        <div id="reader-wrap" style="position:relative; width:100%; min-height:420px;">
-          <div id="reader" style="width:100%; min-height:420px; border:1px solid #ccc; border-radius:8px; overflow:hidden;"></div>
-          <div class="scan-overlay" aria-hidden="true"></div>
+
+        <div class="reader-wrapper">
+            <div id="reader"></div>
+            <div class="scan-overlay" aria-hidden="true"></div>
         </div>
+
         <audio id="beep" preload="auto">
-          <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg">
+            <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg">
         </audio>
-      </div>
     </div>
-  </div>
-</div>
 
-<!-- html5-qrcode -->
-<script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- html5-qrcode library -->
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
 
-<style>
-.scan-overlay { position:absolute; inset:0; pointer-events:none; }
-.scan-overlay::before {
-  content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:70vmin; max-width:80%; aspect-ratio:1/1; border:2px solid rgba(0,0,0,0.0);
-  box-shadow: 0 0 0 200vmax rgba(0,0,0,0.35) inset; border-radius:12px;
-}
-.scan-overlay::after {
-  content:""; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-  width:70vmin; max-width:80%; aspect-ratio:1/1; border-radius:12px;
-  box-shadow:
-    0 -16px 0 -14px #00d1b2,
-    16px 0 0 -14px #00d1b2,
-    0 16px 0 -14px #00d1b2,
-    -16px 0 0 -14px #00d1b2;
-}
-</style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const connBadge = document.getElementById("scanner-conn");
+            const camBadge = document.getElementById("scanner-cam");
+            const lastBadge = document.getElementById("scanner-last");
+            const torchBtn = document.getElementById("toggleTorch");
+            const soundBtn = document.getElementById("toggleSound");
+            const beep = document.getElementById('beep');
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const connBadge = document.getElementById("scanner-conn");
-  const camBadge = document.getElementById("scanner-cam");
-  const lastBadge = document.getElementById("scanner-last");
-  const cameraSelect = document.getElementById("cameraSelect");
-  const switchBtn = document.getElementById("switchCamera");
-  const torchBtn = document.getElementById("toggleTorch");
-  const soundBtn = document.getElementById("toggleSound");
-  const beep = document.getElementById('beep');
+            let playSound = true;
+            let socket = null;
+            let reconnectAttempts = 0;
+            let html5QrCode = null;
+            let lastScanned = "";
+            let lastTime = 0;
+            let torchOn = false;
 
-  let playSound = true;
-  let socket = null;
-  let reconnectAttempts = 0;
-  let html5QrCode = null;
-  let activeCameraId = null;
-  let lastScanned = "";
-  let lastTime = 0;
-  let torchOn = false;
+            function updateConn(status, cls){
+                connBadge.textContent = `WS: ${status}`;
+                connBadge.className = `badge ${cls}`;
+            }
 
-  function updateConn(status, cls){
-    connBadge.textContent = `WS: ${status}`;
-    connBadge.className = `badge ${cls}`;
-  }
-  function updateCam(label){ camBadge.textContent = `Camera: ${label||'-'}`; }
-  function updateLast(code){ lastBadge.textContent = `Last: ${code||'-'}`; }
+            function updateCam(label){
+                camBadge.textContent = `Camera: ${label||'-'}`;
+            }
 
-  function wsUrl(){
-    const proto = (location.protocol === 'https:') ? 'wss://' : 'ws://';
-    return proto + location.host + '/ws/scan/';
-  }
+            function updateLast(code){
+                lastBadge.textContent = `Last: ${code||'-'}`;
+            }
 
-  function connectSocket(){
-    try { if (socket) { socket.close(); } } catch(e){}
-    updateConn('Connecting…','badge-secondary');
-    socket = new WebSocket(wsUrl());
-    socket.onopen = () => { reconnectAttempts = 0; updateConn('Connected','badge-success'); };
-    socket.onclose = () => {
-      updateConn('Disconnected','badge-danger');
-      const timeout = Math.min(10000, 1000 * Math.pow(2, reconnectAttempts++));
-      setTimeout(connectSocket, timeout);
-    };
-    socket.onerror = () => { updateConn('Error','badge-danger'); };
-  }
+            function wsUrl(){
+                const proto = (location.protocol === 'https:') ? 'wss://' : 'ws://';
+                return proto + location.host + '/ws/scan/';
+            }
 
-  function sendScan(code){
-    if (!code) return;
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ barcode: code }));
-    }
-  }
+            function connectSocket(){
+                try { if (socket) { socket.close(); } } catch(e){}
+                updateConn('Connecting…','badge-secondary');
+                socket = new WebSocket(wsUrl());
+                socket.onopen = () => { reconnectAttempts = 0; updateConn('Connected','badge-success'); };
+                socket.onclose = () => {
+                    updateConn('Disconnected','badge-danger');
+                    const timeout = Math.min(10000, 1000 * Math.pow(2, reconnectAttempts++));
+                    setTimeout(connectSocket, timeout);
+                };
+                socket.onerror = () => { updateConn('Error','badge-danger'); };
+            }
 
-  async function startCamera(cameraId){
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-    if (html5QrCode._isScanning) {
-      try { await html5QrCode.stop(); } catch(e){}
-    }
-    activeCameraId = cameraId;
-    updateCam('starting…');
-    const aspect = Math.min(window.innerWidth * 0.8, 500);
-    try {
-      await html5QrCode.start(
-        cameraId,
-        { fps: 15, qrbox: { width: aspect, height: aspect } },
-        onScan
-      );
-      updateCam(cameraSelect.options[cameraSelect.selectedIndex]?.text || 'Active');
-      // Try enabling torch capability check (may fail silently)
-      torchBtn.disabled = false;
-    } catch (err) {
-      console.error('Camera start failed:', err);
-      alert('Failed to start camera. Please allow camera permission.');
-    }
-  }
+            function sendScan(code){
+                if (!code) return;
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ barcode: code }));
+                }
+            }
 
-  async function toggleTorch(){
-    if (!html5QrCode) return;
-    try {
-      await html5QrCode.applyVideoConstraints({ advanced: [{ torch: !torchOn }] });
-      torchOn = !torchOn;
-      torchBtn.classList.toggle('btn-warning', !torchOn);
-      torchBtn.classList.toggle('btn-success', torchOn);
-      torchBtn.textContent = torchOn ? 'Torch: On' : 'Torch';
-    } catch(e) {
-      // Torch not supported
-      torchBtn.disabled = true;
-    }
-  }
+            async function startCamera(){
+                if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-  function onScan(decodedText){
-    const now = Date.now();
-    // Debounce: ignore scans within 800ms
-    if (now - lastTime < 800) return;
-    // Suppress duplicates
-    if (decodedText === lastScanned) return;
+                // Calculate optimal size for mobile
+                const containerWidth = document.querySelector('.reader-wrapper').offsetWidth - 20;
+                const aspect = Math.min(containerWidth, window.innerHeight * 0.6);
 
-    lastScanned = decodedText;
-    lastTime = now;
+                try {
+                    // Get available cameras and find back camera
+                    const cameras = await Html5Qrcode.getCameras();
+                    if (!cameras || !cameras.length) {
+                        alert('No cameras found.');
+                        return;
+                    }
 
-    updateLast(decodedText);
-    if (playSound) { try { beep.currentTime = 0; beep.play(); } catch(e){} }
-    if (navigator.vibrate) { navigator.vibrate(50); }
-    sendScan(decodedText);
+                    const backCamera = cameras.find(c => (c.label||'').toLowerCase().includes('back')) || cameras[0];
 
-    // clear last after 1.2s to allow same code again later
-    setTimeout(() => { lastScanned = ""; }, 1200);
-  }
+                    await html5QrCode.start(
+                        backCamera.id,
+                        {
+                            fps: 15,
+                            qrbox: { width: aspect, height: aspect },
+                            experimentalFeatures: {
+                                useBarCodeDetectorIfSupported: false
+                            }
+                        },
+                        onScan
+                    );
+                    updateCam('Back Camera');
+                    // Try enabling torch capability check (may fail silently)
+                    torchBtn.disabled = false;
+                } catch (err) {
+                    console.error('Camera start failed:', err);
+                    alert('Failed to start camera. Please allow camera permission.');
+                }
+            }
 
-  Html5Qrcode.getCameras().then(cameras => {
-    if (!cameras || !cameras.length) { alert('No cameras found.'); return; }
-    cameraSelect.innerHTML = '';
-    cameras.forEach((cam, idx) => {
-      const opt = document.createElement('option');
-      opt.value = cam.id;
-      opt.text = cam.label || `Camera ${idx+1}`;
-      cameraSelect.appendChild(opt);
-    });
-    const back = cameras.find(c => (c.label||'').toLowerCase().includes('back')) || cameras[0];
-    cameraSelect.value = back.id;
-    startCamera(back.id);
-  }).catch(err => {
-    console.error('Camera error:', err);
-    alert('Camera access failed. Use HTTPS when on phone.');
-  });
+            async function toggleTorch(){
+                if (!html5QrCode) return;
+                try {
+                    await html5QrCode.applyVideoConstraints({
+                        advanced: [{ torch: !torchOn }],
+                        facingMode: 'environment'
+                    });
+                    torchOn = !torchOn;
+                    torchBtn.classList.toggle('btn-warning', !torchOn);
+                    torchBtn.classList.toggle('btn-success', torchOn);
+                    torchBtn.textContent = torchOn ? '🔦 Torch: On' : '🔦 Torch';
+                } catch(e) {
+                    // Torch not supported
+                    torchBtn.disabled = true;
+                }
+            }
 
-  switchBtn.addEventListener('click', () => {
-    const idx = cameraSelect.selectedIndex;
-    const next = (idx + 1) % cameraSelect.options.length;
-    cameraSelect.selectedIndex = next;
-    startCamera(cameraSelect.value);
-  });
+            function onScan(decodedText){
+                const now = Date.now();
+                // Debounce: ignore scans within 800ms
+                if (now - lastTime < 800) return;
+                // Suppress duplicates
+                if (decodedText === lastScanned) return;
 
-  cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
-  torchBtn.addEventListener('click', toggleTorch);
-  soundBtn.addEventListener('click', () => {
-    playSound = !playSound;
-    soundBtn.classList.toggle('btn-outline-secondary', playSound);
-    soundBtn.classList.toggle('btn-secondary', !playSound);
-    soundBtn.textContent = playSound ? 'Sound: On' : 'Sound: Off';
-  });
+                lastScanned = decodedText;
+                lastTime = now;
 
-  connectSocket();
-});
-</script>
-{% endblock %}
+                updateLast(decodedText);
+                if (playSound) { try { beep.currentTime = 0; beep.play(); } catch(e){} }
+                if (navigator.vibrate) { navigator.vibrate(50); }
+                sendScan(decodedText);
+
+                // clear last after 1.2s to allow same code again later
+                setTimeout(() => { lastScanned = ""; }, 1200);
+            }
+
+            // Initialize camera and socket connection
+            startCamera().catch(err => {
+                console.error('Camera error:', err);
+                alert('Camera access failed. Use HTTPS when on phone.');
+            });
+
+            torchBtn.addEventListener('click', toggleTorch);
+            soundBtn.addEventListener('click', () => {
+                playSound = !playSound;
+                soundBtn.classList.toggle('btn-outline-light', playSound);
+                soundBtn.classList.toggle('btn-light', !playSound);
+                soundBtn.textContent = playSound ? '🔊 Sound: On' : '🔇 Sound: Off';
+            });
+
+            connectSocket();
+        });
+    </script>
+</body>
+</html>
