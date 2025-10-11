@@ -420,43 +420,7 @@ class ProductsList(ListView):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
-    
 
-
-
-
-def product_add_barcode(request):
-    if request.method == 'POST':
-        form = ProductsForm(request.POST, request.FILES)
-        if form.is_valid():
-           
-            barcode = request.POST.get('barcode')
-            if Products.objects.filter(barcode=barcode).exists():
-                form.add_error('barcode', 'Product with this barcode already exists.')
-                return render(request, "product_add_barcode.html", {
-                    'form': form,
-                    'product_types': ProductTypes.objects.all(),
-                    'variants': ProductVariants.objects.all(),
-                    'sizes': Sizes.objects.all(),
-                })
-
-            product = form.save()
-            return redirect('products') 
-    else:
-        form = ProductsForm()
-
-    return render(request, "product_add_barcode.html", {
-        'form': form,
-        'product_types': ProductTypes.objects.all(),
-        'variants': ProductVariants.objects.all(),
-        'sizes': Sizes.objects.all(),
-    })
-
-
-
-def product_batch_add_barcode(request):
-    
-    return render(request, 'product_batch_add_barcode.html')
 
 def product_scan_phone(request):
     
