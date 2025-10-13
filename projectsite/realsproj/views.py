@@ -1117,6 +1117,46 @@ class ProductBatchDeleteView(DeleteView):
     def get_success_url(self):
         messages.success(self.request, "🗑️ Product Batch deleted successfully.")
         return super().get_success_url()
+
+
+class ProductBatchArchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(ProductBatches, pk=pk)
+        batch.is_archived = True
+        batch.save()
+        messages.success(request, "📦 Product Batch archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('product-batch')}?page={page}")
+        return redirect('product-batch')
+
+
+class ArchivedProductBatchListView(ListView):
+    model = ProductBatches
+    template_name = 'archived_product_batch.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return ProductBatches.objects.filter(is_archived=True).select_related('product', 'created_by_admin').order_by('-batch_date')
+
+
+class ProductBatchUnarchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(ProductBatches, pk=pk)
+        batch.is_archived = False
+        batch.save()
+        messages.success(request, "✅ Product Batch restored successfully.")
+        return redirect('product-batch-archived-list')
+
+
+class ProductBatchArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = ProductBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} product batch(es) older than 1 year have been archived.")
+        return redirect('product-batch')
     
 
 class ProductInventoryList(ListView):
@@ -1234,6 +1274,46 @@ class RawMaterialBatchDeleteView(DeleteView):
     success_url = reverse_lazy('rawmaterial-batch')
 
 
+class RawMaterialBatchArchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(RawMaterialBatches, pk=pk)
+        batch.is_archived = True
+        batch.save()
+        messages.success(request, "📦 Raw Material Batch archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('rawmaterial-batch')}?page={page}")
+        return redirect('rawmaterial-batch')
+
+
+class ArchivedRawMaterialBatchListView(ListView):
+    model = RawMaterialBatches
+    template_name = 'archived_rawmaterial_batch.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterialBatches.objects.filter(is_archived=True).select_related('material', 'created_by_admin').order_by('-batch_date')
+
+
+class RawMaterialBatchUnarchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(RawMaterialBatches, pk=pk)
+        batch.is_archived = False
+        batch.save()
+        messages.success(request, "✅ Raw Material Batch restored successfully.")
+        return redirect('rawmaterial-batch-archived-list')
+
+
+class RawMaterialBatchArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = RawMaterialBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} raw material batch(es) older than 1 year have been archived.")
+        return redirect('rawmaterial-batch')
+
+
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
     context_object_name = 'rawmatinvent'
@@ -1328,7 +1408,7 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.all().order_by('date')
+        queryset = Withdrawals.objects.filter(is_archived=False).order_by('-date')
         request = self.request
 
         q = request.GET.get("q")
@@ -1481,6 +1561,47 @@ class WithdrawItemView(View):
             messages.warning(request, "No withdrawals were recorded.")
 
         return redirect("withdrawals")
+
+
+class WithdrawalsArchiveView(View):
+    def post(self, request, pk):
+        withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        withdrawal.is_archived = True
+        withdrawal.save()
+        messages.success(request, "📦 Withdrawal archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('withdrawals')}?page={page}")
+        return redirect('withdrawals')
+
+
+class ArchivedWithdrawalsListView(ListView):
+    model = Withdrawals
+    template_name = 'archived_withdrawals.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Withdrawals.objects.filter(is_archived=True).order_by('-date')
+
+
+class WithdrawalsUnarchiveView(View):
+    def post(self, request, pk):
+        withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        withdrawal.is_archived = False
+        withdrawal.save()
+        messages.success(request, "✅ Withdrawal restored successfully.")
+        return redirect('withdrawals-archived-list')
+
+
+class WithdrawalsArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = Withdrawals.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
+        return redirect('withdrawals')
+
 
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
@@ -1673,6 +1794,46 @@ class StockChangesList(ListView):
             .filter(is_archived=False)
             .order_by('-date')
         )
+
+
+class StockChangesArchiveView(View):
+    def post(self, request, pk):
+        stock_change = get_object_or_404(StockChanges, pk=pk)
+        stock_change.is_archived = True
+        stock_change.save()
+        messages.success(request, "📦 Stock change archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('stock-changes')}?page={page}")
+        return redirect('stock-changes')
+
+
+class ArchivedStockChangesListView(ListView):
+    model = StockChanges
+    template_name = 'archived_stock_changes.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return StockChanges.objects.filter(is_archived=True).order_by('-date')
+
+
+class StockChangesUnarchiveView(View):
+    def post(self, request, pk):
+        stock_change = get_object_or_404(StockChanges, pk=pk)
+        stock_change.is_archived = False
+        stock_change.save()
+        messages.success(request, "✅ Stock change restored successfully.")
+        return redirect('stock-changes-archived-list')
+
+
+class StockChangesArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = StockChanges.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
+        return redirect('stock-changes')
     
 def login_view(request):
     if request.method == 'POST':
