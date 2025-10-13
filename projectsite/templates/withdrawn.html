@@ -14,7 +14,8 @@
               <div class="card-title">List of Withdrawals</div>
               <div class="card-category">All recorded withdrawals</div>
             </div>
-            <div class="pull-right">
+            <div class="pull-right" style="display: flex; gap: 0.5rem;">
+              <button id="toggleArchiveBtn" class="btn btn-info btn-rounded">Show Archived</button>
               <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
             </div>
           </div>
@@ -57,17 +58,23 @@
                     <th scope="col">Quantity</th>
                     <th scope="col">Reason</th>
                     <th scope="col">Withdrawn By</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="withdrawalTableBody">
                   {% for object in withdrawals %}
-                  <tr>
+                  <tr data-id="{{ object.id }}" data-archived="false">
                     <td>{{ object.date|date:"Y-m-d H:i" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
                     <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity }}</td>
                     <td>{{ object.get_reason_display }}</td>
                     <td>{{ object.created_by_admin.username }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-warning archive-btn" data-id="{{ object.id }}">
+                        <i class="la la-archive"></i> Archive
+                      </button>
+                    </td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -90,6 +97,8 @@
   const dateFilter = document.getElementById('dateFilter');
   const tbody = document.getElementById('withdrawalTableBody');
   const table = document.getElementById('withdrawalTable');
+  const toggleArchiveBtn = document.getElementById('toggleArchiveBtn');
+  let showingArchived = false;
 
   function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
 
@@ -118,6 +127,18 @@
     let visible = 0;
 
     rows.forEach(row => {
+      const isArchived = row.getAttribute('data-archived') === 'true';
+      
+      // Hide/show based on archive view
+      if (showingArchived && !isArchived) {
+        row.style.display = 'none';
+        return;
+      }
+      if (!showingArchived && isArchived) {
+        row.style.display = 'none';
+        return;
+      }
+
       const dateCell = (row.cells[0].textContent || '').trim().substring(0,7); 
       const itemType = normalize(row.cells[1].textContent);
       const reason = normalize(row.cells[4].textContent);
@@ -136,6 +157,49 @@
 
     showNoResults(visible === 0);
   }
+
+  // Toggle between active and archived view
+  toggleArchiveBtn.addEventListener('click', function() {
+    showingArchived = !showingArchived;
+    if (showingArchived) {
+      toggleArchiveBtn.textContent = 'Show Active';
+      toggleArchiveBtn.classList.remove('btn-info');
+      toggleArchiveBtn.classList.add('btn-secondary');
+    } else {
+      toggleArchiveBtn.textContent = 'Show Archived';
+      toggleArchiveBtn.classList.remove('btn-secondary');
+      toggleArchiveBtn.classList.add('btn-info');
+    }
+    filterRows();
+  });
+
+  // Archive/Unarchive functionality
+  tbody.addEventListener('click', function(e) {
+    const archiveBtn = e.target.closest('.archive-btn');
+    if (!archiveBtn) return;
+
+    const row = archiveBtn.closest('tr');
+    const isArchived = row.getAttribute('data-archived') === 'true';
+    
+    // Toggle archive status
+    row.setAttribute('data-archived', !isArchived);
+    
+    // Update button
+    if (!isArchived) {
+      archiveBtn.innerHTML = '<i class="la la-undo"></i> Unarchive';
+      archiveBtn.classList.remove('btn-warning');
+      archiveBtn.classList.add('btn-success');
+      row.style.backgroundColor = '#f8f9fa';
+    } else {
+      archiveBtn.innerHTML = '<i class="la la-archive"></i> Archive';
+      archiveBtn.classList.remove('btn-success');
+      archiveBtn.classList.add('btn-warning');
+      row.style.backgroundColor = '';
+    }
+    
+    // Reapply filters
+    setTimeout(filterRows, 100);
+  });
 
   [adminFilter, itemTypeFilter, reasonFilter, dateFilter].forEach(el =>
     el.addEventListener('change', filterRows)
