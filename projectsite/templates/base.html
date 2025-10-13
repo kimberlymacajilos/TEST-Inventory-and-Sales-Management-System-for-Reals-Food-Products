@@ -76,19 +76,20 @@
                         </li>
                         <li>
                         <div class="notif-center">
-                            {% for notif in notifications|slice:":5" %}
-                            <a href="#" class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
-                                <div class="notif-icon {{ notif.css_class }}">
+                        {% for notif in notifications|slice:":5" %}
+                            <a href="{% url 'notifications' %}" 
+                            class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
+                            <div class="notif-icon {{ notif.css_class }}">
                                 <i class="{{ notif.icon_class }}"></i>
-                                </div>
-                                <div class="notif-content">
+                            </div>
+                            <div class="notif-content">
                                 <span class="notif-title">{{ notif.formatted_message }}</span>
                                 <span class="notif-time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                </div>
+                            </div>
                             </a>
-                            {% empty %}
+                        {% empty %}
                             <div class="text-center p-2">No new notifications</div>
-                            {% endfor %}
+                        {% endfor %}
                         </div>
                         </li>
                         <li class="dropdown-footer text-center">
