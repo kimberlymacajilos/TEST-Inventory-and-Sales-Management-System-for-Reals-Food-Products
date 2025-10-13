@@ -9,17 +9,27 @@
 {% endif %}
 
 {% for field in form %}
-
 <div class="field item form-group">
-        <label>{{ field.label_tag }}</label>
-    <div class="form-group">
-        {% render_field field class="form-control" %}
-    </div>
+    {% if field.field.widget.input_type == "checkbox" %}
+        <!-- For checkboxes -->
+        <div class="form-check">
+            {% render_field field class="form-check-input show-checkbox" %}
+            <label class="form-check-label ms-2" for="{{ field.id_for_label }}">
+                {{ field.label }}
+            </label>
+        </div>
+    {% else %}
+        <!-- For all other fields -->
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <div class="form-group">
+            {% render_field field class="form-control" %}
+        </div>
+    {% endif %}
 
     {% for error in field.errors %}
-        <div class="invalid-feedback">
+        <div class="invalid-feedback d-block">
             {{ error }}
         </div>
     {% endfor %}
 </div>
-{% endfor %}    
+{% endfor %}

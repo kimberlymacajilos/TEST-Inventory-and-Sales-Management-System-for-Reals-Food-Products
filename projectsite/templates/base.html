@@ -199,12 +199,12 @@
 
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#financialMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'report sales expenses' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses' %}true{% else %}false{% endif %}">
                         <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'report sales expenses' %}show{% endif %}" id="financialMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
-                            <li class="{% if request.resolver_match.url_name == 'report' %}active{% endif %}">
+                            <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
                                <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'sales' %}active{% endif %}">

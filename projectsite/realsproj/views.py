@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.contrib import messages
@@ -7,22 +7,15 @@ from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db import transaction
-from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from decimal import InvalidOperation
-from decimal import Decimal
-from django.urls import reverse_lazy
-from django.shortcuts import render, redirect
+from decimal import Decimal, InvalidOperation
+from django.urls import reverse, reverse_lazy
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm
-from django.contrib import messages
 from django.db.models import Avg, Count, Sum
-from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -80,30 +73,23 @@ from realsproj.models import (
 )
 
 from django.db.models import Q, CharField
-from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
-from django.shortcuts import render
-from django.db.models import Sum
 from django.db.models.functions import TruncMonth, TruncDay
-from django.contrib.auth.forms import UserCreationForm
-from datetime import datetime
 from django.db.models.functions import Cast
 from django.contrib.auth.models import User
 import os
-from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 import csv
 from datetime import datetime, timedelta, date
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views import View
 from django.utils import timezone
-from datetime import timedelta
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
+import re
+from urllib.parse import urlparse, parse_qs
 
 
 @method_decorator(login_required, name='dispatch')
@@ -371,7 +357,7 @@ class ProductsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        # Palitan ang super().get_queryset() para magsimula sa pag-filter ng HINDI naka-archive
+        
         queryset = (
             Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
@@ -438,17 +424,13 @@ class ProductsList(ListView):
     
 
 
-from django.shortcuts import render
 
-from django.shortcuts import render, redirect
-from .forms import ProductsForm  # Import your ProductsForm
-from .models import Products, ProductTypes, ProductVariants, Sizes  # Import your Products model
 
 def product_add_barcode(request):
     if request.method == 'POST':
         form = ProductsForm(request.POST, request.FILES)
         if form.is_valid():
-            # Check if a product with the given barcode already exists
+           
             barcode = request.POST.get('barcode')
             if Products.objects.filter(barcode=barcode).exists():
                 form.add_error('barcode', 'Product with this barcode already exists.')
@@ -460,7 +442,7 @@ def product_add_barcode(request):
                 })
 
             product = form.save()
-            return redirect('products')  # Redirect to product list or detail view
+            return redirect('products') 
     else:
         form = ProductsForm()
 
@@ -472,14 +454,13 @@ def product_add_barcode(request):
     })
 
 
-from django.shortcuts import render
 
 def product_batch_add_barcode(request):
-    # Add your logic here to handle adding a product batch via barcode
+    
     return render(request, 'product_batch_add_barcode.html')
 
 def product_scan_phone(request):
-    # ito yung scanner-only view para sa phone
+    
     return render(request, "product_scan_phone.html")
 
 class ProductArchiveView(View):
@@ -524,31 +505,31 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-        return context
-    
+        return context  
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user
-        
-        # Optional: Log barcode for debugging
-        barcode = form.cleaned_data.get('barcode')
-        if barcode:
-            print(f"📦 Saving product with barcode: {barcode}")
-        
-        self.object = form.save()
+        try:
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+            form.instance.created_by_admin = auth_user
 
-        messages.success(
-            self.request, 
-            f"✅ Product added successfully. Barcode: {self.object.barcode or 'N/A'}"
-        )
+            # Save ONE product
+            self.object = form.save()
+
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"❌ Product did not save. {e}")
+            return redirect(self.request.path)  
+
+        messages.success(self.request, "✅ Product added successfully.")
         return redirect('recipe-list', product_id=self.object.id)
-    
+
     def form_invalid(self, form):
         """Handle validation errors (e.g., duplicate barcode)"""
         # Check if barcode error exists
@@ -559,8 +540,6 @@ class ProductCreateView(CreateView):
         
         return super().form_invalid(form)
 
-import re
-from urllib.parse import urlparse, parse_qs
 
 class ProductsUpdateView(UpdateView):
     model = Products
@@ -795,12 +774,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Raw Material created successfully.")
-        return response
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Raw material creation failed: {e}")
+            return redirect(self.request.path)  
+        messages.success(self.request, "✅ Raw material created successfully.")
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  
+
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -954,13 +944,23 @@ class SalesCreateView(CreateView):
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-    
+
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Sale creation failed: {e}")
+            return redirect(self.request.path)
         messages.success(self.request, "✅ Sale recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path) 
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -1070,12 +1070,22 @@ class ExpensesCreateView(CreateView):
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Expense creation failed: {e}")
+            return redirect(self.request.path)  # reset form
         messages.success(self.request, "✅ Expense recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  # reset form
 
 
 class ExpensesUpdateView(UpdateView):
@@ -1705,12 +1715,6 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
 def profile_view(request):
     return render(request, "profile.html")
 
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-
-
 def best_sellers_api(request):
     TOP_N = 5
     qs = (
@@ -1770,17 +1774,6 @@ def login_view(request):
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
 
-# def register(request):
-#     if request.method == 'POST':
-#         form = UserCreationForm(request.POST)
-#         if form.is_valid():
-#             form.save()  # Save the new user to the database
-#             messages.success(request, 'Your account has been created successfully! You can now log in.')
-#             return redirect('login')  # Redirect to login page after successful registration
-#     else:
-#         form = UserCreationForm()  # Instantiate a blank form
-
-#     return render(request, 'register.html', {'form': form})
 
 def register(request):
     if request.method == 'POST':

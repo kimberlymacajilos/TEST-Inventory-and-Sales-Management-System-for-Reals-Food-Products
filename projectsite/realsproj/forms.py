@@ -158,7 +158,16 @@ class ExpensesForm(ModelForm):
         }
 
 
-class ProductBatchForm(forms.ModelForm):
+class ProductBatchForm(ModelForm):
+    deduct_raw_material = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Deduct Raw Materials",
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input show-checkbox',
+        })
+    )
+    
     class Meta:
         model = ProductBatches
         fields = [
