@@ -405,14 +405,29 @@ html[data-theme="dark"] .table thead th {
   transition: background .35s cubic-bezier(.2,.8,.2,1), border-color .35s;
 }
 .theme-toggle .knob{
-  position: relative; z-index: 1; width: 24px; height: 24px; border-radius: 50%;
+  position: relative; 
+  z-index: 1; 
+  width: 24px; 
+  height: 24px; 
+  border-radius: 50%;
   transform: translateX(3px);
   background: #fff;
   box-shadow: 0 8px 18px rgba(107,191,89,.38), 0 0 0 2px rgba(255,255,255,.95), 0 0 14px rgba(88,200,111,.45);
   transition: transform .32s cubic-bezier(.2,.8,.2,1), box-shadow .28s, background-color .28s;
-  display: grid; place-items: center;
+  display: grid; 
+  place-items: center;
 }
-.theme-toggle .icon svg{ width: 14px; height: 14px; fill: #2a2a2a; transition: opacity .22s ease; }
+.theme-toggle .icon { 
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity .22s ease; 
+}
 .theme-toggle .icon.moon{ opacity: 0; } .theme-toggle .icon.sun{ opacity: 1; }
 
 .theme-toggle::after{
