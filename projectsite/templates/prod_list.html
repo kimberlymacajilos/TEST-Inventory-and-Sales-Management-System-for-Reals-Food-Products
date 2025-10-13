@@ -67,7 +67,7 @@
                                     <th scope="col">Unit Price</th>
                                     <th scope="col">SRP Price</th>
                                     <th scope="col">Date Created</th>
-                                    <th scope="col" class="text-nowrap">Description/Photo</th>
+                                    <th scope="col" class="text-nowrap">Details</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -110,6 +110,7 @@
                                                     <div class="modal-footer">
                                                         <form method="post" action="{% url 'product-archive' object.id %}">
                                                             {% csrf_token %}
+                                                            <input type="hidden" name="page" value="{{ request.GET.page }}">
                                                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                                                             <button type="submit" class="btn btn-warning">Archive</button>
                                                         </form>
@@ -161,6 +162,7 @@
                                                     <div class="modal-footer">
                                                         <form method="post" action="{% url 'product-delete' object.id %}">
                                                             {% csrf_token %}
+                                                            <input type="hidden" name="page" value="{{ request.GET.page }}">
                                                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                                                             <button type="submit" class="btn btn-danger">Delete</button>
                                                         </form>
