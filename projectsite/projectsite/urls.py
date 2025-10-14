@@ -75,7 +75,11 @@ urlpatterns = [
     path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
     path('prodbatch/<pk>', a.ProductBatchUpdateView.as_view(), name='product-batch-edit'),
     path('prodbatch/<pk>/delete', a.ProductBatchDeleteView.as_view(), name='product-batch-delete'),
-    path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'), # Add this line
+    path('prodbatch/<int:pk>/archive/', a.ProductBatchArchiveView.as_view(), name='product-batch-archive'),
+    path('prodbatch/archived/', a.ArchivedProductBatchListView.as_view(), name='product-batch-archived-list'),
+    path('prodbatch/<int:pk>/unarchive/', a.ProductBatchUnarchiveView.as_view(), name='product-batch-unarchive'),
+    path('prodbatch/archive-old/', a.ProductBatchArchiveOldView.as_view(), name='product-batch-archive-old'),
+    path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'),
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
 
@@ -83,6 +87,10 @@ urlpatterns = [
     path('rawmatbatch/add', a.BulkRawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),
     path('rawmatbatch/<pk>', a.RawMaterialBatchUpdateView.as_view(), name='rawmaterial-batch-edit'),
     path('rawmatbatch/<pk>/delete', a.RawMaterialBatchDeleteView.as_view(), name='rawmaterial-batch-delete'),
+    path('rawmatbatch/<int:pk>/archive/', a.RawMaterialBatchArchiveView.as_view(), name='rawmaterial-batch-archive'),
+    path('rawmatbatch/archived/', a.ArchivedRawMaterialBatchListView.as_view(), name='rawmaterial-batch-archived-list'),
+    path('rawmatbatch/<int:pk>/unarchive/', a.RawMaterialBatchUnarchiveView.as_view(), name='rawmaterial-batch-unarchive'),
+    path('rawmatbatch/archive-old/', a.RawMaterialBatchArchiveOldView.as_view(), name='rawmaterial-batch-archive-old'),
 
     path('rawmaterial-inventory/', a.RawMaterialInventoryList.as_view(), name='rawmaterial-inventory'),
 
@@ -95,6 +103,10 @@ urlpatterns = [
 
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
+    path('withdrawals/<int:pk>/archive/', a.WithdrawalsArchiveView.as_view(), name='withdrawals-archive'),
+    path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
+    path('withdrawals/<int:pk>/unarchive/', a.WithdrawalsUnarchiveView.as_view(), name='withdrawals-unarchive'),
+    path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
     re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
@@ -126,6 +138,10 @@ urlpatterns = [
     path('notifications/<int:pk>/read/', a.mark_notification_read, name='notification_read'),
 
     path('stock-changes/', a.StockChangesList.as_view(), name='stock-changes'),
+    path('stock-changes/<int:pk>/archive/', a.StockChangesArchiveView.as_view(), name='stock-changes-archive'),
+    path('stock-changes/archived/', a.ArchivedStockChangesListView.as_view(), name='stock-changes-archived-list'),
+    path('stock-changes/<int:pk>/unarchive/', a.StockChangesUnarchiveView.as_view(), name='stock-changes-unarchive'),
+    path('stock-changes/archive-old/', a.StockChangesArchiveOldView.as_view(), name='stock-changes-archive-old'),
 
     path("revenue-x-recent_sales", a.HomePageView.as_view(), name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
