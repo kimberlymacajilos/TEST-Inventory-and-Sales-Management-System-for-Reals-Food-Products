@@ -209,15 +209,43 @@ class HistoryLog(models.Model):
             elif self.entity_type == "withdrawal":
                 w = Withdrawals.objects.get(pk=self.entity_id)
                 return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
-            
+
             elif self.entity_type == "product_recipe":
-                pr = ProductRecipes.objects.select_related("product__product_type", "product__variant", "product__size_unit", "product__size", "material").get(pk=self.entity_id)
+                pr = ProductRecipes.objects.select_related(
+                    "product__product_type",
+                    "product__variant",
+                    "product__size_unit",
+                    "product__size",
+                    "material"
+                ).get(pk=self.entity_id)
                 return f"{pr.product.product_type.name} - {pr.product.variant.name} ({pr.product.size.size_label if pr.product.size else ''} {pr.product.size_unit.unit_name}), Material: {pr.material.name}"
-            
+
+            elif self.entity_type == "product_type":
+                pt = ProductTypes.objects.get(pk=self.entity_id)
+                return pt.name
+
+            elif self.entity_type == "product_variant":
+                pv = ProductVariants.objects.get(pk=self.entity_id)
+                return pv.name
+
+            elif self.entity_type == "size":
+                sz = Sizes.objects.get(pk=self.entity_id)
+                return sz.size_label
+
             else:
                 return f"Entity #{self.entity_id}"
+
         except Exception:
-            return f"Entity #{self.entity_id}"
+            action_text = str(getattr(self, "action_name", "")).lower()
+            if not action_text:
+                action_text = str(getattr(self, "action_type", "")).lower()
+            if not action_text:
+                action_text = str(getattr(self, "action", "")).lower()
+
+            if "delete" in action_text or "deleted" in action_text:
+                return "Deleted Entity"
+
+            return f"Entity Deleted"
 
     def get_details_display(self):
         """Pretty-print before/after changes with human-readable names and clean formatting."""
