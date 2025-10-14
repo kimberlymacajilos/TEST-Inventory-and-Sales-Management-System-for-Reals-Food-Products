@@ -15,18 +15,16 @@
 
             <div class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Actions Dropdown -->
-              <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="archiveMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   Archive Options
                 </button>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
+                <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
                   <a class="dropdown-item" href="{% url 'rawmaterial-batch-archived-list' %}">Show Archived</a>
-                  <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldRawBatchesModal">
-                    Archive Old Data
-                  </button>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldRawBatchesModal">Archive Old Data</a>
                 </div>
               </div>
-
+              
               <!-- Add Button -->
               <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
             </div>
