@@ -101,6 +101,39 @@ urlpatterns = [
     path('unirprices/add', a.UnitPricesCreateView.as_view(), name='unit-prices-add'),
     path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
 
+    # Product Attributes Management
+    path('product-attributes/', a.ProductAttributesView.as_view(), name='product-attributes'),
+    
+    # Product Type CRUD
+    path('product-attributes/product-type/add/', a.ProductTypeAddView.as_view(), name='product-type-add'),
+    path('product-attributes/product-type/<int:pk>/edit/', a.ProductTypeEditView.as_view(), name='product-type-edit'),
+    path('product-attributes/product-type/<int:pk>/delete/', a.ProductTypeDeleteView.as_view(), name='product-type-delete'),
+    
+    # Product Variant CRUD
+    path('product-attributes/product-variant/add/', a.ProductVariantAddView.as_view(), name='product-variant-add'),
+    path('product-attributes/product-variant/<int:pk>/edit/', a.ProductVariantEditView.as_view(), name='product-variant-edit'),
+    path('product-attributes/product-variant/<int:pk>/delete/', a.ProductVariantDeleteView.as_view(), name='product-variant-delete'),
+    
+    # Size CRUD
+    path('product-attributes/size/add/', a.SizeAddView.as_view(), name='size-add'),
+    path('product-attributes/size/<int:pk>/edit/', a.SizeEditView.as_view(), name='size-edit'),
+    path('product-attributes/size/<int:pk>/delete/', a.SizeDeleteView.as_view(), name='size-delete'),
+    
+    # Size Unit CRUD
+    path('product-attributes/size-unit/add/', a.SizeUnitAddView.as_view(), name='size-unit-add'),
+    path('product-attributes/size-unit/<int:pk>/edit/', a.SizeUnitEditView.as_view(), name='size-unit-edit'),
+    path('product-attributes/size-unit/<int:pk>/delete/', a.SizeUnitDeleteView.as_view(), name='size-unit-delete'),
+    
+    # Unit Price CRUD
+    path('product-attributes/unit-price/add/', a.UnitPriceAddView.as_view(), name='unit-price-add'),
+    path('product-attributes/unit-price/<int:pk>/edit/', a.UnitPriceEditView.as_view(), name='unit-price-edit'),
+    path('product-attributes/unit-price/<int:pk>/delete/', a.UnitPriceDeleteView.as_view(), name='unit-price-delete'),
+    
+    # SRP Price CRUD
+    path('product-attributes/srp-price/add/', a.SrpPriceAddView.as_view(), name='srp-price-add'),
+    path('product-attributes/srp-price/<int:pk>/edit/', a.SrpPriceEditView.as_view(), name='srp-price-edit'),
+    path('product-attributes/srp-price/<int:pk>/delete/', a.SrpPriceDeleteView.as_view(), name='srp-price-delete'),
+
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
     path('withdrawals/<int:pk>/archive/', a.WithdrawalsArchiveView.as_view(), name='withdrawals-archive'),
