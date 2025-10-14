@@ -31,8 +31,9 @@
               <a href="{% url 'rawmaterial-batch-add' %}" class="btn btn-success btn-rounded">Add Raw Material Batch</a>
             </div>
           </div>
+
           <div class="card-body">
-            <form class="row mb-4" id="filterForm">
+            <form class="row mb-3" id="filterForm">
               <div class="col-md-3">
                 <input type="text" id="searchInput" class="form-control" name= "q" style="width:260px;" placeholder="Search raw batches..." value="{{ request.GET.q }}"/>
               </div>
@@ -40,10 +41,8 @@
                 <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
               </div>
             </form>
-          </div>
-
-          <div class="card-body">
             <div class="table-responsive">
+
               <table class="table table-striped" id="batchTable">
                 <thead>
                   <tr>

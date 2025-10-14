@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const searchInput = document.getElementById("searchInput");
   const categoryFilter = document.getElementById("categoryFilter");
   const dateFilter = document.getElementById("dateFilter");
   const tableBody = document.getElementById("salesTableBody");
@@ -14,7 +13,6 @@ document.addEventListener("DOMContentLoaded", function () {
       let url = "/sales/?";
       const params = new URLSearchParams();
 
-      if (searchInput.value.trim()) params.append("q", searchInput.value.trim());
       if (categoryFilter.value) params.append("category", categoryFilter.value);
       if (dateFilter.value) params.append("month", dateFilter.value);
 
@@ -43,7 +41,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Event listeners
-  searchInput.addEventListener("input", fetchSales);
   categoryFilter.addEventListener("change", fetchSales);
   dateFilter.addEventListener("change", fetchSales);
 });

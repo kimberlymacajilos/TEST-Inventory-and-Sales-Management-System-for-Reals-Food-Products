@@ -86,10 +86,11 @@ from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.contrib.auth.signals import user_logged_in, user_logged_out
-from .forms import ProductsForm
-from .models import Products, ProductTypes, ProductVariants, Sizes
+from django.db.models import Q, F, CharField
+from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+
 
 @method_decorator(login_required, name='dispatch')
 
@@ -471,31 +472,31 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-        return context
-    
+        return context  
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(username=self.request.user.username)
-        form.instance.created_by_admin = auth_user
-        
-        # Optional: Log barcode for debugging
-        barcode = form.cleaned_data.get('barcode')
-        if barcode:
-            print(f"📦 Saving product with barcode: {barcode}")
-        
-        self.object = form.save()
+        try:
+            auth_user = AuthUser.objects.get(username=self.request.user.username)
+            form.instance.created_by_admin = auth_user
 
-        messages.success(
-            self.request, 
-            f"✅ Product added successfully. Barcode: {self.object.barcode or 'N/A'}"
-        )
+            # Save ONE product
+            self.object = form.save()
+
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"❌ Product did not save. {e}")
+            return redirect(self.request.path)  
+
+        messages.success(self.request, "✅ Product added successfully.")
         return redirect('recipe-list', product_id=self.object.id)
-    
+
     def form_invalid(self, form):
         """Handle validation errors (e.g., duplicate barcode)"""
         # Check if barcode error exists
@@ -505,7 +506,6 @@ class ProductCreateView(CreateView):
             messages.error(self.request, "❌ Please correct the errors below.")
         
         return super().form_invalid(form)
-
 
 
 class ProductsUpdateView(UpdateView):
@@ -744,12 +744,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
-        messages.success(self.request, "✅ Raw Material created successfully.")
-        return response
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Raw material creation failed: {e}")
+            return redirect(self.request.path)  
+        messages.success(self.request, "✅ Raw material created successfully.")
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  
+
 
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
@@ -903,13 +914,23 @@ class SalesCreateView(CreateView):
     form_class = SalesForm
     template_name = 'sales_add.html'
     success_url = reverse_lazy('sales')
-    
+
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Sale creation failed: {e}")
+            return redirect(self.request.path)
         messages.success(self.request, "✅ Sale recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path) 
 
 class SalesUpdateView(UpdateView):
     model = Sales
@@ -931,6 +952,7 @@ class SalesDeleteView(DeleteView):
         return super().get_success_url()
 
 
+
 class ExpensesList(ListView):
     model = Expenses
     context_object_name = 'expenses'
@@ -938,11 +960,13 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
+        # Start with active (non-archived) records
+        qs = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
+        # --- Search query ---
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
+            qs = qs.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
@@ -953,35 +977,40 @@ class ExpensesList(ListView):
         # --- Category filter ---
         category = self.request.GET.get("category", "").strip()
         if category:
-            queryset = queryset.filter(category__iexact=category)
+            qs = qs.filter(category__iexact=category)
 
         # --- Month filter (YYYY-MM) ---
         month = self.request.GET.get("month", "").strip()
         if month:
             try:
-                year, month_num = month.split("-")
-                queryset = queryset.filter(date__year=year, date__month=month_num)
-            except (ValueError, IndexError):
-                pass # Ignore invalid format
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            # Default: show only current month
+            today = timezone.now()
+            qs = qs.filter(date__year=today.year, date__month=today.month)
 
-        self._full_queryset = queryset
-        return queryset
+        self._full_queryset = qs
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        qs_for_summary = getattr(self, 'filtered_queryset', Expenses.objects.filter(is_archived=False))
+        full_qs = getattr(self, "_full_queryset", Expenses.objects.filter(is_archived=False))
 
-        summary = qs_for_summary.aggregate(
+        context["expenses_summary"] = full_qs.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
 
-        context["expenses_summary"] = summary
-        
         categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
         context["categories"] = categories
+
         return context
     
 class ExpenseArchiveView(View):
@@ -1019,12 +1048,22 @@ class ExpensesCreateView(CreateView):
     template_name = 'expenses_add.html'
     success_url = reverse_lazy('expenses')
 
+    @transaction.atomic
     def form_valid(self, form):
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        form.instance.created_by_admin = auth_user
-        response = super().form_valid(form)
+        try:
+            auth_user = AuthUser.objects.get(id=self.request.user.id)
+            form.instance.created_by_admin = auth_user
+            self.object = form.save()
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"Expense creation failed: {e}")
+            return redirect(self.request.path)  # reset form
         messages.success(self.request, "✅ Expense recorded successfully.")
-        return response
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please complete all required fields. The form was reset.")
+        return redirect(self.request.path)  # reset form
 
 
 class ExpensesUpdateView(UpdateView):
@@ -1179,14 +1218,26 @@ class ProductInventoryList(ListView):
             queryset = queryset.annotate(
                 total_stock_str=Cast("total_stock", CharField()),
                 restock_threshold_str=Cast("restock_threshold", CharField()),
+            ).filter(
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
-            queryset = queryset.filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q)
-            )
+        status = self.request.GET.get("status", "")
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("restock_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("restock_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("restock_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset.order_by("product_id")
+
+
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'
@@ -1322,14 +1373,25 @@ class RawMaterialInventoryList(ListView):
     
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material").order_by('-material_id')
-        query = self.request.GET.get("q", "").strip()
 
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+
+        if q:
             queryset = queryset.filter(
-                Q(material__name__icontains=query) |
-                Q(total_stock__icontains=query) |
-                Q(reorder_threshold__icontains=query)
+                Q(material__name__icontains=q) |
+                Q(total_stock__icontains=q) |
+                Q(reorder_threshold__icontains=q)
             )
+
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("reorder_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("reorder_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("reorder_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset
 

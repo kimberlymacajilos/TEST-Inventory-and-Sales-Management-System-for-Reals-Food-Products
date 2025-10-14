@@ -161,16 +161,26 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     deduct_raw_material = forms.BooleanField(
         required=False,
-        label="Deduct raw material"
+        initial=True,
+        label="Deduct Raw Materials",
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input show-checkbox',
+        })
     )
     
     class Meta:
         model = ProductBatches
-        fields = "__all__"   
-        exclude = ['created_by_admin', 'is_archived'] 
+        fields = [
+            'product',
+            'quantity',
+            'batch_date',
+            'manufactured_date',
+            'deduct_raw_material',
+        ]
         widgets = {
-            "batch_date": forms.DateInput(attrs={"type": "date"}),
-            "manufactured_date": forms.DateInput(attrs={"type": "date"}),
+            'batch_date': forms.DateInput(attrs={'type': 'date'}),
+            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
+            'deduct_raw_material': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
