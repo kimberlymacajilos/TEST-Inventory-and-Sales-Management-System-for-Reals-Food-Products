@@ -42,7 +42,6 @@ from realsproj.forms import (
     ProductRecipeForm,
     UnifiedWithdrawForm,
     CustomUserCreationForm
-    
 )
 
 from realsproj.models import (
@@ -1663,8 +1662,15 @@ class WithdrawalsArchiveOldView(View):
         archived_count = Withdrawals.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
+    
+class WithdrawDeleteView(DeleteView):
+    model = Withdrawals
+    success_url = reverse_lazy('withdrawals')
 
-
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
+        return super().get_success_url()
+    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -1703,6 +1709,14 @@ class NotificationsList(ListView):
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
+
+class NotificationsDeleteView(DeleteView):
+    model = Notifications
+    success_url = reverse_lazy('notifications')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Notification deleted successfully.")
+        return super().get_success_url()
 
 
 class BulkProductBatchCreateView(View):

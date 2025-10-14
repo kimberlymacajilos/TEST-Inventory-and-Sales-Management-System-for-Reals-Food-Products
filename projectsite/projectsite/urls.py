@@ -102,6 +102,7 @@ urlpatterns = [
     path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
 
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
+    path("withdraw-item/<pk>/delete", a.WithdrawDeleteView.as_view(), name="withdraw-delete"),
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
     path('withdrawals/<int:pk>/archive/', a.WithdrawalsArchiveView.as_view(), name='withdrawals-archive'),
     path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
@@ -128,6 +129,7 @@ urlpatterns = [
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
+    path('notifications/<pk>/delete/', a.NotificationsDeleteView.as_view(), name='notification-delete'),
 
     path("register/", a.register, name="register"),
 
