@@ -1463,6 +1463,207 @@ class SrpPricesCreateView(CreateView):
         return super().form_valid(form)
 
 
+# Product Attributes Management View
+class ProductAttributesView(LoginRequiredMixin, TemplateView):
+    template_name = "product_attributes.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all().order_by('name')
+        context['product_variants'] = ProductVariants.objects.all().order_by('name')
+        context['sizes'] = Sizes.objects.all().order_by('size_label')
+        context['size_units'] = SizeUnits.objects.all().order_by('unit_name')
+        context['unit_prices'] = UnitPrices.objects.all().order_by('unit_price')
+        context['srp_prices'] = SrpPrices.objects.all().order_by('srp_price')
+        return context
+
+
+# Product Type CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductTypeAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Type added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeEditView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_type.name = name
+            product_type.save()
+            messages.success(request, 'Product Type updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeDeleteView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        product_type.delete()
+        messages.success(request, 'Product Type deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Product Variant CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductVariantAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Variant added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantEditView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_variant.name = name
+            product_variant.save()
+            messages.success(request, 'Product Variant updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantDeleteView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        product_variant.delete()
+        messages.success(request, 'Product Variant deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeAddView(View):
+    def post(self, request):
+        size_label = request.POST.get('size_label')
+        if size_label:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+            messages.success(request, 'Size added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeEditView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size_label = request.POST.get('size_label')
+        if size_label:
+            size.size_label = size_label
+            size.save()
+            messages.success(request, 'Size updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeDeleteView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size.delete()
+        messages.success(request, 'Size deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size Unit CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeUnitAddView(View):
+    def post(self, request):
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+            messages.success(request, 'Size Unit added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitEditView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            size_unit.unit_name = unit_name
+            size_unit.save()
+            messages.success(request, 'Size Unit updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitDeleteView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        size_unit.delete()
+        messages.success(request, 'Size Unit deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Unit Price CRUD
+@method_decorator(login_required, name='dispatch')
+class UnitPriceAddView(View):
+    def post(self, request):
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
+            messages.success(request, 'Unit Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceEditView(View):
+    def post(self, request, pk):
+        unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            unit_price_obj.unit_price = unit_price
+            unit_price_obj.save()
+            messages.success(request, 'Unit Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceDeleteView(View):
+    def post(self, request, pk):
+        unit_price = get_object_or_404(UnitPrices, pk=pk)
+        unit_price.delete()
+        messages.success(request, 'Unit Price deleted successfully!')
+        return redirect('product-attributes')
+
+
+# SRP Price CRUD
+@method_decorator(login_required, name='dispatch')
+class SrpPriceAddView(View):
+    def post(self, request):
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
+            messages.success(request, 'SRP Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceEditView(View):
+    def post(self, request, pk):
+        srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            srp_price_obj.srp_price = srp_price
+            srp_price_obj.save()
+            messages.success(request, 'SRP Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceDeleteView(View):
+    def post(self, request, pk):
+        srp_price = get_object_or_404(SrpPrices, pk=pk)
+        srp_price.delete()
+        messages.success(request, 'SRP Price deleted successfully!')
+        return redirect('product-attributes')
+
+
 class WithdrawSuccessView(ListView):
     model = Withdrawals
     context_object_name = 'withdrawals'
