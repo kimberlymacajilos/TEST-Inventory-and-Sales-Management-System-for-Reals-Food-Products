@@ -83,6 +83,10 @@
                     <td>{{ object.get_reason_display }}</td>
                     <td>{{ object.created_by_admin.username }}</td>
                     <td>
+                      <a href="{% url 'withdraw-edit' object.id %}" title="Edit" class="text-primary">
+                        <i class="la la-edit la-lg"></i>
+                      </a>
+                      &nbsp;&nbsp;
                       <a href="#" data-toggle="modal" data-target="#archiveWithdrawalModal{{ object.id }}" style="color: orange;" title="Archive">
                         <i class="la la-archive la-lg"></i>
                       </a>

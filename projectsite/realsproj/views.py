@@ -41,7 +41,8 @@ from realsproj.forms import (
     BulkRawMaterialBatchForm,
     ProductRecipeForm,
     UnifiedWithdrawForm,
-    CustomUserCreationForm
+    CustomUserCreationForm,
+    WithdrawEditForm
 )
 
 from realsproj.models import (
@@ -1863,7 +1864,22 @@ class WithdrawalsArchiveOldView(View):
         archived_count = Withdrawals.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
-    
+
+class WithdrawUpdateView(UpdateView):
+    model = Withdrawals
+    form_class = WithdrawEditForm
+    template_name = "withdraw_edit.html"
+    success_url = reverse_lazy("withdrawals")
+
+    def form_valid(self, form):
+        messages.success(self.request, "✅ Withdrawal successfully updated.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Please correct the errors below.")
+        return super().form_invalid(form)
+
+
 class WithdrawDeleteView(DeleteView):
     model = Withdrawals
     success_url = reverse_lazy('withdrawals')
