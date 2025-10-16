@@ -15,7 +15,6 @@
     <!-- Left Section -->
     <div class="login-left">
       <div class="brand">
-        <img src="{% static 'img/reals.jpg' %}" alt="Logo" class="brand-logo">
         <h1>WELCOME TO REALS!</h1>
         <p>Welcome back, sign in for more information.</p>
       </div>
@@ -33,13 +32,13 @@
           <input type="text" name="username" placeholder="Enter Username" required>
           <input type="password" name="password" placeholder="Enter Password" required>
 
-        <div class="options">
+      <div class="options">
             <label class="remember">
                 <input type="checkbox" name="remember" />
                 <span>Remember me</span>
         </label>
-            <a href="{% url 'password_reset' %}" class="forgot-link">Forgot Password?</a>
-        </div>
+        <a href="{% url 'password_reset' %}" class="forgot-link">Forgot Password?</a>
+      </div>
 
           {% if form.non_field_errors %}
             <div class="alert alert-danger">

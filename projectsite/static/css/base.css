@@ -328,19 +328,19 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
 
 /*  DARK THEME */
 html[data-theme="dark"] {
-  --bg: #4B6387;        /* Darker background for dark mode */
-  --bg-soft: #4B6387;    /* Sidebar/soft areas */
-  --panel: #83A2CD;      /* Darker cards/navbars */
+  --bg: #44444E;        /* Darker background for dark mode */
+  --bg-soft: #44444E;    /* Sidebar/soft areas */
+  --panel: #44444E;      /* Darker cards/navbars */
   --text: #ffffff;
-  --muted: #A3C5f1;      /* Muted text */
-  --border: #3f5b4f;     /* Border color */
-  --primary-100: #334663; /* Darker version for dark mode */
-  --primary-500: #334663; /* Main darker color */
+  --muted: #ffffff;      /* Muted text */
+  --border: #D3DAD9;     /* Border color */
+  --primary-100: #44444E; /* Darker version for dark mode */
+  --primary-500: #44444E; /* Main darker color */
 }
 
 html[data-theme="dark"] body,
 html[data-theme="dark"] .main-panel {
-  background: #4B6387 !important;
+  background: #D3DAD9 !important;
   color: #ffffff;
 
 }

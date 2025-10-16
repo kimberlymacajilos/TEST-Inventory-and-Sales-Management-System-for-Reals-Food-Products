@@ -17,7 +17,7 @@
       <div class="brand">
         <img src="{% static 'img/reals.jpg' %}" alt="Logo" class="brand-logo">
         <h1>WELCOME TO REALS!</h1>
-        <p>Create your account below.</p>
+        <p>Create your account here!</p>
       </div>
       <div class="footer-left">
         <p>&copy; Reals Food Products</p>
@@ -36,15 +36,6 @@
           <input type="email" name="email" placeholder="Enter Email" required>
           <input type="password" name="password1" id="password1" placeholder="Enter Password" required>
           <input type="password" name="password2" id="password2" placeholder="Confirm Password" required>
-
-      <div class="form-group">
-        <label for="user_type">User Type:</label>
-        <select name="user_type" id="user_type" class="form-control" required>
-          <option value="">Select User Type</option>
-          <option value="staff">Staff</option>
-          <option value="superuser">Administrator</option>
-        </select>
-      </div>
 
           {% if form.errors %}
             <div class="alert alert-danger">
