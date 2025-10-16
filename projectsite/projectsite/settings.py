@@ -83,7 +83,6 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -94,12 +93,29 @@ DATABASES = {
         'PORT': '5432',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'postgres',
+#         'USER': 'postgres',
+#         'PASSWORD': 'Reals_db_123',
+#         'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
+#         'PORT': '5432',
+#         'OPTIONS': {
+#             'connect_timeout': 10,
+#             'application_name': 'django_app',
+#         },
+#     }
+# }
+
+
 #DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.postgresql',
 #        'NAME': 'reals_local',
 #        'USER': 'postgres',
-#        'PASSWORD': 'admin',
+#        'PASSWORD': 'root',
 #        'HOST': 'localhost',
 #        'PORT': '5432',
 #    }
