@@ -142,6 +142,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let socket = null;
   let reconnectTimer = null;
   let lastScannedBarcode = "";
+  let checkBarcodeTimer;
 
   function updateScannerStatus(text, className) {
     scannerStatus.textContent = `Scanner: ${text}`;
@@ -220,9 +221,8 @@ document.addEventListener("DOMContentLoaded", function() {
         flashInput(barcodeInput, true);
         playBeep();
         
-        // Update status
-        const now = new Date().toLocaleTimeString();
-        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
+        // Check barcode availability
+        checkBarcodeAvailability(barcode);
         
         // Focus next field (Product Type)
         const productTypeInput = document.querySelector('input[name="product_type"]');
@@ -260,17 +260,48 @@ document.addEventListener("DOMContentLoaded", function() {
   // Start connection
   connectWebSocket();
 
-  // Manual barcode input (keyboard)
+  // Manual barcode input (keyboard) with real-time validation
   barcodeInput.addEventListener('input', function() {
-    if (this.value.length > 0) {
-      updateBarcodeStatus(`Manual entry: ${this.value}`, "text-info");
+    const barcode = this.value.trim();
+    
+    if (barcode.length === 0) {
+      updateBarcodeStatus("Ready to scan...", "text-muted");
+      barcodeInput.style.borderColor = "";
+      return;
     }
+    
+    updateBarcodeStatus(`Checking barcode...`, "text-info");
+    
+    // Debounce the API call
+    clearTimeout(checkBarcodeTimer);
+    checkBarcodeTimer = setTimeout(() => {
+      checkBarcodeAvailability(barcode);
+    }, 500);
   });
 
-  // Cleanup
+  function checkBarcodeAvailability(barcode) {
+    fetch(`/api/check-barcode/?barcode=${encodeURIComponent(barcode)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.available) {
+          updateBarcodeStatus(`✓ ${data.message}`, "text-success");
+          barcodeInput.style.borderColor = "#28a745";
+        } else {
+          updateBarcodeStatus(`✗ ${data.message}`, "text-danger");
+          barcodeInput.style.borderColor = "#dc3545";
+        }
+      })
+      .catch(error => {
+        console.error("Error checking barcode:", error);
+        updateBarcodeStatus("✗ Error checking barcode", "text-warning");
+      });
+  }
+
+  // Cleanup on page unload
   window.addEventListener("beforeunload", function() {
     if (socket) socket.close();
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (checkBarcodeTimer) clearTimeout(checkBarcodeTimer);
   });
 });
 </script>
