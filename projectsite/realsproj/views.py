@@ -375,7 +375,10 @@ class ProductsList(ListView):
         variant = self.request.GET.get("variant")
         size = self.request.GET.get("size")
         date_created = self.request.GET.get("date_created")
+        barcode = self.request.GET.get("barcode")
 
+        if barcode:
+            queryset = queryset.filter(barcode__icontains=barcode)
         if product_type:
             queryset = queryset.filter(product_type__name__icontains=product_type)
         if variant:
