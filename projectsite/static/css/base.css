@@ -263,7 +263,12 @@ body, .main-panel{
   border-color: var(--primary-500);
   box-shadow: 0 0 0 4px rgba(107, 191, 89, .18);
 }
-
+.form-actions { 
+  flex: 1 1 100%; 
+  display: flex; 
+  flex-wrap: wrap; 
+  align-items: center; 
+}
 /* Tables */
 .table {
     font-size: 12px; 
@@ -670,4 +675,18 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
    font-size: 14px;
    padding: 10px 15px;
    color: #333;
+}
+#barcode-input {
+  font-weight: 500;
+  font-size: 1.1rem;
+}
+
+#scanner-status {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+}
+
+#barcode-status {
+  font-size: 0.9rem;
+  margin-top: 0.3rem;
 }

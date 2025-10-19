@@ -2167,7 +2167,7 @@ def register(request):
         else:
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = UserCreationForm()  
+        form = CustomUserCreationForm()  
     return render(request, 'registration/register.html', {'form': form})
 
 @login_required

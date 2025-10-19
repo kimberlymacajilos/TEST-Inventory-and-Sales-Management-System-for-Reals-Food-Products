@@ -24,109 +24,117 @@
                   <div class="alert alert-danger">{{ form.errors }}</div>
                 {% endif %}
                 {% if current_page %}
-                <input type="hidden" name="current_page" value="{{ current_page }}">
+                  <input type="hidden" name="current_page" value="{{ current_page }}">
                 {% endif %}
-                
-                <!-- Product Type -->
-                <div class="form-group">
-                  <label>Product Type</label>
-                  <input type="text" name="product_type" list="product_type-options"
-                        class="form-control" value="{{ form.product_type.value|default:'' }}">
-                  <datalist id="product_type-options">
-                    {% for pt in product_types %}
-                      <option value="{{ pt.name }}">
-                    {% endfor %}
-                  </datalist>
-                </div>
 
-                <!-- Variant -->
-                <div class="form-group">
-                  <label>Variant</label>
-                  <input type="text" name="variant" list="variant-options"
-                        class="form-control" value="{{ form.variant.value|default:'' }}">
-                  <datalist id="variant-options">
-                    {% for v in variants %}
-                      <option value="{{ v.name }}">
-                    {% endfor %}
-                  </datalist>
-                </div>
+                <div class="form-container">
+                  
+                  <div class="form-item" style="width:100%;">
+                    <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
+                    <input type="text" id="barcode-input" name="barcode"
+                           class="form-control"
+                           value="{{ form.barcode.value|default:'' }}"
+                           placeholder="Scan or enter barcode manually">
+                    <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                  </div>
 
-                <!-- Size + Size Unit -->
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    <label>Size</label>
-                    <input type="text" name="size" list="size-options"
-                          class="form-control" value="{{ form.size.value|default:'' }}">
-                    <datalist id="size-options">
-                      {% for s in sizes %}
-                        <option value="{{ s.size_label }}">
+                  <!-- Product Type -->
+                  <div class="form-item">
+                    <label>Product Type</label>
+                    <input type="text" name="product_type" list="product_type-options"
+                           class="form-control" value="{{ form.product_type.value|default:'' }}">
+                    <datalist id="product_type-options">
+                      {% for pt in product_types %}
+                        <option value="{{ pt.name }}">
                       {% endfor %}
                     </datalist>
                   </div>
-                  <div class="form-group col-md-6">
-                    <label>Size Unit</label>
-                    {% render_field form.size_unit class="form-control" %}
+
+                  <!-- Variant -->
+                  <div class="form-item">
+                    <label>Variant</label>
+                    <input type="text" name="variant" list="variant-options"
+                           class="form-control" value="{{ form.variant.value|default:'' }}">
+                    <datalist id="variant-options">
+                      {% for v in variants %}
+                        <option value="{{ v.name }}">
+                      {% endfor %}
+                    </datalist>
                   </div>
-                </div>
 
-                <!-- Unit Price + SRP Price -->
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    <label>Unit Price</label>
-                    <input type="number" step="0.01" name="unit_price"
-                          class="form-control" value="{{ form.unit_price.value|default:'' }}">
-                  </div>
-                  <div class="form-group col-md-6">
-                    <label>SRP Price</label>
-                    <input type="number" step="0.01" name="srp_price"
-                          class="form-control" value="{{ form.srp_price.value|default:'' }}">
-                  </div>
-                </div>
-
-                <!-- Description -->
-                <div class="form-group">
-                  {{ form.description.label_tag }}
-                  {% render_field form.description class="form-control" rows="3" %}
-                </div>
-
-                <!-- Barcode -->
-                <div class="form-group">
-                  <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
-                  <input type="text" id="barcode-input" name="barcode" 
-                         class="form-control" 
-                         value="{{ form.barcode.value|default:'' }}"
-                         placeholder="Scan or enter barcode manually">
-                  <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
-                </div>
-
-                <!-- Photo Upload -->
-                <div class="form-group">
-                  {{ form.photo.label_tag }}
-                  {% render_field form.photo class="form-control-file" onchange="previewPhoto(event)" %}
-                  {% if object.photo %}
-                    <div class="mt-2">
-                      <img id="photo-preview" src="{{ object.photo.url }}" class="img-thumbnail" style="max-height:120px;">
+                  <!-- Size + Size Unit -->
+                  <div class="form-row" style="width:100%;">
+                    <div class="form-item col-md-6">
+                      <label>Size</label>
+                      <input type="text" name="size" list="size-options"
+                             class="form-control" value="{{ form.size.value|default:'' }}">
+                      <datalist id="size-options">
+                        {% for s in sizes %}
+                          <option value="{{ s.size_label }}">
+                        {% endfor %}
+                      </datalist>
                     </div>
-                    <div class="mt-2">
-                      <button type="submit" name="delete_photo" value="1" class="btn btn-danger btn-sm">
-                        <i class="fa fa-trash"></i> Delete Photo
-                      </button>
+                    <div class="form-item col-md-6">
+                      <label>Size Unit</label>
+                      {% render_field form.size_unit class="form-control" %}
                     </div>
-                  {% else %}
-                    <img id="photo-preview" class="img-thumbnail mt-2" style="max-height:120px; display:none;">
-                  {% endif %}
-                </div>
-                <div class="mb-3">
-                  {% if object and object.id %}
-                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
-                  {% else %}
-                    <button type="submit" class="btn btn-primary btn-rounded">Save Update</button>
-                  {% endif %}
-                </div>
+                  </div>
 
-                <div class="mb-3">
-                  <button type="submit" class="btn btn-primary btn-rounded">Update</button>
-                </div>
+                  <!-- Unit Price + SRP Price -->
+                  <div class="form-row" style="width:100%;">
+                    <div class="form-item col-md-6">
+                      <label>Unit Price</label>
+                      <input type="number" step="0.01" name="unit_price"
+                             class="form-control" value="{{ form.unit_price.value|default:'' }}">
+                    </div>
+                    <div class="form-item col-md-6">
+                      <label>SRP Price</label>
+                      <input type="number" step="0.01" name="srp_price"
+                             class="form-control" value="{{ form.srp_price.value|default:'' }}">
+                    </div>
+                  </div>
+
+                  <!-- Description -->
+                  <div class="form-item" style="width:100%;">
+                    {{ form.description.label_tag }}
+                    {% render_field form.description class="form-control" rows="3" %}
+                  </div>
+                  <!-- Photo Upload -->
+                  <div class="form-item" style="width:100%;">
+                    <label>Product Photo</label>
+
+                    {% if object.photo %}
+                      <div class="d-flex align-items-center mb-2">
+                        <img id="photo-preview" src="{{ object.photo.url }}" class="img-thumbnail mr-2" style="max-height:120px;">
+                        <div>
+                          <div class="mb-2">
+                            <button type="button" id="btnClearPhoto" class="btn btn-danger btn-sm">
+                              <i class="fa fa-trash"></i> Clear current photo
+                            </button>
+                          </div>
+                          <small class="text-muted d-block">You can choose a new file below to replace it.</small>
+                        </div>
+                      </div>
+                    {% else %}
+                      <img id="photo-preview" class="img-thumbnail mb-2" style="max-height:120px; display:none;">
+                    {% endif %}
+
+                    <input type="hidden" name="delete_photo_flag" id="deletePhotoHidden" value="0">
+
+                    <div class="custom-file">
+                      <input type="file" name="photo" class="custom-file-input" id="customFileEdit" accept="image/*">
+                      <label class="custom-file-label" for="customFileEdit">Choose file</label>
+                    </div>
+                  </div>
+                  <!-- Actions -->
+                  <div class="form-actions btn-row mt-3">
+                    {% if object and object.id %}
+                      <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary btn-rounded">Update</button>
+                  </div>
+                </div><!-- /.form-container -->
+
               </form>
             </div>
           </div>
@@ -136,6 +144,7 @@
     </div>
   </div>
 </div>
+
 <script>
 function previewPhoto(event) {
   let output = document.getElementById('photo-preview');
@@ -144,21 +153,55 @@ function previewPhoto(event) {
 }
 </script>
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+  const fileInput  = document.getElementById('customFileEdit');
+  const preview    = document.getElementById('photo-preview');
+  const clearBtn   = document.getElementById('btnClearPhoto');
+  const clearHidden= document.getElementById('deletePhotoHidden');
+
+  // Update label + preview kapag pumili ng bagong file
+  if (fileInput) {
+    fileInput.addEventListener('change', function (e) {
+      const file  = this.files[0];
+      const label = this.nextElementSibling;
+      label.textContent = file ? file.name : 'Choose file';
+
+      if (file) {
+        const url = URL.createObjectURL(file);
+        if (preview) { preview.src = url; preview.style.display = 'block'; }
+        if (clearHidden) clearHidden.value = '0'; // override clear kapag may bagong upload
+      }
+    });
+  }
+
+  // Clear current photo (hide preview, reset file input, set hidden flag)
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (preview) { preview.style.display = 'none'; preview.src = ''; }
+      if (fileInput) { 
+        fileInput.value = ''; 
+        const label = fileInput.nextElementSibling; 
+        if (label) label.textContent = 'Choose file';
+      }
+      if (clearHidden) clearHidden.value = '1';
+    });
+  }
+});
+</script>
+
+<script>
 document.addEventListener("DOMContentLoaded", function() {
   const barcodeInput = document.getElementById("barcode-input");
   const barcodeStatus = document.getElementById("barcode-status");
   const scannerStatus = document.getElementById("scanner-status");
 
-  let socket = null;
-  let reconnectTimer = null;
-  let lastScannedBarcode = "";
+  let socket = null, reconnectTimer = null, lastScannedBarcode = "";
 
   function updateScannerStatus(text, className) {
     if (!scannerStatus) return;
     scannerStatus.textContent = `Scanner: ${text}`;
     scannerStatus.className = `badge ${className} ml-2`;
   }
-
   function updateBarcodeStatus(text, color = "text-muted") {
     if (!barcodeStatus) return;
     barcodeStatus.textContent = text;
@@ -167,18 +210,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function connectWebSocket() {
     if (socket) { try { socket.close(); } catch(e){} }
-    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
+    const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+    const wsUrl = `${protocol}${location.host}/ws/scan/`;
     updateScannerStatus("Connecting...", "badge-warning");
     socket = new WebSocket(wsUrl);
 
-    socket.onopen = function() {
+    socket.onopen = () => {
       updateScannerStatus("Connected", "badge-success");
       updateBarcodeStatus("✓ Scanner ready. Scan a barcode...", "text-success");
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     };
 
-    socket.onmessage = function(e) {
+    socket.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         const barcode = data.barcode;
@@ -189,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function() {
           return;
         }
         lastScannedBarcode = barcode;
-        setTimeout(() => { lastScannedBarcode = ""; }, 1000);
+        setTimeout(() => lastScannedBarcode = "", 1000);
 
         if (barcodeInput) {
           barcodeInput.value = barcode;
@@ -198,20 +241,18 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         const now = new Date().toLocaleTimeString();
         updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
-      } catch (err) {
+      } catch {
         updateBarcodeStatus("✗ Error processing barcode", "text-danger");
       }
     };
 
-    socket.onclose = function() {
+    socket.onclose = () => {
       updateScannerStatus("Disconnected", "badge-danger");
       updateBarcodeStatus("✗ Scanner disconnected. Reconnecting...", "text-warning");
-      if (!reconnectTimer) {
-        reconnectTimer = setTimeout(connectWebSocket, 3000);
-      }
+      if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
     };
 
-    socket.onerror = function() {
+    socket.onerror = () => {
       updateScannerStatus("Error", "badge-danger");
       updateBarcodeStatus("✗ Connection error", "text-danger");
     };

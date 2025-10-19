@@ -28,23 +28,15 @@
                 {% endif %}
 
                 <!-- Barcode Field (NEW) -->
-                <div class="form-group">
-                  <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
-                  <input type="text" id="barcode-input" name="barcode" 
-                         class="form-control" 
-                         value="{{ form.barcode.value|default:'' }}"
-                         placeholder="Scan or enter barcode manually">
-                  <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
-                </div>
-
-                <!-- Barcode Field (NEW) -->
-                <div class="form-group">
-                  <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
-                  <input type="text" id="barcode-input" name="barcode" 
-                         class="form-control" 
-                         value="{{ form.barcode.value|default:'' }}"
-                         placeholder="Scan or enter barcode manually">
-                  <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                <div class="form-container">
+                  <div class="form-item" style="width:100%;">
+                    <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
+                    <input type="text" id="barcode-input" name="barcode" 
+                          class="form-control" 
+                          value="{{ form.barcode.value|default:'' }}"
+                          placeholder="Scan or enter barcode manually">
+                    <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                  </div>
                 </div>
 
                 <div class="form-container">
@@ -116,14 +108,14 @@
                   </div>
                 </div>
 
-                <!-- Submit -->
-                <div class="mb-3">
-                  {% if object and object.id %}
-                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
-                  {% else %}
-                    <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
-                  {% endif %}
-                </div>
+              <!-- Buttons -->
+              <div class="form-actions btn-row mt-3">
+                {% if object and object.id %}
+                  <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                {% else %}
+                  <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
+                {% endif %}
+              </div>
 
               </form>
             </div>
@@ -282,23 +274,6 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 });
 </script>
-
-<style>
-#barcode-input {
-  font-weight: 500;
-  font-size: 1.1rem;
-}
-
-#scanner-status {
-  font-size: 0.85rem;
-  padding: 0.3rem 0.6rem;
-}
-
-#barcode-status {
-  font-size: 0.9rem;
-  margin-top: 0.3rem;
-}
-</style>
 
 <script>
   document.querySelector('#customFile').addEventListener('change', function(e) {

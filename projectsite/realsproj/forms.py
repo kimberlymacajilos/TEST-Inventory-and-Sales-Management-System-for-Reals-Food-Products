@@ -129,8 +129,11 @@ class ProductRecipeForm(forms.ModelForm):
         fields = ["material", "quantity_needed", "yield_factor"]
 
 class RawMaterialsForm(ModelForm):
+    field_order = ["name", "size", "unit", "price_per_unit"]
+
     class Meta:
         model = RawMaterials
+        field_order = ["name", "size", "unit", "price_per_unit"]
         exclude = ['created_by_admin', 'date_created', 'is_archived'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
