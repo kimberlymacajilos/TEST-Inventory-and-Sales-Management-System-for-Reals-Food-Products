@@ -2,76 +2,89 @@
 {% load static %}
 {% block content %}
 <div class="content">
-    <div class="container-fluid">
-        <h4 class="page-title">Product Inventory</h4>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <!-- Filter controls -->
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="card-title">List of Product Stock</div>
-                            <div class="card-category">Filter Inventory</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Search form -->
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <form method="get" action="" class="mt-2" id="searchForm">
-                                    <div class="input-group">
-                                        <input type="text" id="searchInput" name="q"
-                                            class="form-control"
-                                            placeholder="Search product inventory...">
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-
-                        <table class="table table-striped mt-3">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Product</th>
-                                    <th scope="col">Current Stock</th>
-                                    <th scope="col">Restock Threshold</th>
-                                    <th scope="col">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="inventoryTableBody">
-                                {% for object in product_inventory %}
-                                <tr>
-                                    <td>{{ object.product }}</td>
-                                    <td>{{ object.total_stock }}</td>
-                                    <td>{{ object.restock_threshold }}</td>
-                                    <td>
-                                        {% if object.total_stock == 0 %}
-                                            <span class="badge bg-danger">Out of Stock</span>
-                                        {% elif object.total_stock < object.restock_threshold %}
-                                            <span class="badge bg-warning text-dark">Low Stock</span>
-                                        {% elif object.total_stock == object.restock_threshold %}
-                                            <span class="badge bg-info text-dark">Warning</span>
-                                        {% else %}
-                                            <span class="badge bg-success">On Stock</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center">No inventory found.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        <div id="paginationContainer">
-                            {% include 'includes/pagination.html' %}
-                        </div>
-                    </div>
-                </div>
+  <div class="container-fluid">
+    <h4 class="page-title">Product Inventory</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <div class="card-title">List of Product Stock</div>
             </div>
-        </div>
-    </div>
-</div>
+          </div>
 
-<!-- <script src="{% static 'js/product_search.js' %}"></script> -->
+          <div class="card-body">
+            <form method="get" action="" id="filterForm">
+              <!-- Search -->
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <div class="input-group">
+                    <input type="text" id="searchInput" name="q"
+                      class="form-control"
+                      value="{{ request.GET.q }}"
+                      placeholder="Search product inventory...">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Table -->
+              <table class="table table-striped mt-3">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Current Stock</th>
+                    <th>Restock Threshold</th>
+                    <th>
+                      <span class="fw-bold me-2">Status</span>
+                      <select id="statusFilter" name="status"
+                        style="border:none; background:transparent; font-weight:500; cursor:pointer;"
+                        onchange="document.getElementById('filterForm').submit();">
+                        <option value="" {% if not request.GET.status %}selected{% endif %}>All</option>
+                        <option value="on_stock" {% if request.GET.status == 'on_stock' %}selected{% endif %}>On Stock</option>
+                        <option value="low_stock" {% if request.GET.status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                        <option value="warning" {% if request.GET.status == 'warning' %}selected{% endif %}>Warning</option>
+                        <option value="out_of_stock" {% if request.GET.status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                      </select>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody id="inventoryTableBody">
+                  {% for object in product_inventory %}
+                  <tr>
+                    <td>{{ object.product }}</td>
+                    <td>{{ object.total_stock }}</td>
+                    <td>{{ object.restock_threshold }}</td>
+                    <td>
+                      {% if object.total_stock == 0 %}
+                        <span class="badge bg-danger">Out of Stock</span>
+                      {% elif object.total_stock < object.restock_threshold %}
+                        <span class="badge bg-warning text-dark">Low Stock</span>
+                      {% elif object.total_stock == object.restock_threshold %}
+                        <span class="badge bg-info text-dark">Warning</span>
+                      {% else %}
+                        <span class="badge bg-success">On Stock</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center">No inventory found.</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </form>
+
+            <!-- Pagination -->
+            <div id="paginationContainer">
+              {% include 'includes/pagination.html' %}
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

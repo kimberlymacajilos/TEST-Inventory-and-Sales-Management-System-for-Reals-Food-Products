@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.contrib import messages
@@ -7,22 +7,15 @@ from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db import transaction
-from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from decimal import InvalidOperation
-from decimal import Decimal
-from django.urls import reverse_lazy
-from django.shortcuts import render, redirect
+from decimal import Decimal, InvalidOperation
+from django.urls import reverse, reverse_lazy
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login, authenticate, update_session_auth_hash
 from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm
-from django.contrib import messages
 from django.db.models import Avg, Count, Sum
-from datetime import datetime
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
@@ -48,8 +41,8 @@ from realsproj.forms import (
     BulkRawMaterialBatchForm,
     ProductRecipeForm,
     UnifiedWithdrawForm,
-    CustomUserCreationForm
-    
+    CustomUserCreationForm,
+    WithdrawEditForm
 )
 
 from realsproj.models import (
@@ -81,28 +74,23 @@ from realsproj.models import (
 )
 
 from django.db.models import Q, CharField
-from decimal import Decimal, InvalidOperation
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
-from django.shortcuts import render
-from django.db.models import Sum
 from django.db.models.functions import TruncMonth, TruncDay
-from django.contrib.auth.forms import UserCreationForm
-from datetime import datetime
 from django.db.models.functions import Cast
 from django.contrib.auth.models import User
 import os
-from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 import csv
 from datetime import datetime, timedelta, date
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views import View
 from django.utils import timezone
-from datetime import timedelta
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.db.models import Q, F, CharField
+from django.db.models.functions import Cast
+import re
+from urllib.parse import urlparse, parse_qs
 
 
 @method_decorator(login_required, name='dispatch')
@@ -121,8 +109,8 @@ class HomePageView(LoginRequiredMixin, TemplateView):
 
         context['total_revenue'] = total_sales - total_expenses
 
-        context['total_stocks'] = ProductBatches.objects.aggregate(
-            total=Sum('quantity')
+        context['total_stocks'] = ProductInventory.objects.aggregate(
+            total=Sum('total_stock')
         )['total'] or 0
 
         context['recent_sales'] = Withdrawals.objects.filter(
@@ -370,7 +358,7 @@ class ProductsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        # Palitan ang super().get_queryset() para magsimula sa pag-filter ng HINDI naka-archive
+        
         queryset = (
             Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
@@ -433,18 +421,10 @@ class ProductsList(ListView):
         context = super().get_context_data(**kwargs)
         context["query_params"] = self.request.GET
         return context
-    
 
-
-from django.shortcuts import render
-
-def product_add_barcode(request):
-    return render(request, "product_add_barcode.html")
-
-from django.shortcuts import render
 
 def product_scan_phone(request):
-    # ito yung scanner-only view para sa phone
+    
     return render(request, "product_scan_phone.html")
 
 class ProductArchiveView(View):
@@ -452,6 +432,9 @@ class ProductArchiveView(View):
         product = get_object_or_404(Products, pk=pk)
         product.is_archived = True
         product.save()
+        page = request.POST.get('page')
+        if page:
+            return redirect(f"{reverse('product-list')}?page={page}")
         return redirect('product-list')
 
 class ArchivedProductsListView(ListView):
@@ -495,7 +478,7 @@ class ProductCreateView(CreateView):
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-        return context  # ✅ importante!
+        return context  
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -517,42 +500,77 @@ class ProductCreateView(CreateView):
             messages.error(self.request, f"❌ Product did not save. {e}")
             return redirect(self.request.path)  
 
+        except Exception as e:
+            transaction.set_rollback(True)
+            messages.error(self.request, f"❌ Product did not save. {e}")
+            return redirect(self.request.path)  
+
         messages.success(self.request, "✅ Product added successfully.")
         return redirect('recipe-list', product_id=self.object.id)
 
     def form_invalid(self, form):
-        messages.error(self.request, "⚠️ Please fill up all fied.")
-        return redirect(self.request.path)  
-
-    
+        """Handle validation errors (e.g., duplicate barcode)"""
+        # Check if barcode error exists
+        if 'barcode' in form.errors:
+            messages.error(self.request, f"❌ {form.errors['barcode'][0]}")
+        else:
+            messages.error(self.request, "❌ Please correct the errors below.")
+        
+        return super().form_invalid(form)
 
 
 class ProductsUpdateView(UpdateView):
     model = Products
     form_class = ProductsForm
     template_name = "prod_edit.html"
-    success_url = reverse_lazy("products")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Add all required context data
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
-
         context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
+        
+        # Store the current page number
+        referer = self.request.META.get('HTTP_REFERER', '')
+        if 'page=' in referer:
+            try:
+                context['current_page'] = re.search(r'page=(\d+)', referer).group(1)
+            except (AttributeError, IndexError):
+                pass
+        
         return context
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        auth_user = AuthUser.objects.get(id=self.request.user.id)
-        kwargs['created_by_admin'] = auth_user
-        return kwargs
-    
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
 
+    def get_success_url(self):
+        # Try to get page from POST data first
+        page = self.request.POST.get('current_page')
+        
+        # If not in POST, try to get from session
+        if not page and 'current_page' in self.request.session:
+            page = self.request.session['current_page']
+            
+        # Construct URL with page if available
+        url = reverse('products')
+        if page:
+            url = f'{url}?page={page}'
+            
+        return url
+
+    def post(self, request, *args, **kwargs):
+        # Store the current page in session
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'page=' in referer:
+            try:
+                page = re.search(r'page=(\d+)', referer).group(1)
+                request.session['current_page'] = page
+            except (AttributeError, IndexError):
+                pass
+
+        # Handle photo deletion
+        self.object = self.get_object()
         if "delete_photo" in request.POST:
             if self.object.photo:
                 self.object.photo = None
@@ -560,7 +578,6 @@ class ProductsUpdateView(UpdateView):
                 messages.success(request, "Product photo deleted.")
             else:
                 messages.info(request, "No photo to delete.")
-
             return redirect(reverse("product-edit", kwargs={"pk": self.object.pk}))
 
         return super().post(request, *args, **kwargs)
@@ -570,7 +587,9 @@ class ProductsUpdateView(UpdateView):
         form.instance.created_by_admin = auth_user
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
-        return redirect(self.success_url)
+        
+        # Use get_success_url() to maintain the page number
+        return redirect(self.get_success_url())
 
 @receiver(pre_save, sender=Products)
 def delete_old_product_photo_on_change(sender, instance, **kwargs):
@@ -607,6 +626,9 @@ class ProductsDeleteView(DeleteView):
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Product deleted successfully.")
+        page = self.request.POST.get('page')
+        if page:
+            return f"{reverse_lazy('products')}?page={page}"
         return super().get_success_url()
 
 class ProductRecipeListView(ListView):
@@ -749,7 +771,8 @@ class RawMaterialsCreateView(CreateView):
     def form_invalid(self, form):
         messages.error(self.request, "Please complete all required fields. The form was reset.")
         return redirect(self.request.path)  
-    
+
+
 class RawMaterialsUpdateView(UpdateView):
     model = RawMaterials
     form_class = RawMaterialsForm
@@ -940,6 +963,7 @@ class SalesDeleteView(DeleteView):
         return super().get_success_url()
 
 
+
 class ExpensesList(ListView):
     model = Expenses
     context_object_name = 'expenses'
@@ -947,11 +971,13 @@ class ExpensesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
+        # Start with active (non-archived) records
+        qs = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
 
+        # --- Search query ---
         query = self.request.GET.get("q", "").strip()
         if query:
-            queryset = queryset.filter(
+            qs = qs.filter(
                 Q(category__icontains=query) |
                 Q(amount__icontains=query) |
                 Q(date__icontains=query) |
@@ -962,35 +988,40 @@ class ExpensesList(ListView):
         # --- Category filter ---
         category = self.request.GET.get("category", "").strip()
         if category:
-            queryset = queryset.filter(category__iexact=category)
+            qs = qs.filter(category__iexact=category)
 
         # --- Month filter (YYYY-MM) ---
         month = self.request.GET.get("month", "").strip()
         if month:
             try:
-                year, month_num = month.split("-")
-                queryset = queryset.filter(date__year=year, date__month=month_num)
-            except (ValueError, IndexError):
-                pass # Ignore invalid format
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            # Default: show only current month
+            today = timezone.now()
+            qs = qs.filter(date__year=today.year, date__month=today.month)
 
-        self._full_queryset = queryset
-        return queryset
+        self._full_queryset = qs
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        qs_for_summary = getattr(self, 'filtered_queryset', Expenses.objects.filter(is_archived=False))
+        full_qs = getattr(self, "_full_queryset", Expenses.objects.filter(is_archived=False))
 
-        summary = qs_for_summary.aggregate(
+        context["expenses_summary"] = full_qs.aggregate(
             total_expenses=Sum("amount"),
             average_expenses=Avg("amount"),
             expenses_count=Count("id"),
         )
 
-        context["expenses_summary"] = summary
-        
         categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
         context["categories"] = categories
+
         return context
     
 class ExpenseArchiveView(View):
@@ -1136,6 +1167,46 @@ class ProductBatchDeleteView(DeleteView):
     def get_success_url(self):
         messages.success(self.request, "🗑️ Product Batch deleted successfully.")
         return super().get_success_url()
+
+
+class ProductBatchArchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(ProductBatches, pk=pk)
+        batch.is_archived = True
+        batch.save()
+        messages.success(request, "📦 Product Batch archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('product-batch')}?page={page}")
+        return redirect('product-batch')
+
+
+class ArchivedProductBatchListView(ListView):
+    model = ProductBatches
+    template_name = 'archived_product_batch.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return ProductBatches.objects.filter(is_archived=True).select_related('product', 'created_by_admin').order_by('-batch_date')
+
+
+class ProductBatchUnarchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(ProductBatches, pk=pk)
+        batch.is_archived = False
+        batch.save()
+        messages.success(request, "✅ Product Batch restored successfully.")
+        return redirect('product-batch-archived-list')
+
+
+class ProductBatchArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = ProductBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} product batch(es) older than 1 year have been archived.")
+        return redirect('product-batch')
     
 
 class ProductInventoryList(ListView):
@@ -1158,14 +1229,26 @@ class ProductInventoryList(ListView):
             queryset = queryset.annotate(
                 total_stock_str=Cast("total_stock", CharField()),
                 restock_threshold_str=Cast("restock_threshold", CharField()),
+            ).filter(
+                Q(product__product_type__name__icontains=q) |
+                Q(product__variant__name__icontains=q) |
+                Q(total_stock_str__icontains=q) |
+                Q(restock_threshold_str__icontains=q)
             )
 
-            queryset = queryset.filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q)
-            )
+        status = self.request.GET.get("status", "")
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("restock_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("restock_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("restock_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset.order_by("product_id")
+
+
 class RawMaterialList(ListView):
     model = RawMaterials
     context_object_name = 'raw_materials'
@@ -1253,6 +1336,46 @@ class RawMaterialBatchDeleteView(DeleteView):
     success_url = reverse_lazy('rawmaterial-batch')
 
 
+class RawMaterialBatchArchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(RawMaterialBatches, pk=pk)
+        batch.is_archived = True
+        batch.save()
+        messages.success(request, "📦 Raw Material Batch archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('rawmaterial-batch')}?page={page}")
+        return redirect('rawmaterial-batch')
+
+
+class ArchivedRawMaterialBatchListView(ListView):
+    model = RawMaterialBatches
+    template_name = 'archived_rawmaterial_batch.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return RawMaterialBatches.objects.filter(is_archived=True).select_related('material', 'created_by_admin').order_by('-batch_date')
+
+
+class RawMaterialBatchUnarchiveView(View):
+    def post(self, request, pk):
+        batch = get_object_or_404(RawMaterialBatches, pk=pk)
+        batch.is_archived = False
+        batch.save()
+        messages.success(request, "✅ Raw Material Batch restored successfully.")
+        return redirect('rawmaterial-batch-archived-list')
+
+
+class RawMaterialBatchArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = RawMaterialBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} raw material batch(es) older than 1 year have been archived.")
+        return redirect('rawmaterial-batch')
+
+
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
     context_object_name = 'rawmatinvent'
@@ -1261,14 +1384,25 @@ class RawMaterialInventoryList(ListView):
     
     def get_queryset(self):
         queryset = super().get_queryset().select_related("material").order_by('-material_id')
-        query = self.request.GET.get("q", "").strip()
 
-        if query:
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+
+        if q:
             queryset = queryset.filter(
-                Q(material__name__icontains=query) |
-                Q(total_stock__icontains=query) |
-                Q(reorder_threshold__icontains=query)
+                Q(material__name__icontains=q) |
+                Q(total_stock__icontains=q) |
+                Q(reorder_threshold__icontains=q)
             )
+
+        if status == "on_stock":
+            queryset = queryset.filter(total_stock__gt=F("reorder_threshold"))
+        elif status == "low_stock":
+            queryset = queryset.filter(total_stock__lt=F("reorder_threshold"), total_stock__gt=0)
+        elif status == "warning":
+            queryset = queryset.filter(total_stock=F("reorder_threshold"))
+        elif status == "out_of_stock":
+            queryset = queryset.filter(total_stock=0)
 
         return queryset
 
@@ -1340,6 +1474,207 @@ class SrpPricesCreateView(CreateView):
         return super().form_valid(form)
 
 
+# Product Attributes Management View
+class ProductAttributesView(LoginRequiredMixin, TemplateView):
+    template_name = "product_attributes.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all().order_by('name')
+        context['product_variants'] = ProductVariants.objects.all().order_by('name')
+        context['sizes'] = Sizes.objects.all().order_by('size_label')
+        context['size_units'] = SizeUnits.objects.all().order_by('unit_name')
+        context['unit_prices'] = UnitPrices.objects.all().order_by('unit_price')
+        context['srp_prices'] = SrpPrices.objects.all().order_by('srp_price')
+        return context
+
+
+# Product Type CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductTypeAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Type added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeEditView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_type.name = name
+            product_type.save()
+            messages.success(request, 'Product Type updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeDeleteView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        product_type.delete()
+        messages.success(request, 'Product Type deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Product Variant CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductVariantAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Variant added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantEditView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_variant.name = name
+            product_variant.save()
+            messages.success(request, 'Product Variant updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantDeleteView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        product_variant.delete()
+        messages.success(request, 'Product Variant deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeAddView(View):
+    def post(self, request):
+        size_label = request.POST.get('size_label')
+        if size_label:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+            messages.success(request, 'Size added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeEditView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size_label = request.POST.get('size_label')
+        if size_label:
+            size.size_label = size_label
+            size.save()
+            messages.success(request, 'Size updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeDeleteView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size.delete()
+        messages.success(request, 'Size deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size Unit CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeUnitAddView(View):
+    def post(self, request):
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+            messages.success(request, 'Size Unit added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitEditView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            size_unit.unit_name = unit_name
+            size_unit.save()
+            messages.success(request, 'Size Unit updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitDeleteView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        size_unit.delete()
+        messages.success(request, 'Size Unit deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Unit Price CRUD
+@method_decorator(login_required, name='dispatch')
+class UnitPriceAddView(View):
+    def post(self, request):
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
+            messages.success(request, 'Unit Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceEditView(View):
+    def post(self, request, pk):
+        unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            unit_price_obj.unit_price = unit_price
+            unit_price_obj.save()
+            messages.success(request, 'Unit Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceDeleteView(View):
+    def post(self, request, pk):
+        unit_price = get_object_or_404(UnitPrices, pk=pk)
+        unit_price.delete()
+        messages.success(request, 'Unit Price deleted successfully!')
+        return redirect('product-attributes')
+
+
+# SRP Price CRUD
+@method_decorator(login_required, name='dispatch')
+class SrpPriceAddView(View):
+    def post(self, request):
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
+            messages.success(request, 'SRP Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceEditView(View):
+    def post(self, request, pk):
+        srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            srp_price_obj.srp_price = srp_price
+            srp_price_obj.save()
+            messages.success(request, 'SRP Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceDeleteView(View):
+    def post(self, request, pk):
+        srp_price = get_object_or_404(SrpPrices, pk=pk)
+        srp_price.delete()
+        messages.success(request, 'SRP Price deleted successfully!')
+        return redirect('product-attributes')
+
+
 class WithdrawSuccessView(ListView):
     model = Withdrawals
     context_object_name = 'withdrawals'
@@ -1347,7 +1682,7 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.all().order_by('-date')
+        queryset = Withdrawals.objects.filter(is_archived=False).order_by('-date')
         request = self.request
 
         q = request.GET.get("q")
@@ -1399,7 +1734,7 @@ class WithdrawItemView(View):
     template_name = "withdraw_item.html"
 
     def get(self, request):
-        products = Products.objects.all().select_related(
+        products = Products.objects.all().order_by('id').select_related(
             "product_type", "variant", "size", "size_unit", "productinventory"
         )
         rawmaterials = RawMaterials.objects.all().select_related(
@@ -1501,6 +1836,69 @@ class WithdrawItemView(View):
 
         return redirect("withdrawals")
 
+
+class WithdrawalsArchiveView(View):
+    def post(self, request, pk):
+        withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        withdrawal.is_archived = True
+        withdrawal.save()
+        messages.success(request, "📦 Withdrawal archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('withdrawals')}?page={page}")
+        return redirect('withdrawals')
+
+
+class ArchivedWithdrawalsListView(ListView):
+    model = Withdrawals
+    template_name = 'archived_withdrawals.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Withdrawals.objects.filter(is_archived=True).order_by('-date')
+
+
+class WithdrawalsUnarchiveView(View):
+    def post(self, request, pk):
+        withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        withdrawal.is_archived = False
+        withdrawal.save()
+        messages.success(request, "✅ Withdrawal restored successfully.")
+        return redirect('withdrawals-archived-list')
+
+
+class WithdrawalsArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = Withdrawals.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
+        return redirect('withdrawals')
+
+class WithdrawUpdateView(UpdateView):
+    model = Withdrawals
+    form_class = WithdrawEditForm
+    template_name = "withdraw_edit.html"
+    success_url = reverse_lazy("withdrawals")
+
+    def form_valid(self, form):
+        messages.success(self.request, "✅ Withdrawal successfully updated.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Please correct the errors below.")
+        return super().form_invalid(form)
+
+
+class WithdrawDeleteView(DeleteView):
+    model = Withdrawals
+    success_url = reverse_lazy('withdrawals')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
+        return super().get_success_url()
+    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -1540,52 +1938,85 @@ class NotificationsList(ListView):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
 
+class NotificationsDeleteView(DeleteView):
+    model = Notifications
+    success_url = reverse_lazy('notifications')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Notification deleted successfully.")
+        return super().get_success_url()
+
+
 class BulkProductBatchCreateView(View):
     template_name = "prodbatch_add.html"
 
     def get(self, request):
         form = BulkProductBatchForm()
-        return render(request, self.template_name, {'form': form, 'products': form.products})
+        return render(request, self.template_name, {
+            'form': form,
+            'products': form.products
+        })
 
     def post(self, request):
         form = BulkProductBatchForm(request.POST)
-        if form.is_valid():
-            batch_date = date.today() 
-            manufactured_date = form.cleaned_data['manufactured_date']
-            deduct_raw_material = form.cleaned_data['deduct_raw_material']
-            auth_user = AuthUser.objects.get(id=request.user.id)
 
-            try:
+        if not form.is_valid():
+            messages.error(request, "❌ Please fix the errors below before submitting.")
+            return render(request, self.template_name, {
+                'form': form,
+                'products': form.products
+            })
+
+        batch_date = date.today()
+        manufactured_date = form.cleaned_data['manufactured_date']
+        deduct_raw_material = form.cleaned_data['deduct_raw_material']
+        auth_user = AuthUser.objects.get(id=request.user.id)
+
+        try:
+            with transaction.atomic():
                 added_any = False
+
                 for product_info in form.products:
                     product = product_info['product']
                     qty = form.cleaned_data.get(f'product_{product.id}_qty')
-                    if qty:
-                        ProductBatches.objects.create(
-                            product=product,
-                            quantity=qty,
-                            batch_date=batch_date,
-                            manufactured_date=manufactured_date,
-                            created_by_admin=auth_user,
-                            deduct_raw_material=deduct_raw_material
-                        )
-                        added_any = True
 
-                if added_any:
-                    messages.success(request, "✅ Product Batch added successfully.")
-                else:
-                    messages.warning(request, "⚠️ No product quantities were entered.")
+                    if not qty or float(qty) <= 0:
+                        continue
 
-                return redirect("product-batch")
+                    ProductBatches.objects.create(
+                        product=product,
+                        quantity=qty,
+                        batch_date=batch_date,
+                        manufactured_date=manufactured_date,
+                        created_by_admin=auth_user,
+                        deduct_raw_material=deduct_raw_material,
+                    )
+                    added_any = True
 
-            except Exception as e:
-                messages.error(
-                    request,
-                    f"❌ Product Batch not added: insufficient raw materials."
-                )
-                return redirect("product-batch")
+                if not added_any:
+                    raise ValueError("⚠️ No product quantities were entered.")
 
-        return render(request, self.template_name, {'form': form, 'products': form.products})
+        except Exception as e:
+            error_message = str(e)
+
+            if "Not enough stock" in error_message:
+                error_message = error_message.split("CONTEXT:")[0].strip()
+            elif "insufficient" in error_message.lower():
+                error_message = "❌ Insufficient raw materials to create this batch."
+            elif "No product quantities" in error_message:
+                error_message = "⚠️ No product quantities were entered."
+            else:
+                error_message = f"❌ {error_message}"
+
+            messages.error(request, error_message)
+
+            return render(request, self.template_name, {
+                'form': form,
+                'products': form.products
+            })
+
+        messages.success(request, "✅ Product Batch added successfully.")
+        return redirect("product-batch")
 
 
 class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
@@ -1624,12 +2055,6 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
 @login_required
 def profile_view(request):
     return render(request, "profile.html")
-
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-
 
 def best_sellers_api(request):
     TOP_N = 5
@@ -1673,6 +2098,46 @@ class StockChangesList(ListView):
             .filter(is_archived=False)
             .order_by('-date')
         )
+
+
+class StockChangesArchiveView(View):
+    def post(self, request, pk):
+        stock_change = get_object_or_404(StockChanges, pk=pk)
+        stock_change.is_archived = True
+        stock_change.save()
+        messages.success(request, "📦 Stock change archived successfully.")
+        page = request.GET.get('page')
+        if page:
+            return redirect(f"{reverse('stock-changes')}?page={page}")
+        return redirect('stock-changes')
+
+
+class ArchivedStockChangesListView(ListView):
+    model = StockChanges
+    template_name = 'archived_stock_changes.html'
+    context_object_name = 'object_list'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return StockChanges.objects.filter(is_archived=True).order_by('-date')
+
+
+class StockChangesUnarchiveView(View):
+    def post(self, request, pk):
+        stock_change = get_object_or_404(StockChanges, pk=pk)
+        stock_change.is_archived = False
+        stock_change.save()
+        messages.success(request, "✅ Stock change restored successfully.")
+        return redirect('stock-changes-archived-list')
+
+
+class StockChangesArchiveOldView(View):
+    def post(self, request):
+        from datetime import timedelta
+        one_year_ago = timezone.now() - timedelta(days=365)
+        archived_count = StockChanges.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
+        return redirect('stock-changes')
     
 def login_view(request):
     if request.method == 'POST':
@@ -1689,6 +2154,7 @@ def login_view(request):
         else:
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
+
 
 def register(request):
     if request.method == 'POST':

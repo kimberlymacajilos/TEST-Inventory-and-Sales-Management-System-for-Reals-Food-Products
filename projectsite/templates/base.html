@@ -29,7 +29,7 @@
             </button>
             <button class="topbar-toggler more"><i class="la la-ellipsis-v"></i></button>
         </div>
-        <nav class="navbar navbar-header navbar-expand-lg">
+               <nav class="navbar navbar-header navbar-expand-lg">
             <div class="container-fluid">
                 <ul class="navbar-nav topbar-nav ml-md-auto align-items-center">
                     <li class="nav-item">
@@ -64,19 +64,20 @@
                         </li>
                         <li>
                         <div class="notif-center">
-                            {% for notif in notifications|slice:":5" %}
-                            <a href="#" class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
-                                <div class="notif-icon {{ notif.css_class }}">
+                        {% for notif in notifications|slice:":5" %}
+                            <a href="{% url 'notifications' %}" 
+                            class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
+                            <div class="notif-icon {{ notif.css_class }}">
                                 <i class="{{ notif.icon_class }}"></i>
-                                </div>
-                                <div class="notif-content">
+                            </div>
+                            <div class="notif-content">
                                 <span class="notif-title">{{ notif.formatted_message }}</span>
                                 <span class="notif-time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
-                                </div>
+                            </div>
                             </a>
-                            {% empty %}
+                        {% empty %}
                             <div class="text-center p-2">No new notifications</div>
-                            {% endfor %}
+                        {% endfor %}
                         </div>
                         </li>
                         <li class="dropdown-footer text-center">
@@ -143,26 +144,15 @@
 
             <ul class="nav">
                 <li class="nav-item"><a href="{% url 'home' %}"><i class="la la-dashboard"></i><p>Dashboard</p></a></li>
-                <!-- <li class="nav-item">
-                    <a data-toggle="collapse" href="#productsMenu" aria-expanded="false">
-                        <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
-                    </a>
-                    <div class="collapse" id="productsMenu">
-                        <ul class="nav nav-collapse">
-                            <li><a href="{% url 'products' %}"><span class="sub-item">Product List</span></a></li>
-                            <li><a href="{% url 'product-batch' %}"><span class="sub-item">Product Batch</span></a></li>
-                            <li><a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a></li>
-                        </ul>
-                    </div>
-                </li> -->
+
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#productsMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'products product-batch product-inventory' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}true{% else %}false{% endif %}">
                         <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'products product-batch product-inventory' %}show{% endif %}" id="productsMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}show{% endif %}" id="productsMenu">
                         <ul class="nav nav-collapse">
-                            <li class="{% if request.resolver_match.url_name == 'products' %}active{% endif %}">
+                            <li class="{% if request.resolver_match.url_name in 'products product-list' %}active{% endif %}">
                                 <a href="{% url 'products' %}"><span class="sub-item">Product List</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'product-batch' %}active{% endif %}">
@@ -175,26 +165,14 @@
                     </div>
                 </li>
 
-                <!-- <li class="nav-item">
-                    <a data-toggle="collapse" href="#rawmatMenu" aria-expanded="false">
-                        <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
-                    </a>
-                    <div class="collapse" id="rawmatMenu">
-                        <ul class="nav nav-collapse">
-                            <li><a href="{% url 'rawmaterials' %}"><span class="sub-item">Raw Materials List</span></a></li>
-                            <li><a href="{% url 'rawmaterial-batch' %}"><span class="sub-item">Raw Material Batch</span></a></li>
-                            <li><a href="{% url 'rawmaterial-inventory' %}"><span class="sub-item">Raw Material Inventory</span></a></li>
-                        </ul>
-                    </div>
-                </li> -->
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#rawmatMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'rawmaterials rawmaterial-batch rawmaterial-inventory' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list rawmaterial-batch rawmaterial-inventory' %}true{% else %}false{% endif %}">
                         <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'rawmaterials rawmaterial-batch rawmaterial-inventory' %}show{% endif %}" id="rawmatMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list rawmaterial-batch rawmaterial-inventory' %}show{% endif %}" id="rawmatMenu" data-parent="">
                         <ul class="nav nav-collapse">
-                            <li class="{% if request.resolver_match.url_name == 'rawmaterials' %}active{% endif %}">
+                            <li class="{% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list' %}active{% endif %}">
                                 <a href="{% url 'rawmaterials' %}"><span class="sub-item">Raw Materials List</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'rawmaterial-batch' %}active{% endif %}">
@@ -206,14 +184,15 @@
                         </ul>
                     </div>
                 </li>
+
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#financialMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'report sales expenses' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses' %}true{% else %}false{% endif %}">
                         <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'report sales expenses' %}show{% endif %}" id="financialMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
-                            <li class="{% if request.resolver_match.url_name == 'report' %}active{% endif %}">
+                            <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
                                <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'sales' %}active{% endif %}">
@@ -362,10 +341,10 @@
                              "border-start border-4 border-info";
 
       const toastHTML = `
-        <div class="toast ${bodyBorder}" role="alert" aria-live="assertive" aria-atomic="true">
-          <div class="toast-header ${headerBg}">
-            <i class="me-2 ${iconClass}"></i>
-            <strong class="me-auto">Notification</strong>
+        <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="toast-header">
+            <i class="me-2 ${icon}"></i>
+            <strong class="me-auto text-capitalize">${type}</strong>
             <small>Just now</small>
             <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
           </div>
@@ -373,8 +352,9 @@
         </div>`;
 
       container.insertAdjacentHTML("beforeend", toastHTML);
+
       const toastEl = container.querySelector(".toast:last-child");
-      const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 5000 });
+      const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
       bsToast.show();
     {% endfor %}
   });

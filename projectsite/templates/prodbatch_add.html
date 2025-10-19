@@ -1,11 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/style.css' %}">
 <div class="content">
   <div class="container-fluid">
     <h4 class="page-title">Bulk Add Product Batches</h4>
+
+    <!-- Scanner Status (NEW) -->
+    <div class="alert alert-light text-dark d-flex justify-content-between align-items-center">
+      <span>📱 Barcode Scanner</span>
+      <span id="scanner-status" class="badge badge-secondary">Connecting...</span>
+    </div>
 
     <div class="card">
       <div class="card-body">
@@ -20,14 +25,13 @@
             </div>
             <div class="form-check">
               {{ form.deduct_raw_material }}
-              <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
-                <span class="custom-checkbox"></span>
+              <!-- <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
+                <span class="custom-checkbox"></span> -->
                 Deduct Raw Materials
               </label>
             </div>
           </div>
 
-          <hr>
           <h5>Input Quantities for Products</h5>
 
           <table class="table table-bordered table-striped">
@@ -39,7 +43,7 @@
             </thead>
             <tbody>
               {% for p in products %}
-              <tr>
+              <tr data-barcode="{{ p.product.barcode }}">
                 <td>{{ p.product }}</td>
                 <td>{{ p.qty_field }}</td>
               </tr>
@@ -53,4 +57,140 @@
     </div>
   </div>
 </div>
+
+<!-- Beep Sound (NEW) -->
+<audio id="beep-sound" preload="auto">
+  <source src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" type="audio/ogg">
+</audio>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const statusBadge = document.getElementById("scanner-status");
+  const beepSound = document.getElementById("beep-sound");
+  
+  let socket = null;
+  let reconnectTimer = null;
+
+  function updateStatus(text, className) {
+    statusBadge.textContent = text;
+    statusBadge.className = badge ${className};
+  }
+
+  function playBeep() {
+    if (beepSound) {
+      beepSound.currentTime = 0;
+      beepSound.play().catch(err => console.log("Audio blocked:", err));
+    }
+  }
+
+  function flashRow(row) {
+    row.style.backgroundColor = "#d4edda";
+    setTimeout(() => {
+      row.style.backgroundColor = "";
+    }, 800);
+  }
+
+  function connectWebSocket() {
+    if (socket) {
+      socket.close();
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    const wsUrl = ${protocol}${window.location.host}/ws/scan/;
+
+    console.log("🔌 Connecting to:", wsUrl);
+    updateStatus("Connecting...", "badge-warning");
+
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = function() {
+      console.log("✅ Scanner connected");
+      updateStatus("Connected", "badge-success");
+      
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    socket.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        const barcode = data.barcode;
+
+        if (!barcode) return;
+
+        console.log("📦 Scanned barcode:", barcode);
+
+        // Find the row with matching barcode
+        const row = document.querySelector(tr[data-barcode="${barcode}"]);
+        
+        if (row) {
+          // Find the quantity input in that row
+          const qtyInput = row.querySelector('input[type="number"]');
+          
+          if (qtyInput) {
+            // Increment quantity
+            const currentQty = parseInt(qtyInput.value) || 0;
+            qtyInput.value = currentQty + 1;
+            
+            // Visual feedback
+            flashRow(row);
+            playBeep();
+            
+            // Focus the input briefly
+            qtyInput.focus();
+            setTimeout(() => qtyInput.blur(), 200);
+          }
+        } else {
+          console.warn("⚠️ Product not found for barcode:", barcode);
+          // Optional: show a toast notification here
+        }
+
+      } catch (err) {
+        console.error("❌ Error processing scan:", err);
+      }
+    };
+
+    socket.onclose = function(e) {
+      console.log("🔌 Disconnected:", e.code);
+      updateStatus("Disconnected", "badge-danger");
+
+      // Auto-reconnect after 3 seconds
+      if (!reconnectTimer) {
+        reconnectTimer = setTimeout(() => {
+          console.log("🔄 Reconnecting...");
+          connectWebSocket();
+        }, 3000);
+      }
+    };
+
+    socket.onerror = function(err) {
+      console.error("⚠️ WebSocket error:", err);
+      updateStatus("Error", "badge-danger");
+    };
+  }
+
+  // Start connection
+  connectWebSocket();
+
+  // Cleanup
+  window.addEventListener("beforeunload", function() {
+    if (socket) socket.close();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+  });
+});
+</script>
+
+<style>
+/* Smooth transitions for row highlighting */
+tr {
+  transition: background-color 0.3s ease;
+}
+
+#scanner-status {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+}
+</style>
 {% endblock %}

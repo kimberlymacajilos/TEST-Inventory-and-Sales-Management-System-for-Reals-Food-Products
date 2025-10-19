@@ -1,7 +1,7 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductRecipes, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts, ProductRecipes
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts, ProductRecipes, Withdrawals
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
@@ -9,6 +9,16 @@ from django.forms import inlineformset_factory
 
 
 class ProductsForm(forms.ModelForm):
+    # ADD THIS - Barcode field
+    barcode = forms.CharField(
+        required=False,  # Optional, in case manual entry
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Scan or enter barcode',
+            'id': 'barcode-input'  # Important for WebSocket
+        })
+    )
+    
     product_type = forms.CharField(
         widget=forms.TextInput(attrs={'list': 'product_type-options'}))
     variant = forms.CharField(
@@ -40,12 +50,38 @@ class ProductsForm(forms.ModelForm):
             self.fields['size'].initial = self.instance.size.size_label if self.instance.size else ''
             self.fields['unit_price'].initial = self.instance.unit_price.unit_price
             self.fields['srp_price'].initial = self.instance.srp_price.srp_price
+            # ADD THIS - for edit mode
+            self.fields['barcode'].initial = self.instance.barcode
 
             self.initial['product_type'] = self.fields['product_type'].initial
             self.initial['variant'] = self.fields['variant'].initial
             self.initial['size'] = self.fields['size'].initial
             self.initial['unit_price'] = self.fields['unit_price'].initial
             self.initial['srp_price'] = self.fields['srp_price'].initial
+            # ADD THIS
+            self.initial['barcode'] = self.fields['barcode'].initial
+
+    # ADD THIS - Clean barcode method
+    def clean_barcode(self):
+        barcode = self.cleaned_data.get('barcode', '').strip()
+        
+        # If empty on edit, keep existing barcode instead of clearing it
+        if not barcode:
+            if self.instance and self.instance.pk:
+                return self.instance.barcode
+            return barcode
+        
+        # Check for duplicate barcode (exclude current instance if editing)
+        qs = Products.objects.filter(barcode=barcode)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        
+        if qs.exists():
+            raise forms.ValidationError(
+                f"Barcode '{barcode}' is already used by another product."
+            )
+        
+        return barcode
 
     def clean_product_type(self):
         name = self.cleaned_data['product_type'].strip()
@@ -125,16 +161,26 @@ class ExpensesForm(ModelForm):
 class ProductBatchForm(ModelForm):
     deduct_raw_material = forms.BooleanField(
         required=False,
-        label="Deduct raw material"
+        initial=True,
+        label="Deduct Raw Materials",
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input show-checkbox',
+        })
     )
     
     class Meta:
         model = ProductBatches
-        fields = "__all__"   
-        exclude = ['created_by_admin', 'is_archived'] 
+        fields = [
+            'product',
+            'quantity',
+            'batch_date',
+            'manufactured_date',
+            'deduct_raw_material',
+        ]
         widgets = {
-            "batch_date": forms.DateInput(attrs={"type": "date"}),
-            "manufactured_date": forms.DateInput(attrs={"type": "date"}),
+            'batch_date': forms.DateInput(attrs={'type': 'date'}),
+            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
+            'deduct_raw_material': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -197,8 +243,86 @@ class SrpPricesForm(ModelForm):
         model = SrpPrices
         fields = "__all__"
 
-class WithdrawForm(forms.Form):
-    quantity = forms.IntegerField(min_value=1, label='Quantity to Withdraw')
+class WithdrawEditForm(forms.ModelForm):
+    ITEM_TYPE_CHOICES = [
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
+    ]
+    SALES_CHANNEL_CHOICES = [
+        ('ORDER', 'Order'),
+        ('CONSIGNMENT', 'Consignment'),
+        ('RESELLER', 'Reseller'),
+        ('PHYSICAL_STORE', 'Physical Store'),
+    ]
+    PRICE_TYPE_CHOICES = [
+        ('UNIT', 'Unit Price'),
+        ('SRP', 'Suggested Retail Price'),
+    ]
+    REASON_CHOICES = [
+        ('SOLD', 'Sold'),
+        ('EXPIRED', 'Expired'),
+        ('DAMAGED', 'Damaged'),
+        ('RETURNED', 'Returned'),
+        ('OTHERS', 'Others'),
+    ]
+
+    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True, label="Item Type")
+    item_id = forms.ChoiceField(choices=[], required=True, label="Item")
+    quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
+    reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
+    sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+
+    discount = forms.ModelChoiceField(
+        queryset=Discounts.objects.all(),
+        required=False,
+        empty_label="No Discount",
+        label="Select Discount"
+    )
+    custom_discount_value = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label="Custom Discount (%)"
+    )
+
+    class Meta:
+        model = Withdrawals
+        fields = [
+            'item_type', 'item_id', 'quantity', 'reason',
+            'sales_channel', 'price_type', 'discount', 'custom_discount_value'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        products = [(p.id, str(p)) for p in Products.objects.all()]
+        materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
+        self.fields['item_id'].choices = products + materials
+
+        if self.instance.pk:
+            if self.instance.item_type == 'PRODUCT':
+                self.fields['item_id'].choices = products
+            elif self.instance.item_type == 'RAW_MATERIAL':
+                self.fields['item_id'].choices = materials
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+
+        if reason == "SOLD":
+            if not cleaned_data.get("sales_channel"):
+                self.add_error("sales_channel", "This field is required when reason is SOLD.")
+            if not cleaned_data.get("price_type"):
+                self.add_error("price_type", "This field is required when reason is SOLD.")
+
+            discount = cleaned_data.get("discount")
+            custom_discount = cleaned_data.get("custom_discount_value")
+
+            if discount and custom_discount:
+                self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
+
+        return cleaned_data
 
 class UnifiedWithdrawForm(forms.Form):
     ITEM_TYPE_CHOICES = [

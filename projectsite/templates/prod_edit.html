@@ -11,7 +11,9 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Edit Product</div>
-            <div class="card-category">Update product</div>
+            <div class="card-category">
+              <span id="scanner-status" class="badge badge-secondary ml-2">Scanner: Connecting...</span>
+            </div>
           </div>
 
           <div class="col-md-10">
@@ -20,6 +22,9 @@
                 {% csrf_token %}
                 {% if form.errors %}
                   <div class="alert alert-danger">{{ form.errors }}</div>
+                {% endif %}
+                {% if current_page %}
+                <input type="hidden" name="current_page" value="{{ current_page }}">
                 {% endif %}
                 
                 <!-- Product Type -->
@@ -84,6 +89,16 @@
                   {% render_field form.description class="form-control" rows="3" %}
                 </div>
 
+                <!-- Barcode -->
+                <div class="form-group">
+                  <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
+                  <input type="text" id="barcode-input" name="barcode" 
+                         class="form-control" 
+                         value="{{ form.barcode.value|default:'' }}"
+                         placeholder="Scan or enter barcode manually">
+                  <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                </div>
+
                 <!-- Photo Upload -->
                 <div class="form-group">
                   {{ form.photo.label_tag }}
@@ -127,5 +142,82 @@ function previewPhoto(event) {
   output.src = URL.createObjectURL(event.target.files[0]);
   output.style.display = 'block';
 }
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const barcodeInput = document.getElementById("barcode-input");
+  const barcodeStatus = document.getElementById("barcode-status");
+  const scannerStatus = document.getElementById("scanner-status");
+
+  let socket = null;
+  let reconnectTimer = null;
+  let lastScannedBarcode = "";
+
+  function updateScannerStatus(text, className) {
+    if (!scannerStatus) return;
+    scannerStatus.textContent = `Scanner: ${text}`;
+    scannerStatus.className = `badge ${className} ml-2`;
+  }
+
+  function updateBarcodeStatus(text, color = "text-muted") {
+    if (!barcodeStatus) return;
+    barcodeStatus.textContent = text;
+    barcodeStatus.className = `form-text ${color}`;
+  }
+
+  function connectWebSocket() {
+    if (socket) { try { socket.close(); } catch(e){} }
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
+    updateScannerStatus("Connecting...", "badge-warning");
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = function() {
+      updateScannerStatus("Connected", "badge-success");
+      updateBarcodeStatus("✓ Scanner ready. Scan a barcode...", "text-success");
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    };
+
+    socket.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        const barcode = data.barcode;
+        if (!barcode) return;
+
+        if (barcode === lastScannedBarcode) {
+          updateBarcodeStatus("Duplicate scan ignored", "text-warning");
+          return;
+        }
+        lastScannedBarcode = barcode;
+        setTimeout(() => { lastScannedBarcode = ""; }, 1000);
+
+        if (barcodeInput) {
+          barcodeInput.value = barcode;
+          barcodeInput.style.border = "2px solid #28a745";
+          setTimeout(() => { barcodeInput.style.border = ""; }, 700);
+        }
+        const now = new Date().toLocaleTimeString();
+        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
+      } catch (err) {
+        updateBarcodeStatus("✗ Error processing barcode", "text-danger");
+      }
+    };
+
+    socket.onclose = function() {
+      updateScannerStatus("Disconnected", "badge-danger");
+      updateBarcodeStatus("✗ Scanner disconnected. Reconnecting...", "text-warning");
+      if (!reconnectTimer) {
+        reconnectTimer = setTimeout(connectWebSocket, 3000);
+      }
+    };
+
+    socket.onerror = function() {
+      updateScannerStatus("Error", "badge-danger");
+      updateBarcodeStatus("✗ Connection error", "text-danger");
+    };
+  }
+
+  connectWebSocket();
+});
 </script>
 {% endblock %}

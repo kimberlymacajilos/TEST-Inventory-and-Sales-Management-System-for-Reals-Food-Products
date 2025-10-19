@@ -514,9 +514,13 @@ html[data-theme="dark"] .table thead th {
 }
 .theme-toggle .knob{
   position: relative; 
+  
   z-index: 1; 
+  
   width: 24px; 
+  
   height: 24px; 
+  
   border-radius: 50%;
   transform: translateX(3px);
   background: #fff;
