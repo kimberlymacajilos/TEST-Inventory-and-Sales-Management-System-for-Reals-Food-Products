@@ -232,6 +232,11 @@ class HistoryLog(models.Model):
                 sz = Sizes.objects.get(pk=self.entity_id)
                 return sz.size_label
 
+            elif self.entity_type == "user":
+                u = AuthUser.objects.get(pk=self.entity_id)
+                full_name = f"{u.first_name} {u.last_name}".strip()
+                return f"{u.username}" + (f" ({full_name})" if full_name else "")
+
             else:
                 return f"Entity #{self.entity_id}"
 
@@ -336,6 +341,10 @@ class HistoryLog(models.Model):
             # hide date changes for expenses & sales
             if self.entity_type in ("expense", "sale"):
                 ignore_fields.append("date")
+            
+            # hide date_joined for user sign-ups
+            if self.entity_type == "user":
+                ignore_fields.append("date_joined")
 
             def format_key(key):
                 return key.replace("_id", "").replace("_", " ").title()
