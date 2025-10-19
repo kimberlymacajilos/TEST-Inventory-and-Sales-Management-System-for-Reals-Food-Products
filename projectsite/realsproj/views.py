@@ -49,6 +49,7 @@ from realsproj.models import (
     Products,
     RawMaterials,
     HistoryLog,
+    HistoryLogTypes,
     Sales,
     Expenses,
     ProductBatches,
@@ -90,6 +91,48 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+
+
+# Helper function for creating history logs
+def create_history_log(admin, log_category, entity_type, entity_id, before=None, after=None):
+    """
+    Create a history log entry.
+    
+    Args:
+        admin: User instance who performed the action
+        log_category: String category (e.g., "Withdrawal Edited", "Withdrawal Deleted")
+        entity_type: String entity type (e.g., "withdrawal")
+        entity_id: ID of the entity
+        before: Dict of values before change (for updates)
+        after: Dict of values after change (for creates/updates)
+    """
+    try:
+        # Get or create log type
+        log_type, _ = HistoryLogTypes.objects.get_or_create(
+            category=log_category,
+            defaults={'created_by_admin_id': admin.id}
+        )
+        
+        # Build details
+        details = {}
+        if before:
+            details['before'] = before
+        if after:
+            details['after'] = after
+        
+        # Create log entry
+        HistoryLog.objects.create(
+            admin_id=admin.id,
+            log_type_id=log_type.id,
+            log_date=timezone.now(),
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details if details else None,
+            is_archived=False
+        )
+    except Exception as e:
+        # Silently fail to avoid breaking the main operation
+        pass
 
 
 @method_decorator(login_required, name='dispatch')
@@ -1861,8 +1904,29 @@ class WithdrawItemView(View):
 class WithdrawalsArchiveView(View):
     def post(self, request, pk):
         withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        
+        # Capture withdrawal data for history log
+        withdrawal_data = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
         withdrawal.is_archived = True
         withdrawal.save()
+        
+        # Create history log
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Archived",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            after=withdrawal_data
+        )
+        
         messages.success(request, "📦 Withdrawal archived successfully.")
         page = request.GET.get('page')
         if page:
@@ -1904,8 +1968,43 @@ class WithdrawUpdateView(UpdateView):
     success_url = reverse_lazy("withdrawals")
 
     def form_valid(self, form):
+        # Capture before state
+        withdrawal = self.get_object()
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        # Save the form
+        response = super().form_valid(form)
+        
+        # Capture after state
+        withdrawal.refresh_from_db()
+        after = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        # Create history log
+        create_history_log(
+            admin=self.request.user,
+            log_category="Withdrawal Edited",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            before=before,
+            after=after
+        )
+        
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-        return super().form_valid(form)
+        return response
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
@@ -1915,6 +2014,35 @@ class WithdrawUpdateView(UpdateView):
 class WithdrawDeleteView(DeleteView):
     model = Withdrawals
     success_url = reverse_lazy('withdrawals')
+
+    def post(self, request, *args, **kwargs):
+        """Override post to capture data before delete is called"""
+        # Capture withdrawal data before deletion
+        withdrawal = self.get_object()
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        withdrawal_id = withdrawal.id
+        
+        # Call parent delete
+        response = super().post(request, *args, **kwargs)
+        
+        # Create history log after deletion
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Deleted",
+            entity_type="withdrawal",
+            entity_id=withdrawal_id,
+            before=before
+        )
+        
+        return response
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
