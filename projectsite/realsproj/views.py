@@ -1774,6 +1774,7 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
+        custom_price = request.POST.get("custom_price")
 
         count = 0  
 
@@ -1809,7 +1810,8 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )

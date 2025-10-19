@@ -354,6 +354,7 @@ class UnifiedWithdrawForm(forms.Form):
 
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
     price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+    custom_price = forms.DecimalField(required=False, min_value=0, decimal_places=2)
 
     # NEW: discount fields
     discount = forms.ModelChoiceField(queryset=Discounts.objects.all(), required=False)
@@ -368,18 +369,21 @@ class UnifiedWithdrawForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
+        sales_channel = cleaned_data.get("sales_channel")
+        custom_price = cleaned_data.get("custom_price")
 
         if reason == "SOLD":
             if not cleaned_data.get("sales_channel"):
                 self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not cleaned_data.get("price_type"):
-                self.add_error("price_type", "This field is required when reason is SOLD.")
+            if not cleaned_data.get("price_type") and sales_channel != "CONSIGNMENT":
+                self.add_error("price_type", "Price type is required unless it's a consignment sale.")
 
-            # require either a discount or a custom discount
-            if not cleaned_data.get("discount") and not cleaned_data.get("custom_discount_value"):
-                self.add_error("discount", "Select a discount or enter a custom discount.")
+            if sales_channel == "CONSIGNMENT":
+                if not custom_price:
+                    self.add_error("custom_price", "Custom price is required for consignment sales.")
 
         return cleaned_data
+
 
 class NotificationsForm(forms.Form):
     class Meta:
