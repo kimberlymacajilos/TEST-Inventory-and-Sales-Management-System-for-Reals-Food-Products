@@ -52,6 +52,7 @@ urlpatterns = [
     path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
+    path('history/', a.HistoryLogList.as_view(), name='history_log'),  # Added this line to match template reference
 
     path('sales/', a.SalesList.as_view(), name='sales'),
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),

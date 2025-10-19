@@ -873,28 +873,63 @@ class HistoryLogList(ListView):
             .order_by("-log_date")
         )
 
+        # Get filter parameters
         admin_filter = self.request.GET.get("admin", "").strip()
+        log_filter = self.request.GET.get("log", "").strip()
+        date_str = self.request.GET.get("date", "").strip()
+
+        # Apply admin filter
         if admin_filter:
             queryset = queryset.filter(admin__username=admin_filter)
 
-        log_filter = self.request.GET.get("log", "").strip()
+        # Apply log type filter
         if log_filter:
             queryset = queryset.filter(log_type__category=log_filter)
 
-        date_str = self.request.GET.get("date", "").strip()
+        # Apply date filter (month-based)
         if date_str:
             try:
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-                queryset = queryset.filter(log_date__date=date_obj)
-            except ValueError:
+                # Convert YYYY-MM to start and end dates of the month
+                year, month = map(int, date_str.split('-'))
+                import calendar
+                last_day = calendar.monthrange(year, month)[1]
+                
+                start_date = timezone.make_aware(datetime(year, month, 1))
+                end_date = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+                
+                queryset = queryset.filter(
+                    log_date__gte=start_date,
+                    log_date__lte=end_date
+                )
+            except (ValueError, IndexError):
+                # If date format is invalid, skip the date filter
                 pass
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['admins'] = HistoryLog.objects.filter(is_archived=False).values_list('admin__username', flat=True).distinct()
-        context['logs'] = HistoryLog.objects.filter(is_archived=False).values_list('log_type__category', flat=True).distinct()
+        
+        # Get unique admins and log types for the filter dropdowns
+        context['admins'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('admin__username').values_list('admin__username', flat=True).distinct()
+        
+        context['logs'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('log_type__category').values_list('log_type__category', flat=True).distinct()
+        
+        # Preserve filter parameters in pagination
+        filter_params = self.request.GET.copy()
+        if 'page' in filter_params:
+            del filter_params['page']
+        context['filter_params'] = filter_params.urlencode()
+        
+        # Add current filter values to context
+        context['current_admin'] = self.request.GET.get('admin', '')
+        context['current_log'] = self.request.GET.get('log', '')
+        context['current_date'] = self.request.GET.get('date', '')
+        
         return context
     
 class SaleArchiveView(View):
