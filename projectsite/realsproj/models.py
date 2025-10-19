@@ -855,6 +855,7 @@ class Withdrawals(models.Model):
         null=True,
         blank=True
     )
+    custom_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_archived = models.BooleanField(default=False)
 
     class Meta:

@@ -34,7 +34,6 @@
             </select>
           </div>
 
-          <!-- Sales section -->
           <div id="sales-price-section" style="display:none; margin-top:10px;">
             <div class="form-row">
               <div class="form-group col-md-6">
@@ -48,16 +47,27 @@
                 </select>
               </div>
 
-              <div class="form-group col-md-6">
+              <div class="form-group col-md-6" id="price_type_wrapper">
                 <label for="price_type">Price Type</label>
                 <select name="price_type" id="price_type" class="form-control">
                   <option value="">-- Select --</option>
                   <option value="UNIT">Unit Price</option>
                   <option value="SRP">SRP</option>
                 </select>
+
+                <input list="priceOptions" name="custom_price" id="custom_price_input" 
+                      class="form-control mt-2" 
+                      placeholder="Select or enter custom price (₱)" 
+                      style="display: none;">
+                <datalist id="priceOptions">
+                  <option value="UNIT">
+                  <option value="SRP">
+                </datalist>
               </div>
             </div>
           </div>
+
+
           
           <!-- Products table -->
           <div id="products_table" class="mt-3" style="display:none;">
@@ -143,11 +153,14 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const typeSelect = document.getElementById("item_type");
-  const prodTable = document.getElementById("products_table");
-  const matTable = document.getElementById("rawmaterials_table");
   const reasonField = document.getElementById("reason");
   const salesPriceSection = document.getElementById("sales-price-section");
   const discountCols = document.querySelectorAll(".discount-col");
+  const salesChannel = document.getElementById("sales_channel");
+  const priceTypeSelect = document.getElementById("price_type");
+  const customPriceInput = document.getElementById("custom_price_input");
+  const prodTable = document.getElementById("products_table");
+  const matTable = document.getElementById("rawmaterials_table");
 
   function toggleItemTables() {
     if (typeSelect.value === "PRODUCT") {
@@ -172,11 +185,24 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
+  function togglePriceInput() {
+    if (salesChannel.value === "CONSIGNMENT") {
+      priceTypeSelect.style.display = "none";
+      customPriceInput.style.display = "block";
+    } else {
+      priceTypeSelect.style.display = "block";
+      customPriceInput.style.display = "none";
+    }
+  }
+
   typeSelect.addEventListener("change", toggleItemTables);
   reasonField.addEventListener("change", toggleSections);
+  salesChannel.addEventListener("change", togglePriceInput);
 
   toggleItemTables();
   toggleSections();
+  togglePriceInput();
 });
 </script>
+
 {% endblock %}

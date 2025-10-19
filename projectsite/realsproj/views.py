@@ -361,7 +361,7 @@ class ProductsList(ListView):
         queryset = (
             Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
-            .order_by("id")
+            .order_by("-id")
         )
 
         query = self.request.GET.get("q", "").strip()
@@ -375,7 +375,10 @@ class ProductsList(ListView):
         variant = self.request.GET.get("variant")
         size = self.request.GET.get("size")
         date_created = self.request.GET.get("date_created")
+        barcode = self.request.GET.get("barcode")
 
+        if barcode:
+            queryset = queryset.filter(barcode__icontains=barcode)
         if product_type:
             queryset = queryset.filter(product_type__name__icontains=product_type)
         if variant:
@@ -426,6 +429,35 @@ class ProductsList(ListView):
 def product_scan_phone(request):
     
     return render(request, "product_scan_phone.html")
+
+@require_GET
+def check_barcode_availability(request):
+    """API endpoint to check if a barcode already exists"""
+    barcode = request.GET.get('barcode', '').strip()
+    product_id = request.GET.get('product_id', None)  # For edit mode
+    
+    if not barcode:
+        return JsonResponse({'available': True, 'message': ''})
+    
+    # Check if barcode exists
+    qs = Products.objects.filter(barcode=barcode)
+    
+    # Exclude current product if editing
+    if product_id:
+        qs = qs.exclude(pk=product_id)
+    
+    if qs.exists():
+        product = qs.first()
+        return JsonResponse({
+            'available': False,
+            'message': f'Barcode already used by: {product.product_type.name} - {product.variant.name}',
+            'product_id': product.id
+        })
+    
+    return JsonResponse({
+        'available': True,
+        'message': 'Barcode is available'
+    })
 
 class ProductArchiveView(View):
     def post(self, request, pk):
@@ -1742,6 +1774,7 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
+        custom_price = request.POST.get("custom_price")
 
         count = 0  
 
@@ -1777,7 +1810,8 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )
