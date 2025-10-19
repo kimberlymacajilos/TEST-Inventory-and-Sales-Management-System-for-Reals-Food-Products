@@ -88,10 +88,17 @@
                     {{ product.product_type.name }} - {{ product.variant.name }} - 
                     {{ product.size.size_label }} {{ product.size_unit.unit_name }}
                   </td>
-                  <td>{{ product.productinventory.total_stock|floatformat:0 }}</td>
+                  <td class="stock-cell" data-stock="{{ product.productinventory.total_stock }}">
+                    {{ product.productinventory.total_stock|floatformat:0 }}
+                  </td>
                   <td>
                     <input type="number" step="0.01" name="product_{{ product.id }}" 
-                           class="form-control" min="0">
+                           class="form-control withdraw-input" 
+                           data-item-id="{{ product.id }}"
+                           data-item-type="PRODUCT"
+                           data-max-stock="{{ product.productinventory.total_stock }}"
+                           min="0">
+                    <small class="form-text validation-msg"></small>
                   </td>
                   <td class="discount-col" style="display:none;">
                     <input type="number" step="0.01" min="0" 
@@ -126,10 +133,17 @@
                 {% for material in rawmaterials %}
                 <tr>
                   <td>{{ material.name }} ({{ material.unit.unit_name }})</td>
-                  <td>{{ material.rawmaterialinventory.total_stock|floatformat:0 }}</td>
+                  <td class="stock-cell" data-stock="{{ material.rawmaterialinventory.total_stock }}">
+                    {{ material.rawmaterialinventory.total_stock|floatformat:0 }}
+                  </td>
                   <td>
                     <input type="number" step="0.01" name="material_{{ material.id }}" 
-                           class="form-control" min="0">
+                           class="form-control withdraw-input" 
+                           data-item-id="{{ material.id }}"
+                           data-item-type="RAW_MATERIAL"
+                           data-max-stock="{{ material.rawmaterialinventory.total_stock }}"
+                           min="0">
+                    <small class="form-text validation-msg"></small>
                   </td>
                 </tr>
                 {% endfor %}
@@ -141,7 +155,7 @@
 
           <!-- Submit -->
           <div class="form-group mt-3">
-            <button type="submit" class="btn btn-warning btn-rounded">Withdraw Selected</button>
+            <button type="submit" id="submit-btn" class="btn btn-warning btn-rounded">Withdraw Selected</button>
           </div>
         </form>
       </div>
@@ -201,7 +215,132 @@ document.addEventListener("DOMContentLoaded", function() {
 
   toggleItemTables();
   toggleSections();
-  togglePriceInput();
+
+  // Real-time stock validation
+  const withdrawInputs = document.querySelectorAll(".withdraw-input");
+  const submitBtn = document.getElementById('submit-btn');
+  let validationErrors = new Set();
+  let hasAnyInput = false;
+
+  withdrawInputs.forEach(input => {
+    input.addEventListener("input", function() {
+      validateWithdrawQuantity(this);
+    });
+
+    input.addEventListener("blur", function() {
+      validateWithdrawQuantity(this);
+    });
+  });
+
+  function validateWithdrawQuantity(input) {
+    const maxStock = parseFloat(input.dataset.maxStock);
+    const withdrawQty = parseFloat(input.value) || 0;
+    const validationMsg = input.nextElementSibling;
+    const inputName = input.name;
+
+    // Clear previous error for this input
+    validationErrors.delete(inputName);
+
+    if (withdrawQty === 0) {
+      // No validation needed for 0
+      validationMsg.textContent = "";
+      validationMsg.className = "form-text";
+      input.style.borderColor = "";
+      updateSubmitButton();
+      return;
+    }
+
+    if (withdrawQty > maxStock) {
+      // Exceeds stock
+      validationMsg.textContent = `❌ Exceeds available stock! (Max: ${maxStock.toFixed(2)})`;
+      validationMsg.className = "form-text text-danger font-weight-bold";
+      input.style.borderColor = "#dc3545";
+      input.style.backgroundColor = "#fff3cd";
+      validationErrors.add(inputName);
+    } else if (withdrawQty < 0) {
+      // Negative value
+      validationMsg.textContent = "❌ Cannot be negative!";
+      validationMsg.className = "form-text text-danger font-weight-bold";
+      input.style.borderColor = "#dc3545";
+      input.style.backgroundColor = "#fff3cd";
+      validationErrors.add(inputName);
+    } else {
+      // Valid
+      validationMsg.textContent = `✓ Valid (${withdrawQty.toFixed(2)} / ${maxStock.toFixed(2)})`;
+      validationMsg.className = "form-text text-success";
+      input.style.borderColor = "#28a745";
+      input.style.backgroundColor = "#d4edda";
+    }
+
+    updateSubmitButton();
+  }
+
+  function updateSubmitButton() {
+    // Check if there are any validation errors
+    if (validationErrors.size > 0) {
+      submitBtn.disabled = true;
+      submitBtn.classList.remove("btn-warning");
+      submitBtn.classList.add("btn-secondary");
+      submitBtn.textContent = `⚠️ Fix ${validationErrors.size} error(s) to continue`;
+      submitBtn.style.cursor = "not-allowed";
+    } else {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("btn-secondary");
+      submitBtn.classList.add("btn-warning");
+      submitBtn.textContent = "Withdraw Selected";
+      submitBtn.style.cursor = "pointer";
+    }
+  }
+
+  // Prevent form submission if there are errors - MULTIPLE LAYERS OF PROTECTION
+  const form = document.querySelector('form');
+  
+  // Layer 1: Form submit event
+  form.addEventListener('submit', function(e) {
+    console.log('Form submit triggered. Validation errors:', validationErrors.size);
+    
+    if (validationErrors.size > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showToast(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`, 'error');
+      return false;
+    }
+    
+    // Double check all inputs before allowing submission
+    let hasError = false;
+    let errorDetails = [];
+    withdrawInputs.forEach(input => {
+      const withdrawQty = parseFloat(input.value) || 0;
+      const maxStock = parseFloat(input.dataset.maxStock);
+      
+      if (withdrawQty > 0 && withdrawQty > maxStock) {
+        hasError = true;
+        errorDetails.push(`${withdrawQty} exceeds ${maxStock}`);
+      }
+    });
+    
+    if (hasError) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showToast('Some quantities exceed available stock! Please check and try again.', 'error');
+      return false;
+    }
+  });
+  
+  // Layer 2: Button click event
+  submitBtn.addEventListener('click', function(e) {
+    console.log('Submit button clicked. Disabled:', this.disabled, 'Errors:', validationErrors.size);
+    
+    if (this.disabled || validationErrors.size > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showToast(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`, 'warning');
+      return false;
+    }
+  });
 });
 </script>
 

@@ -319,6 +319,41 @@
 </script>
 
 
+<!-- Global Toast Function -->
+<script>
+  function showToast(message, type = 'info') {
+    const icon = {
+      success: 'la la-check-circle text-success',
+      error:   'la la-times-circle text-danger',
+      warning: 'la la-exclamation-circle text-warning',
+      info:    'la la-info-circle text-info'
+    }[type] || 'la la-info-circle text-info';
+
+    const toastHTML = `
+      <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <i class="me-2 ${icon}"></i>
+          <strong class="me-auto text-capitalize">${type}</strong>
+          <small>Just now</small>
+          <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+      </div>`;
+
+    const container = document.getElementById("toast-container");
+    container.insertAdjacentHTML("beforeend", toastHTML);
+
+    const toastEl = container.querySelector(".toast:last-child");
+    const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+    bsToast.show();
+
+    // Remove toast element after it's hidden
+    toastEl.addEventListener('hidden.bs.toast', function() {
+      toastEl.remove();
+    });
+  }
+</script>
+
 {% block vendor_js %}{% endblock vendor_js %}
 {% block page_js %}{% endblock page_js %}           
 {% if messages %}
