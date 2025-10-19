@@ -226,10 +226,42 @@ body, .main-panel{
   border: 1px solid var(--border) !important;
   background: #fff !important; 
   box-shadow: var(--shadow-xs) inset;
+  width: 100%;
+  margin-bottom: 16px;
 }
 .form-control:focus, .form-select:focus{
   border-color: var(--primary-500) !important; 
   box-shadow: 0 0 0 4px rgba(107,191,89,.18) !important;
+}
+.form-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px; 
+  justify-content: space-between;
+}
+
+/* Control Width of Each Field */
+.form-item {
+  flex: 1 1 48%;  /* Ensure each form field takes up roughly half of the space */
+  display: flex;
+  flex-direction: column;
+}
+
+.form-item label {
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.form-item input, .form-item select, .form-item textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.form-item input:focus, .form-item select:focus, .form-item textarea:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 4px rgba(107, 191, 89, .18);
 }
 
 /* Tables */
