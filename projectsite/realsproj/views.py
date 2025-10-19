@@ -41,8 +41,8 @@ from realsproj.forms import (
     BulkRawMaterialBatchForm,
     ProductRecipeForm,
     UnifiedWithdrawForm,
-    CustomUserCreationForm
-    
+    CustomUserCreationForm,
+    WithdrawEditForm
 )
 
 from realsproj.models import (
@@ -1897,7 +1897,29 @@ class WithdrawalsArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
 
+class WithdrawUpdateView(UpdateView):
+    model = Withdrawals
+    form_class = WithdrawEditForm
+    template_name = "withdraw_edit.html"
+    success_url = reverse_lazy("withdrawals")
 
+    def form_valid(self, form):
+        messages.success(self.request, "✅ Withdrawal successfully updated.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Please correct the errors below.")
+        return super().form_invalid(form)
+
+
+class WithdrawDeleteView(DeleteView):
+    model = Withdrawals
+    success_url = reverse_lazy('withdrawals')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
+        return super().get_success_url()
+    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -1936,6 +1958,14 @@ class NotificationsList(ListView):
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
+
+class NotificationsDeleteView(DeleteView):
+    model = Notifications
+    success_url = reverse_lazy('notifications')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Notification deleted successfully.")
+        return super().get_success_url()
 
 
 class BulkProductBatchCreateView(View):

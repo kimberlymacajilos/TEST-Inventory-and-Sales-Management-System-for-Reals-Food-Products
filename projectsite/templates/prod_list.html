@@ -23,13 +23,13 @@
 
                 <!-- Dropdown for archive actions -->
                 <div class="dropdown d-inline">
-                    <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="archiveMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        Archive Options
-                    </button>
-                    <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
-                        <a class="dropdown-item" href="{% url 'products-archived-list' %}">Show Archived</a>
-                        <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldProductsModal">Archive Old Data</button>
-                    </div>
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="archiveMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Archive Options
+                </button>
+                <div class="dropdown-menu" aria-labelledby="archiveMenuButton">
+                    <a class="dropdown-item" href="{% url 'products-archived-list' %}">Show Archived</a>
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldProductsModal">Archive Old Data</a>
+                </div>
                 </div>
 
                 <!-- Add Product button (standalone) -->
