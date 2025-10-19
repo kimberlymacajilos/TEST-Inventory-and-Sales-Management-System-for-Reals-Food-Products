@@ -129,8 +129,11 @@ class ProductRecipeForm(forms.ModelForm):
         fields = ["material", "quantity_needed", "yield_factor"]
 
 class RawMaterialsForm(ModelForm):
+    field_order = ["name", "size", "unit", "price_per_unit"]
+
     class Meta:
         model = RawMaterials
+        field_order = ["name", "size", "unit", "price_per_unit"]
         exclude = ['created_by_admin', 'date_created', 'is_archived'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
@@ -455,15 +458,10 @@ class StockChangesForm(ModelForm):
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
-    user_type = forms.ChoiceField(
-        choices=[('staff', 'Staff'), ('superuser', 'Superuser')],
-        widget=forms.Select,
-        required=True
-    )
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'user_type']
+        fields = ['username', 'first_name', 'last_name', 'email']
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -481,13 +479,6 @@ class CustomUserCreationForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
-        user_type = self.cleaned_data.get('user_type')
-        if user_type == 'staff':
-            user.is_staff = True
-            user.is_superuser = False
-        elif user_type == 'superuser':
-            user.is_staff = True
-            user.is_superuser = True
         if commit:
             user.save()
         return user

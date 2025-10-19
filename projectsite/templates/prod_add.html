@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load widget_tweaks %}  
+{% load widget_tweaks %}
+
 {% block content %}
 <div class="content">
   <div class="container-fluid">
@@ -27,95 +28,94 @@
                 {% endif %}
 
                 <!-- Barcode Field (NEW) -->
-                <div class="form-group">
-                  <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
-                  <input type="text" id="barcode-input" name="barcode" 
-                         class="form-control" 
-                         value="{{ form.barcode.value|default:'' }}"
-                         placeholder="Scan or enter barcode manually">
-                  <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                <div class="form-container">
+                  <div class="form-item" style="width:100%;">
+                    <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
+                    <input type="text" id="barcode-input" name="barcode" 
+                          class="form-control" 
+                          value="{{ form.barcode.value|default:'' }}"
+                          placeholder="Scan or enter barcode manually">
+                    <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                  </div>
                 </div>
 
-                <!-- Product Type -->
-                <div class="form-group">
-                  <label>Product Type</label>
-                  <input type="text" name="product_type" list="product_type-options"
-                         class="form-control" value="{{ form.product_type.value|default:'' }}">
-                  <datalist id="product_type-options">
-                    {% for pt in product_types %}
-                      <option value="{{ pt.name }}">
-                    {% endfor %}
-                  </datalist>
-                </div>
-
-                <!-- Variant -->
-                <div class="form-group">
-                  <label>Variant</label>
-                  <input type="text" name="variant" list="variant-options"
-                         class="form-control" value="{{ form.variant.value|default:'' }}">
-                  <datalist id="variant-options">
-                    {% for v in variants %}
-                      <option value="{{ v.name }}">
-                    {% endfor %}
-                  </datalist>
-                </div>
-
-                <!-- Size + Size Unit -->
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    <label>Size</label>
-                    <input type="text" name="size" list="size-options"
-                          class="form-control" value="{{ form.size.value|default:'' }}">
-                    <datalist id="size-options">
-                      {% for s in sizes %}
-                        <option value="{{ s.size_label }}">
+                <div class="form-container">
+                  <!-- Product Type -->
+                  <div class="form-item">
+                    <label>Product Type</label>
+                    <input type="text" name="product_type" list="product_type-options" class="form-control" value="{{ form.product_type.value|default:'' }}">
+                    <datalist id="product_type-options">
+                      {% for pt in product_types %}
+                        <option value="{{ pt.name }}">
                       {% endfor %}
                     </datalist>
                   </div>
-                  <div class="form-group col-md-6">
-                    <label>Size Unit</label>
-                    {% render_field form.size_unit class="form-control" %}
+
+                  <!-- Variant -->
+                  <div class="form-item">
+                    <label>Variant</label>
+                    <input type="text" name="variant" list="variant-options" class="form-control" value="{{ form.variant.value|default:'' }}">
+                    <datalist id="variant-options">
+                      {% for v in variants %}
+                        <option value="{{ v.name }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Size + Size Unit -->
+                  <div class="form-row">
+                    <div class="form-item col-md-6">
+                      <label>Size</label>
+                      <input type="text" name="size" list="size-options" class="form-control" value="{{ form.size.value|default:'' }}">
+                      <datalist id="size-options">
+                        {% for s in sizes %}
+                          <option value="{{ s.size_label }}">
+                        {% endfor %}
+                      </datalist>
+                    </div>
+                    <div class="form-item col-md-6">
+                      <label>Size Unit</label>
+                      {% render_field form.size_unit class="form-control" %}
+                    </div>
+                  </div>
+
+                  <!-- Unit Price + SRP Price -->
+                  <div class="form-row">
+                    <div class="form-item col-md-6">
+                      <label>Unit Price</label>
+                      <input type="number" step="0.01" name="unit_price" class="form-control" value="{{ form.unit_price.value|default:'' }}">
+                    </div>
+                    <div class="form-item col-md-6">
+                      <label>SRP Price</label>
+                      <input type="number" step="0.01" name="srp_price" class="form-control" value="{{ form.srp_price.value|default:'' }}">
+                    </div>
+                  </div>
+
+                  <!-- Description -->
+                  <div class="form-item">
+                    <label>Description</label>
+                    <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
+                  </div>
+
+                  <!-- Photo Upload -->
+                  <div class="form-item">
+                    <label>Product Photo</label>
+                    <div class="custom-file">
+                      <input type="file" name="photo" class="custom-file-input" id="customFile" accept="image/*">
+                      <label class="custom-file-label" for="customFile">Choose file</label>
+                    </div>
+                    {% render_field form.photo class="form-control-file d-none" %}
                   </div>
                 </div>
 
-                <!-- Unit Price + SRP Price -->
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    <label>Unit Price</label>
-                    <input type="number" step="0.01" name="unit_price"
-                           class="form-control" value="{{ form.unit_price.value|default:'' }}">
-                  </div>
-                  <div class="form-group col-md-6">
-                    <label>SRP Price</label>
-                    <input type="number" step="0.01" name="srp_price"
-                           class="form-control" value="{{ form.srp_price.value|default:'' }}">
-                  </div>
-                </div>
-
-                <!-- Description -->
-                <div class="form-group">
-                  <label>Description</label>
-                  <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
-                </div>
-
-                <!-- Photo Upload -->
-                <div class="form-group">
-                  <label>Product Photo</label>
-                  <div class="custom-file">
-                    <input type="file" name="photo" class="custom-file-input" id="customFile" accept="image/*">
-                    <label class="custom-file-label" for="customFile">Choose file</label>
-                  </div>
-                  {% render_field form.photo class="form-control-file d-none" %}
-                </div>
-
-                <!-- Submit -->
-                <div class="mb-3">
-                  {% if object and object.id %}
-                    <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
-                  {% else %}
-                    <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
-                  {% endif %}
-                </div>
+              <!-- Buttons -->
+              <div class="form-actions btn-row mt-3">
+                {% if object and object.id %}
+                  <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                {% else %}
+                  <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
+                {% endif %}
+              </div>
 
               </form>
             </div>
@@ -142,16 +142,15 @@ document.addEventListener("DOMContentLoaded", function() {
   let socket = null;
   let reconnectTimer = null;
   let lastScannedBarcode = "";
-  let checkBarcodeTimer;
 
   function updateScannerStatus(text, className) {
-    scannerStatus.textContent = `Scanner: ${text}`;
-    scannerStatus.className = `badge ${className} ml-3`;
+    scannerStatus.textContent = Scanner: ${text};
+    scannerStatus.className = badge ${className} ml-3;
   }
 
   function updateBarcodeStatus(text, color = "text-muted") {
     barcodeStatus.textContent = text;
-    barcodeStatus.className = `form-text ${color}`;
+    barcodeStatus.className = form-text ${color};
   }
 
   function playBeep() {
@@ -177,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
+    const wsUrl = ${protocol}${window.location.host}/ws/scan/;
 
     console.log("🔌 Connecting to:", wsUrl);
     updateScannerStatus("Connecting...", "badge-warning");
@@ -221,8 +220,9 @@ document.addEventListener("DOMContentLoaded", function() {
         flashInput(barcodeInput, true);
         playBeep();
         
-        // Check barcode availability
-        checkBarcodeAvailability(barcode);
+        // Update status
+        const now = new Date().toLocaleTimeString();
+        updateBarcodeStatus(✓ Scanned: ${barcode} at ${now}, "text-success");
         
         // Focus next field (Product Type)
         const productTypeInput = document.querySelector('input[name="product_type"]');
@@ -260,68 +260,20 @@ document.addEventListener("DOMContentLoaded", function() {
   // Start connection
   connectWebSocket();
 
-  // Manual barcode input (keyboard) with real-time validation
+  // Manual barcode input (keyboard)
   barcodeInput.addEventListener('input', function() {
-    const barcode = this.value.trim();
-    
-    if (barcode.length === 0) {
-      updateBarcodeStatus("Ready to scan...", "text-muted");
-      barcodeInput.style.borderColor = "";
-      return;
+    if (this.value.length > 0) {
+      updateBarcodeStatus(Manual entry: ${this.value}, "text-info");
     }
-    
-    updateBarcodeStatus(`Checking barcode...`, "text-info");
-    
-    // Debounce the API call
-    clearTimeout(checkBarcodeTimer);
-    checkBarcodeTimer = setTimeout(() => {
-      checkBarcodeAvailability(barcode);
-    }, 500);
   });
 
-  function checkBarcodeAvailability(barcode) {
-    fetch(`/api/check-barcode/?barcode=${encodeURIComponent(barcode)}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.available) {
-          updateBarcodeStatus(`✓ ${data.message}`, "text-success");
-          barcodeInput.style.borderColor = "#28a745";
-        } else {
-          updateBarcodeStatus(`✗ ${data.message}`, "text-danger");
-          barcodeInput.style.borderColor = "#dc3545";
-        }
-      })
-      .catch(error => {
-        console.error("Error checking barcode:", error);
-        updateBarcodeStatus("✗ Error checking barcode", "text-warning");
-      });
-  }
-
-  // Cleanup on page unload
+  // Cleanup
   window.addEventListener("beforeunload", function() {
     if (socket) socket.close();
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (checkBarcodeTimer) clearTimeout(checkBarcodeTimer);
   });
 });
 </script>
-
-<style>
-#barcode-input {
-  font-weight: 500;
-  font-size: 1.1rem;
-}
-
-#scanner-status {
-  font-size: 0.85rem;
-  padding: 0.3rem 0.6rem;
-}
-
-#barcode-status {
-  font-size: 0.9rem;
-  margin-top: 0.3rem;
-}
-</style>
 
 <script>
   document.querySelector('#customFile').addEventListener('change', function(e) {

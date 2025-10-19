@@ -83,8 +83,6 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-
-<<<<<<<<< Temporary merge branch 1
 DATABASES = {
    'default': {
        'ENGINE': 'django.db.backends.postgresql',
@@ -96,7 +94,6 @@ DATABASES = {
    }
 }
 
-=========
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
@@ -116,8 +113,7 @@ DATABASES = {
 #        'HOST': 'localhost',
 #        'PORT': '5432',
 #    }
->>>>>>>>> Temporary merge branch 2
-}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
