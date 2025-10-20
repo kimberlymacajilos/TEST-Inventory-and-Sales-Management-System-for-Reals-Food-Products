@@ -1816,10 +1816,19 @@ class WithdrawItemView(View):
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
-        price_type = request.POST.get("price_type")
-        custom_price = request.POST.get("custom_price")
+        price_input = request.POST.get("price_input")
 
-        count = 0  
+        if price_input in ['UNIT', 'SRP']:
+            price_type = price_input
+            custom_price = None
+        else:
+            price_type = None
+            try:
+                custom_price = float(price_input)
+            except (TypeError, ValueError):
+                custom_price = None
+
+        count = 0
 
         if item_type == "PRODUCT":
             for key, value in request.POST.items():
@@ -1854,7 +1863,7 @@ class WithdrawItemView(View):
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
                             price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
-                            custom_price=custom_price if sales_channel == "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" or custom_price else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )
@@ -1970,8 +1979,8 @@ class WithdrawUpdateView(UpdateView):
     success_url = reverse_lazy("withdrawals")
 
     def form_valid(self, form):
-        # Capture before state
         withdrawal = self.get_object()
+
         before = {
             'item_type': withdrawal.item_type,
             'item_id': withdrawal.item_id,
@@ -1979,13 +1988,15 @@ class WithdrawUpdateView(UpdateView):
             'reason': withdrawal.reason,
             'sales_channel': withdrawal.sales_channel,
             'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
         }
-        
-        # Save the form
+
         response = super().form_valid(form)
-        
-        # Capture after state
+
         withdrawal.refresh_from_db()
+
         after = {
             'item_type': withdrawal.item_type,
             'item_id': withdrawal.item_id,
@@ -1993,9 +2004,11 @@ class WithdrawUpdateView(UpdateView):
             'reason': withdrawal.reason,
             'sales_channel': withdrawal.sales_channel,
             'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
         }
-        
-        # Create history log
+
         create_history_log(
             admin=self.request.user,
             log_category="Withdrawal Edited",
@@ -2004,8 +2017,9 @@ class WithdrawUpdateView(UpdateView):
             before=before,
             after=after
         )
-        
+
         messages.success(self.request, "✅ Withdrawal successfully updated.")
+
         return response
 
     def form_invalid(self, form):

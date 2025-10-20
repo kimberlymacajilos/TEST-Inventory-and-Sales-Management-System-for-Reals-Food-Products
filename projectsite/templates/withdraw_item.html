@@ -10,7 +10,7 @@
       <div class="card-body"> 
         <form method="post" action="{% url 'withdraw-item' %}">
           {% csrf_token %}
-          
+
           <!-- Item type selection -->
           <div class="form-group">
             <label for="item_type">Select Item Type</label>
@@ -47,28 +47,23 @@
                 </select>
               </div>
 
-              <div class="form-group col-md-6" id="price_type_wrapper">
-                <label for="price_type">Price Type</label>
-                <select name="price_type" id="price_type" class="form-control">
-                  <option value="">-- Select --</option>
-                  <option value="UNIT">Unit Price</option>
-                  <option value="SRP">SRP</option>
-                </select>
-
-                <input list="priceOptions" name="custom_price" id="custom_price_input" 
-                      class="form-control mt-2" 
-                      placeholder="Select or enter custom price (₱)" 
-                      style="display: none;">
+              <!-- Single field for price -->
+              <div class="form-group col-md-6" id="price_input_wrapper">
+                <label for="price_input">Price</label>
+                <input list="priceOptions" name="price_input" id="price_input" 
+                       class="form-control" 
+                       placeholder="Enter custom price or select UNIT/SRP">
                 <datalist id="priceOptions">
                   <option value="UNIT">
                   <option value="SRP">
                 </datalist>
+                <small class="form-text text-muted">
+                  ⚠️ Entering a number will be treated as a custom price. Selecting UNIT or SRP will use that price type.
+                </small>
               </div>
             </div>
           </div>
 
-
-          
           <!-- Products table -->
           <div id="products_table" class="mt-3" style="display:none;">
             <h5>Products</h5>
@@ -151,8 +146,6 @@
             </table>
           </div>
 
-
-
           <!-- Submit -->
           <div class="form-group mt-3">
             <button type="submit" id="submit-btn" class="btn btn-warning btn-rounded">Withdraw Selected</button>
@@ -170,9 +163,8 @@ document.addEventListener("DOMContentLoaded", function() {
   const reasonField = document.getElementById("reason");
   const salesPriceSection = document.getElementById("sales-price-section");
   const discountCols = document.querySelectorAll(".discount-col");
+  const priceInput = document.getElementById("price_input");
   const salesChannel = document.getElementById("sales_channel");
-  const priceTypeSelect = document.getElementById("price_type");
-  const customPriceInput = document.getElementById("custom_price_input");
   const prodTable = document.getElementById("products_table");
   const matTable = document.getElementById("rawmaterials_table");
 
@@ -199,19 +191,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function togglePriceInput() {
-    if (salesChannel.value === "CONSIGNMENT") {
-      priceTypeSelect.style.display = "none";
-      customPriceInput.style.display = "block";
-    } else {
-      priceTypeSelect.style.display = "block";
-      customPriceInput.style.display = "none";
-    }
-  }
-
   typeSelect.addEventListener("change", toggleItemTables);
   reasonField.addEventListener("change", toggleSections);
-  salesChannel.addEventListener("change", togglePriceInput);
 
   toggleItemTables();
   toggleSections();
@@ -220,16 +201,10 @@ document.addEventListener("DOMContentLoaded", function() {
   const withdrawInputs = document.querySelectorAll(".withdraw-input");
   const submitBtn = document.getElementById('submit-btn');
   let validationErrors = new Set();
-  let hasAnyInput = false;
 
   withdrawInputs.forEach(input => {
-    input.addEventListener("input", function() {
-      validateWithdrawQuantity(this);
-    });
-
-    input.addEventListener("blur", function() {
-      validateWithdrawQuantity(this);
-    });
+    input.addEventListener("input", function() { validateWithdrawQuantity(this); });
+    input.addEventListener("blur", function() { validateWithdrawQuantity(this); });
   });
 
   function validateWithdrawQuantity(input) {
@@ -238,11 +213,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const validationMsg = input.nextElementSibling;
     const inputName = input.name;
 
-    // Clear previous error for this input
     validationErrors.delete(inputName);
 
     if (withdrawQty === 0) {
-      // No validation needed for 0
       validationMsg.textContent = "";
       validationMsg.className = "form-text";
       input.style.borderColor = "";
@@ -251,21 +224,18 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     if (withdrawQty > maxStock) {
-      // Exceeds stock
       validationMsg.textContent = `❌ Exceeds available stock! (Max: ${maxStock.toFixed(2)})`;
       validationMsg.className = "form-text text-danger font-weight-bold";
       input.style.borderColor = "#dc3545";
       input.style.backgroundColor = "#fff3cd";
       validationErrors.add(inputName);
     } else if (withdrawQty < 0) {
-      // Negative value
       validationMsg.textContent = "❌ Cannot be negative!";
       validationMsg.className = "form-text text-danger font-weight-bold";
       input.style.borderColor = "#dc3545";
       input.style.backgroundColor = "#fff3cd";
       validationErrors.add(inputName);
     } else {
-      // Valid
       validationMsg.textContent = `✓ Valid (${withdrawQty.toFixed(2)} / ${maxStock.toFixed(2)})`;
       validationMsg.className = "form-text text-success";
       input.style.borderColor = "#28a745";
@@ -276,7 +246,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function updateSubmitButton() {
-    // Check if there are any validation errors
     if (validationErrors.size > 0) {
       submitBtn.disabled = true;
       submitBtn.classList.remove("btn-warning");
@@ -291,56 +260,17 @@ document.addEventListener("DOMContentLoaded", function() {
       submitBtn.style.cursor = "pointer";
     }
   }
-
-  // Prevent form submission if there are errors - MULTIPLE LAYERS OF PROTECTION
   const form = document.querySelector('form');
-  
-  // Layer 1: Form submit event
   form.addEventListener('submit', function(e) {
-    console.log('Form submit triggered. Validation errors:', validationErrors.size);
-    
     if (validationErrors.size > 0) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      showToast(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`, 'error');
-      return false;
-    }
-    
-    // Double check all inputs before allowing submission
-    let hasError = false;
-    let errorDetails = [];
-    withdrawInputs.forEach(input => {
-      const withdrawQty = parseFloat(input.value) || 0;
-      const maxStock = parseFloat(input.dataset.maxStock);
-      
-      if (withdrawQty > 0 && withdrawQty > maxStock) {
-        hasError = true;
-        errorDetails.push(`${withdrawQty} exceeds ${maxStock}`);
-      }
-    });
-    
-    if (hasError) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      showToast('Some quantities exceed available stock! Please check and try again.', 'error');
+      alert(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`);
       return false;
     }
   });
-  
-  // Layer 2: Button click event
-  submitBtn.addEventListener('click', function(e) {
-    console.log('Submit button clicked. Disabled:', this.disabled, 'Errors:', validationErrors.size);
-    
-    if (this.disabled || validationErrors.size > 0) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      showToast(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`, 'warning');
-      return false;
-    }
-  });
+
 });
 </script>
 
