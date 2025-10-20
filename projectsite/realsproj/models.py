@@ -419,6 +419,9 @@ class Notifications(models.Model):
         managed = False
         db_table = 'notifications'
 
+    # -------------------------------
+    #   CSS + Icon Mappings
+    # -------------------------------
     @property
     def css_class(self):
         mapping = {
@@ -439,38 +442,74 @@ class Notifications(models.Model):
         }
         return mapping.get(self.notification_type.upper(), "la la-bell")
 
+    # -------------------------------
+    #   Human-readable Message
+    # -------------------------------
     @property
     def formatted_message(self):
         """Generate readable message dynamically."""
         notif_type = self.notification_type.upper()
+
+        from realsproj.models import ProductBatches, RawMaterialBatches
         item_name = "Unknown Item"
 
         try:
+            # ------------------- PRODUCT -------------------
             if self.item_type.upper() == "PRODUCT":
-                from .models import ProductBatches, Products
-                batch = ProductBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    product = batch.product
-                    item_name = str(product)
-                else:
-                    product = Products.objects.filter(id=self.item_id).first()
-                    if product:
-                        item_name = str(product)
+                batch = (
+                    ProductBatches.objects.filter(id=self.item_id)
+                    .select_related(
+                        "product__product_type",
+                        "product__variant",
+                        "product__size_unit",
+                        "product__size"
+                    )
+                    .first()
+                )
 
+                if batch and batch.product:
+                    p = batch.product
+                    product_type = getattr(p.product_type, "name", "")
+                    variant = getattr(p.variant, "name", "")
+                    size_label = getattr(p.size, "size_label", None)
+                    size_unit = getattr(p.size_unit, "unit_name", None)
+
+                    size_text = ""
+                    if size_label and size_unit:
+                        size_text = f" ({size_label} {size_unit})"
+                    elif size_unit:
+                        size_text = f" ({size_unit})"
+
+                    # Include quantity only for expiration notifications
+                    if notif_type == "EXPIRATION_ALERT":
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {product_type} - {variant}{size_text}"
+                    else:
+                        item_name = f"{product_type} - {variant}{size_text}"
+
+            # ------------------- RAW MATERIAL -------------------
             elif self.item_type.upper() == "RAW_MATERIAL":
-                from .models import RawMaterialBatches, RawMaterials
-                batch = RawMaterialBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    material = batch.material
-                    item_name = str(material)
-                else:
-                    material = RawMaterials.objects.filter(id=self.item_id).first()
-                    if material:
-                        item_name = str(material)
+                batch = (
+                    RawMaterialBatches.objects.filter(id=self.item_id)
+                    .select_related("material__unit")
+                    .first()
+                )
 
-        except Exception:
+                if batch and batch.material:
+                    material_name = getattr(batch.material, "name", "")
+                    unit_name = getattr(batch.material.unit, "unit_name", "")
+                    if notif_type == "EXPIRATION_ALERT":
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {material_name} ({unit_name})"
+                    else:
+                        item_name = f"{material_name} ({unit_name})"
+
+        except Exception as e:
+            # Log errors for debugging
+            print(f"[Notification Error] Failed to format {self.item_type} #{self.item_id}: {e}")
             item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
+        # ------------------- Construct Final Message -------------------
         if notif_type == "EXPIRATION_ALERT":
             return f"{item_name} {self._expiration_message()}"
         elif notif_type == "LOW_STOCK":
@@ -479,9 +518,12 @@ class Notifications(models.Model):
             return f"OUT OF STOCK: {item_name}"
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
+        else:
+            return f"{notif_type}: {item_name}"
 
-        return f"{notif_type}: {item_name}"
-
+    # -------------------------------
+    #   Expiration Message Helper
+    # -------------------------------
     def _expiration_message(self):
         from datetime import date
         today = date.today()
@@ -509,7 +551,8 @@ class Notifications(models.Model):
             else:
                 return f"has expired ({batch.expiration_date})"
 
-        except Exception:
+        except Exception as e:
+            print(f"[Expiration Error] {self.item_type} #{self.item_id}: {e}")
             return "has unknown expiration date"
 
 
