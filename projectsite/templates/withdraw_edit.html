@@ -13,7 +13,11 @@
                     <div class="card-body">
                         <form action="" method="post" novalidate>
                             {% csrf_token %} {% include 'includes/form.html' %}
-
+                            
+                            <datalist id="price_type_list">
+                                <option value="UNIT">Unit Price</option>
+                                <option value="SRP">Suggested Retail Price</option>
+                            </datalist>
                             <div class="form-group">
                                 <div class="col-md-12 col-sm-3">
                                     <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
@@ -27,4 +31,32 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const salesChannelField = document.querySelector('[name="sales_channel"]');
+    const priceField = document.querySelector('[name="price_type_or_custom"]');
+    const form = priceField.closest("form");
+
+    function isNumeric(value) {
+        return !isNaN(value) && value.trim() !== "";
+    }
+
+    form.addEventListener("submit", function (e) {
+        const selectedChannel = salesChannelField.value.trim().toUpperCase();
+        const priceValue = priceField.value.trim().toUpperCase();
+        
+        if (
+            priceValue === "" ||
+            (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")
+        ) {
+            e.preventDefault();
+            alert("Please enter a valid price or select UNIT/SRP.");
+            priceField.focus();
+            return false;
+        }
+    });
+});
+</script>
+
 {% endblock %}

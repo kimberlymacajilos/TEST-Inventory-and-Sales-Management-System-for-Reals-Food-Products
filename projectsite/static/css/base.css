@@ -157,13 +157,52 @@ body, .main-panel{
 .dropdown-menu a{ color:#1f2937 !important; padding: 8px 12px; border-radius: 8px; }
 .dropdown-menu a:hover{ background: var(--primary-100) !important; color:#0f172a !important; }
 
-/* Forms */
 .form-control, .form-select{
-  border-radius: 10px !important; border: 1px solid var(--border) !important;
-  background: #fff !important; box-shadow: var(--shadow-xs) inset;
+  border-radius: 10px !important; 
+  border: 1px solid var(--border) !important;
+  background: #fff !important; 
+  box-shadow: var(--shadow-xs) inset;
+  width: 100%;
+  margin-bottom: 16px;
 }
 .form-control:focus, .form-select:focus{
-  border-color: var(--primary-500) !important; box-shadow: 0 0 0 4px rgba(107,191,89,.18) !important;
+  border-color: var(--primary-500) !important; 
+  box-shadow: 0 0 0 4px rgba(107,191,89,.18) !important;
+}
+.form-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px; 
+  justify-content: space-between;
+}
+
+.form-item {
+  flex: 1 1 48%;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-item label {
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.form-item input, .form-item select, .form-item textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.form-item input:focus, .form-item select:focus, .form-item textarea:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 4px rgba(107, 191, 89, .18);
+}
+.form-actions { 
+  flex: 1 1 100%; 
+  display: flex; 
+  flex-wrap: wrap; 
+  align-items: center; 
 }
 
 /* Tables */
@@ -327,27 +366,22 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
   transition: background-color var(--t) var(--e), color var(--t) var(--e), border-color var(--t) var(--e), box-shadow var(--t) var(--e);
 }
 
-/* ===== DARK THEME (lighter, not too dark) ===== */
+/*  DARK THEME */
 html[data-theme="dark"] {
-  /* Dark Mode - Darker shades of Light Mode */
-  --bg: #4B6387;        /* Darker background for dark mode */
-  --bg-soft: #4B6387;    /* Sidebar/soft areas */
-  --panel: #83A2CD;      /* Darker cards/navbars */
+  --bg: #44444E;        /* Darker background for dark mode */
+  --bg-soft: #44444E;    /* Sidebar/soft areas */
+  --panel: #44444E;      /* Darker cards/navbars */
   --text: #ffffff;
-  --muted: #A3C5f1;      /* Muted text */
-  --border: #3f5b4f;     /* Border color */
-  --primary-100: #334663; /* Darker version for dark mode */
-  --primary-200: #ffffff;
-  --primary-300: #ffffff;
-  --primary-400: #ffffff;
-  --primary-500: #ffffff; /* Main darker color */
+  --muted: #ffffff;      /* Muted text */
+  --border: #D3DAD9;     /* Border color */
+  --primary-100: #44444E; /* Darker version for dark mode */
+  --primary-500: #44444E; /* Main darker color */
 }
 
 html[data-theme="dark"] body,
 html[data-theme="dark"] .main-panel {
-  background: #4B6387 !important;
+  background: #D3DAD9 !important;
   color: #ffffff;
-
 }
 html[data-theme="dark"] .main-header,
 html[data-theme="dark"] .navbar.navbar-header {
