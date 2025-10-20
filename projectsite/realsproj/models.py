@@ -853,6 +853,30 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+    
+    def is_truly_active(self):
+        """
+        Check if user is truly active based on:
+        1. They are marked as active (logged in)
+        2. They have an active (non-expired) session
+        """
+        if not self.active:
+            return False
+        
+        # Check if user has any active sessions
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+        
+        # Get all non-expired sessions
+        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        
+        # Check if any of these sessions belong to this user
+        for session in active_sessions:
+            session_data = session.get_decoded()
+            if session_data.get('_auth_user_id') == str(self.user.id):
+                return True
+        
+        return False
 
 
 class Withdrawals(models.Model):
