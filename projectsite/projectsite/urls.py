@@ -39,7 +39,7 @@ urlpatterns = [
     path('products/<pk>', a.ProductsUpdateView.as_view(), name='product-edit'),
     path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
     path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
-   
+    path("api/check-barcode/", a.check_barcode_availability, name="check-barcode"),
 
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials-list'),
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),

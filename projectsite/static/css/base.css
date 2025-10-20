@@ -220,7 +220,6 @@ body, .main-panel{
   color:#0f172a !important; 
 }
 
-/* Forms */
 .form-control, .form-select{
   border-radius: 10px !important; 
   border: 1px solid var(--border) !important;
@@ -446,21 +445,20 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
 
 /*  DARK THEME */
 html[data-theme="dark"] {
-  --bg: #44444E;        
-  --bg-soft: #44444E;    
-  --panel: #44444E;      
+  --bg: #44444E;        /* Darker background for dark mode */
+  --bg-soft: #44444E;    /* Sidebar/soft areas */
+  --panel: #44444E;      /* Darker cards/navbars */
   --text: #ffffff;
-  --muted: #A3C5f1;      /* Muted text */
-  --border: #3f5b4f;     /* Border color */
-  --primary-100: #334663; /* Darker version for dark mode */
-  --primary-500: #334663; /* Main darker color */
+  --muted: #ffffff;      /* Muted text */
+  --border: #D3DAD9;     /* Border color */
+  --primary-100: #44444E; /* Darker version for dark mode */
+  --primary-500: #44444E; /* Main darker color */
 }
 
 html[data-theme="dark"] body,
 html[data-theme="dark"] .main-panel {
   background: #D3DAD9 !important;
   color: #ffffff;
-
 }
 html[data-theme="dark"] .main-header,
 html[data-theme="dark"] .navbar.navbar-header {

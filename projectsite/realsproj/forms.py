@@ -247,10 +247,6 @@ class SrpPricesForm(ModelForm):
         fields = "__all__"
 
 class WithdrawEditForm(forms.ModelForm):
-    ITEM_TYPE_CHOICES = [
-        ('PRODUCT', 'Product'),
-        ('RAW_MATERIAL', 'Raw Material'),
-    ]
     SALES_CHANNEL_CHOICES = [
         ('ORDER', 'Order'),
         ('CONSIGNMENT', 'Consignment'),
@@ -269,12 +265,21 @@ class WithdrawEditForm(forms.ModelForm):
         ('OTHERS', 'Others'),
     ]
 
-    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True, label="Item Type")
     item_id = forms.ChoiceField(choices=[], required=True, label="Item")
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
-    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+
+    price_type_or_custom = forms.CharField(
+        required=False,
+        label="Price Type or Custom Price",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Type custom price or select from dropdown",
+                "list": "price_type_list"
+            }
+        )
+    )
 
     discount = forms.ModelChoiceField(
         queryset=Discounts.objects.all(),
@@ -292,8 +297,8 @@ class WithdrawEditForm(forms.ModelForm):
     class Meta:
         model = Withdrawals
         fields = [
-            'item_type', 'item_id', 'quantity', 'reason',
-            'sales_channel', 'price_type', 'discount', 'custom_discount_value'
+            'item_id', 'quantity', 'reason', 'sales_channel',
+            'price_type_or_custom', 'discount', 'custom_discount_value',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -304,26 +309,42 @@ class WithdrawEditForm(forms.ModelForm):
         self.fields['item_id'].choices = products + materials
 
         if self.instance.pk:
-            if self.instance.item_type == 'PRODUCT':
-                self.fields['item_id'].choices = products
-            elif self.instance.item_type == 'RAW_MATERIAL':
-                self.fields['item_id'].choices = materials
+            if self.instance.price_type:
+                self.fields['price_type_or_custom'].initial = self.instance.price_type
+            elif self.instance.custom_price:
+                self.fields['price_type_or_custom'].initial = str(self.instance.custom_price)
 
     def clean(self):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
+        sales_channel = cleaned_data.get("sales_channel")
+        price_input = cleaned_data.get("price_type_or_custom")
+
+        discount = cleaned_data.get("discount")
+        custom_discount = cleaned_data.get("custom_discount_value")
+        if discount and custom_discount:
+            self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
 
         if reason == "SOLD":
-            if not cleaned_data.get("sales_channel"):
+            if not sales_channel:
                 self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not cleaned_data.get("price_type"):
-                self.add_error("price_type", "This field is required when reason is SOLD.")
+            if not price_input:
+                self.add_error("price_type_or_custom", "Please select or enter a price.")
+                return cleaned_data
 
-            discount = cleaned_data.get("discount")
-            custom_discount = cleaned_data.get("custom_discount_value")
+            price_upper = str(price_input).upper().strip()
 
-            if discount and custom_discount:
-                self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
+            try:
+                custom_price = float(price_input)
+                cleaned_data["custom_price"] = custom_price
+                cleaned_data["price_type"] = None
+            except (TypeError, ValueError):
+                # If not numeric, must be valid price type
+                if price_upper not in dict(self.PRICE_TYPE_CHOICES):
+                    self.add_error("price_type_or_custom", "Enter a numeric price or select a valid price type (UNIT or SRP).")
+                else:
+                    cleaned_data["price_type"] = price_upper
+                    cleaned_data["custom_price"] = None
 
         return cleaned_data
 
@@ -357,6 +378,7 @@ class UnifiedWithdrawForm(forms.Form):
 
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
     price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+    custom_price = forms.DecimalField(required=False, min_value=0, decimal_places=2)
 
     # NEW: discount fields
     discount = forms.ModelChoiceField(queryset=Discounts.objects.all(), required=False)
@@ -371,17 +393,21 @@ class UnifiedWithdrawForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
+        sales_channel = cleaned_data.get("sales_channel")
+        custom_price = cleaned_data.get("custom_price")
 
         if reason == "SOLD":
             if not cleaned_data.get("sales_channel"):
                 self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not cleaned_data.get("price_type"):
-                self.add_error("price_type", "This field is required when reason is SOLD.")
+            if not cleaned_data.get("price_type") and sales_channel != "CONSIGNMENT":
+                self.add_error("price_type", "Price type is required unless it's a consignment sale.")
 
-            if not cleaned_data.get("discount") and not cleaned_data.get("custom_discount_value"):
-                self.add_error("discount", "Select a discount or enter a custom discount.")
+            if sales_channel == "CONSIGNMENT":
+                if not custom_price:
+                    self.add_error("custom_price", "Custom price is required for consignment sales.")
 
         return cleaned_data
+
 
 class NotificationsForm(forms.Form):
     class Meta:

@@ -49,6 +49,7 @@ from realsproj.models import (
     Products,
     RawMaterials,
     HistoryLog,
+    HistoryLogTypes,
     Sales,
     Expenses,
     ProductBatches,
@@ -91,6 +92,48 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+
+
+# Helper function for creating history logs
+def create_history_log(admin, log_category, entity_type, entity_id, before=None, after=None):
+    """
+    Create a history log entry.
+    
+    Args:
+        admin: User instance who performed the action
+        log_category: String category (e.g., "Withdrawal Edited", "Withdrawal Deleted")
+        entity_type: String entity type (e.g., "withdrawal")
+        entity_id: ID of the entity
+        before: Dict of values before change (for updates)
+        after: Dict of values after change (for creates/updates)
+    """
+    try:
+        # Get or create log type
+        log_type, _ = HistoryLogTypes.objects.get_or_create(
+            category=log_category,
+            defaults={'created_by_admin_id': admin.id}
+        )
+        
+        # Build details
+        details = {}
+        if before:
+            details['before'] = before
+        if after:
+            details['after'] = after
+        
+        # Create log entry
+        HistoryLog.objects.create(
+            admin_id=admin.id,
+            log_type_id=log_type.id,
+            log_date=timezone.now(),
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details if details else None,
+            is_archived=False
+        )
+    except Exception as e:
+        # Silently fail to avoid breaking the main operation
+        pass
 
 
 @method_decorator(login_required, name='dispatch')
@@ -362,6 +405,7 @@ class ProductsList(ListView):
         queryset = (
             Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
+            .order_by("-id")
         )
 
         query = self.request.GET.get("q", "").strip()
@@ -375,7 +419,10 @@ class ProductsList(ListView):
         variant = self.request.GET.get("variant")
         size = self.request.GET.get("size")
         date_created = self.request.GET.get("date_created")
+        barcode = self.request.GET.get("barcode")
 
+        if barcode:
+            queryset = queryset.filter(barcode__icontains=barcode)
         if product_type:
             queryset = queryset.filter(product_type__name__icontains=product_type)
         if variant:
@@ -426,6 +473,35 @@ class ProductsList(ListView):
 def product_scan_phone(request):
     
     return render(request, "product_scan_phone.html")
+
+@require_GET
+def check_barcode_availability(request):
+    """API endpoint to check if a barcode already exists"""
+    barcode = request.GET.get('barcode', '').strip()
+    product_id = request.GET.get('product_id', None)  # For edit mode
+    
+    if not barcode:
+        return JsonResponse({'available': True, 'message': ''})
+    
+    # Check if barcode exists
+    qs = Products.objects.filter(barcode=barcode)
+    
+    # Exclude current product if editing
+    if product_id:
+        qs = qs.exclude(pk=product_id)
+    
+    if qs.exists():
+        product = qs.first()
+        return JsonResponse({
+            'available': False,
+            'message': f'Barcode already used by: {product.product_type.name} - {product.variant.name}',
+            'product_id': product.id
+        })
+    
+    return JsonResponse({
+        'available': True,
+        'message': 'Barcode is available'
+    })
 
 class ProductArchiveView(View):
     def post(self, request, pk):
@@ -1753,6 +1829,7 @@ class WithdrawItemView(View):
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_type = request.POST.get("price_type")
+        custom_price = request.POST.get("custom_price")
 
         count = 0  
 
@@ -1788,7 +1865,8 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )
@@ -1840,8 +1918,29 @@ class WithdrawItemView(View):
 class WithdrawalsArchiveView(View):
     def post(self, request, pk):
         withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        
+        # Capture withdrawal data for history log
+        withdrawal_data = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
         withdrawal.is_archived = True
         withdrawal.save()
+        
+        # Create history log
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Archived",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            after=withdrawal_data
+        )
+        
         messages.success(request, "📦 Withdrawal archived successfully.")
         page = request.GET.get('page')
         if page:
@@ -1883,8 +1982,43 @@ class WithdrawUpdateView(UpdateView):
     success_url = reverse_lazy("withdrawals")
 
     def form_valid(self, form):
+        # Capture before state
+        withdrawal = self.get_object()
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        # Save the form
+        response = super().form_valid(form)
+        
+        # Capture after state
+        withdrawal.refresh_from_db()
+        after = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        # Create history log
+        create_history_log(
+            admin=self.request.user,
+            log_category="Withdrawal Edited",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            before=before,
+            after=after
+        )
+        
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-        return super().form_valid(form)
+        return response
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
@@ -1894,6 +2028,35 @@ class WithdrawUpdateView(UpdateView):
 class WithdrawDeleteView(DeleteView):
     model = Withdrawals
     success_url = reverse_lazy('withdrawals')
+
+    def post(self, request, *args, **kwargs):
+        """Override post to capture data before delete is called"""
+        # Capture withdrawal data before deletion
+        withdrawal = self.get_object()
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        withdrawal_id = withdrawal.id
+        
+        # Call parent delete
+        response = super().post(request, *args, **kwargs)
+        
+        # Create history log after deletion
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Deleted",
+            entity_type="withdrawal",
+            entity_id=withdrawal_id,
+            before=before
+        )
+        
+        return response
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Withdrawal deleted successfully.")

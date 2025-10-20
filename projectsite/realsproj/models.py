@@ -207,8 +207,18 @@ class HistoryLog(models.Model):
                 return f"{s.category}"
 
             elif self.entity_type == "withdrawal":
-                w = Withdrawals.objects.get(pk=self.entity_id)
-                return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
+                try:
+                    w = Withdrawals.objects.get(pk=self.entity_id)
+                    return f"{w.get_reason_display()} - {w.quantity} {w.get_item_type_display()} ({w.get_sales_channel_display() or 'N/A'})"
+                except Withdrawals.DoesNotExist:
+                    # If withdrawal is deleted, use data from history log details
+                    if self.details and 'before' in self.details:
+                        data = self.details['before']
+                        reason = dict(Withdrawals.REASON_CHOICES).get(data.get('reason'), data.get('reason', 'Unknown'))
+                        item_type = dict(Withdrawals.ITEM_TYPE_CHOICES).get(data.get('item_type'), data.get('item_type', 'Unknown'))
+                        quantity = data.get('quantity', 'Unknown')
+                        return f"{reason} - {quantity} {item_type} (Deleted)"
+                    return f"Deleted Withdrawal #{self.entity_id}"
 
             elif self.entity_type == "product_recipe":
                 pr = ProductRecipes.objects.select_related(
@@ -232,20 +242,25 @@ class HistoryLog(models.Model):
                 sz = Sizes.objects.get(pk=self.entity_id)
                 return sz.size_label
 
+            elif self.entity_type == "user":
+                u = AuthUser.objects.get(pk=self.entity_id)
+                full_name = f"{u.first_name} {u.last_name}".strip()
+                return f"{u.username}" + (f" ({full_name})" if full_name else "")
+
             else:
                 return f"Entity #{self.entity_id}"
 
         except Exception:
-            action_text = str(getattr(self, "action_name", "")).lower()
-            if not action_text:
-                action_text = str(getattr(self, "action_type", "")).lower()
-            if not action_text:
-                action_text = str(getattr(self, "action", "")).lower()
-
-            if "delete" in action_text or "deleted" in action_text:
+            # Check log type category for better context
+            log_category = self.log_type.category.lower() if self.log_type else ""
+            
+            if "delete" in log_category or "deleted" in log_category:
+                # Try to get entity info from details
+                if self.details and 'before' in self.details:
+                    return f"Deleted {self.entity_type.replace('_', ' ').title()}"
                 return "Deleted Entity"
-
-            return f"Entity Deleted"
+            
+            return f"Entity #{self.entity_id}"
 
     def get_details_display(self):
         """Pretty-print before/after changes with human-readable names and clean formatting."""
@@ -336,6 +351,10 @@ class HistoryLog(models.Model):
             # hide date changes for expenses & sales
             if self.entity_type in ("expense", "sale"):
                 ignore_fields.append("date")
+            
+            # hide date_joined for user sign-ups
+            if self.entity_type == "user":
+                ignore_fields.append("date_joined")
 
             def format_key(key):
                 return key.replace("_id", "").replace("_", " ").title()
@@ -855,6 +874,7 @@ class Withdrawals(models.Model):
         null=True,
         blank=True
     )
+    custom_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_archived = models.BooleanField(default=False)
 
     class Meta:
