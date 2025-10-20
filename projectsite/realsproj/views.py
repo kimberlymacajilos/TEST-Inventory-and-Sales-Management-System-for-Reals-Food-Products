@@ -2,7 +2,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.contrib import messages
-from django.utils import timezone
 from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -91,6 +90,7 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+from django.db.models import Count
 
 
 # Helper function for creating history logs
@@ -2581,3 +2581,75 @@ def set_user_inactive(sender, user, request, **kwargs):
         activity.save()
     except UserActivity.DoesNotExist:
         pass
+
+
+def check_expirations(request):
+    today = timezone.localdate()
+    next_week = today + timedelta(days=7)
+    next_month = today + timedelta(days=30)
+    messages = []
+
+    product_batches = (
+        ProductBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values(
+            "product__product_type__name",
+            "product__variant__name",
+            "product__size__size_label",
+            "product__size_unit__unit_name",
+            "expiration_date"
+        )
+        .annotate(count=Count("id"))
+    )
+
+    for pb in product_batches:
+        days = (pb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
+        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
+        messages.append(message)
+
+    raw_batches = (
+        RawMaterialBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values("material__name", "expiration_date")
+        .annotate(count=Count("id"))
+    )
+
+    for rb in raw_batches:
+        days = (rb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
+        messages.append(message)
+
+    if messages:
+        Notifications.objects.create(
+            item_type="SYSTEM",
+            item_id=0,
+            notification_type="EXPIRATION_ALERT",
+            notification_timestamp=timezone.now(),
+            is_read=False,
+        )
+        print("\n".join(messages))
+
+    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
