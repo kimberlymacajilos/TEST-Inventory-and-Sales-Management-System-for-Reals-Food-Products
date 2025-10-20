@@ -2499,8 +2499,7 @@ def export_sales(request):
     qs = Sales.objects.all()
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        qs = qs.filter(date=start_date)
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2518,7 +2517,7 @@ def export_sales(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_sales = sum(s.amount for s in qs)
 
@@ -2543,8 +2542,7 @@ def export_expenses(request):
     qs = Expenses.objects.all()
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        qs = qs.filter(date=start_date)
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2562,7 +2560,7 @@ def export_expenses(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_expenses = sum(e.amount for e in qs)
 
