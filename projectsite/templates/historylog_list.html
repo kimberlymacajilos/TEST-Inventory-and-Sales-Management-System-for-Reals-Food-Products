@@ -12,26 +12,37 @@
             <div>
               <div class="card-title">List of History</div>
             </div>
-
           </div>
           <div class="card-body">
             <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
-              <select id="adminFilter" class="form-control" style="width:160px;">
+              <select name="admin" id="adminFilter" class="form-control auto-submit" style="width:160px;">
                 <option value="">All Admins</option>
                 {% for admin in admins %}
-                  <option value="{{ admin }}">{{ admin }}</option>
+                  <option value="{{ admin }}" {% if request.GET.admin == admin|stringformat:'s' %}selected{% endif %}>{{ admin }}</option>
                 {% endfor %}
               </select>
+              
               <!-- Log Filter -->
-              <select id="logFilter" class="form-control" style="width:180px;">
+              <select name="log" id="logFilter" class="form-control auto-submit" style="width:180px;">
                 <option value="">All Logs</option>
                 {% for log in logs %}
-                  <option value="{{ log }}">{{ log }}</option>
+                  <option value="{{ log }}" {% if request.GET.log == log|stringformat:'s' %}selected{% endif %}>{{ log }}</option>
                 {% endfor %}
               </select>
+              
               <!-- Date Filter -->
-              <input type="month" id="dateFilter" class="form-control" style="width:170px;" />
+              <input type="month" id="dateFilter" name="date" class="form-control auto-submit" style="width:170px;" value="{{ request.GET.date }}">
+              
+              <!-- Reset Button -->
+              <a href="{% url 'history_log' %}" class="btn btn-secondary ms-auto">
+                <i class="fas fa-undo"></i> Reset
+              </a>
+              
+              <!-- Loading Indicator -->
+              <div class="spinner-border text-primary d-none" id="loadingSpinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
             </form>
           </div>
           <!-- Table -->
@@ -48,18 +59,26 @@
                   </tr>
                 </thead>
                 <tbody id="historyTableBody">
-                  {% for object in object_list %}
-                  <tr>
-                    <td>{{ object.admin.username }}</td>
-                    <td>{{ object.log_type.category }}</td>
-                    <td>{{ object.get_entity_display }}</td>
-                    <td>{{ object.get_details_display }}</td>
-                    <td>{{ object.log_date|date:"Y-m-d H:i" }}</td>
-                  </tr>
-                  {% endfor %}
+                  {% if object_list %}
+                    {% for object in object_list %}
+                    <tr>
+                      <td>{{ object.admin.username }}</td>
+                      <td>{{ object.log_type.category }}</td>
+                      <td>{{ object.get_entity_display }}</td>
+                      <td>{{ object.get_details_display }}</td>
+                      <td>{{ object.log_date|date:"M j, Y h:i A" }}</td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center">No history found.</td>
+                    </tr>
+                  {% endif %}
                 </tbody>
               </table>
             </div>
+            
+            <!-- Pagination with preserved filters -->
             {% include 'includes/pagination.html' %}
           </div>
         </div>
@@ -69,72 +88,38 @@
 </div>
 
 <script>
-(function () {
-  const adminFilter = document.getElementById('adminFilter');
-  const logFilter = document.getElementById('logFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('historyTableBody');
-  const table = document.getElementById('historyTable');
-  const form = document.getElementById('filterForm'); 
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No history found.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Function to show loading spinner
+    function showLoading() {
+      if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+      document.body.style.cursor = 'wait';
     }
-  }
-
-  function filterRows(){
-    const selectedAdmin = normalize(adminFilter.value);
-    const selectedLog = normalize(logFilter.value);
-    const selectedDate = dateFilter.value; 
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const admin = normalize(row.cells[0].textContent);
-      const log = normalize(row.cells[1].textContent);
-      const entity = normalize(row.cells[2].textContent);
-      const date = (row.cells[4].textContent || '').trim().substring(0,7);
-
-      let match = true;
-
-      if(selectedAdmin && admin !== selectedAdmin) {
-        match = false;
-      }
-      if(selectedLog && log !== selectedLog) {
-        match = false;
-      }
-      if(selectedDate && date !== selectedDate) {
-        match = false;
-      }
-
-      row.style.display = match ? '' : 'none';
-      if(match) visible++;
+    
+    // Auto-submit form when any filter changes
+    document.querySelectorAll('.auto-submit').forEach(element => {
+      element.addEventListener('change', function() {
+        showLoading();
+        form.submit();
+      });
     });
-
-    showNoResults(visible === 0);
-  }
-  
-  adminFilter.addEventListener('change', filterRows);
-  logFilter.addEventListener('change', filterRows);
-  dateFilter.addEventListener('change', filterRows);
-
-
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
+    
+    // Handle pagination clicks
+    document.querySelectorAll('.pagination-link').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        showLoading();
+        window.location.href = this.href;
+      });
+    });
+    
+    // Show loading spinner when form is submitted
+    if (form) {
+      form.addEventListener('submit', showLoading);
+    }
+  });
 </script>
-
 
 {% endblock %}
