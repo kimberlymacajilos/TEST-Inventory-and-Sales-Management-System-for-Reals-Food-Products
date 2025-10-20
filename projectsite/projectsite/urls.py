@@ -39,7 +39,7 @@ urlpatterns = [
     path('products/<pk>', a.ProductsUpdateView.as_view(), name='product-edit'),
     path('products/<pk>/delete', a.ProductsDeleteView.as_view(), name='product-delete'),
     path("products/scan-phone/", a.product_scan_phone, name="product-scan-phone"),
-   
+    path("api/check-barcode/", a.check_barcode_availability, name="check-barcode"),
 
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials-list'),
     path('rawmaterials/', a.RawMaterialsList.as_view(), name='rawmaterials'),
@@ -52,6 +52,7 @@ urlpatterns = [
     path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
+    path('history/', a.HistoryLogList.as_view(), name='history_log'),  # Added this line to match template reference
 
     path('sales/', a.SalesList.as_view(), name='sales'),
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
@@ -101,7 +102,42 @@ urlpatterns = [
     path('unirprices/add', a.UnitPricesCreateView.as_view(), name='unit-prices-add'),
     path('srpprices/add', a.SrpPricesCreateView.as_view(), name='srp-prices-add'),
 
+    # Product Attributes Management
+    path('product-attributes/', a.ProductAttributesView.as_view(), name='product-attributes'),
+    
+    # Product Type CRUD
+    path('product-attributes/product-type/add/', a.ProductTypeAddView.as_view(), name='product-type-add'),
+    path('product-attributes/product-type/<int:pk>/edit/', a.ProductTypeEditView.as_view(), name='product-type-edit'),
+    path('product-attributes/product-type/<int:pk>/delete/', a.ProductTypeDeleteView.as_view(), name='product-type-delete'),
+    
+    # Product Variant CRUD
+    path('product-attributes/product-variant/add/', a.ProductVariantAddView.as_view(), name='product-variant-add'),
+    path('product-attributes/product-variant/<int:pk>/edit/', a.ProductVariantEditView.as_view(), name='product-variant-edit'),
+    path('product-attributes/product-variant/<int:pk>/delete/', a.ProductVariantDeleteView.as_view(), name='product-variant-delete'),
+    
+    # Size CRUD
+    path('product-attributes/size/add/', a.SizeAddView.as_view(), name='size-add'),
+    path('product-attributes/size/<int:pk>/edit/', a.SizeEditView.as_view(), name='size-edit'),
+    path('product-attributes/size/<int:pk>/delete/', a.SizeDeleteView.as_view(), name='size-delete'),
+    
+    # Size Unit CRUD
+    path('product-attributes/size-unit/add/', a.SizeUnitAddView.as_view(), name='size-unit-add'),
+    path('product-attributes/size-unit/<int:pk>/edit/', a.SizeUnitEditView.as_view(), name='size-unit-edit'),
+    path('product-attributes/size-unit/<int:pk>/delete/', a.SizeUnitDeleteView.as_view(), name='size-unit-delete'),
+    
+    # Unit Price CRUD
+    path('product-attributes/unit-price/add/', a.UnitPriceAddView.as_view(), name='unit-price-add'),
+    path('product-attributes/unit-price/<int:pk>/edit/', a.UnitPriceEditView.as_view(), name='unit-price-edit'),
+    path('product-attributes/unit-price/<int:pk>/delete/', a.UnitPriceDeleteView.as_view(), name='unit-price-delete'),
+    
+    # SRP Price CRUD
+    path('product-attributes/srp-price/add/', a.SrpPriceAddView.as_view(), name='srp-price-add'),
+    path('product-attributes/srp-price/<int:pk>/edit/', a.SrpPriceEditView.as_view(), name='srp-price-edit'),
+    path('product-attributes/srp-price/<int:pk>/delete/', a.SrpPriceDeleteView.as_view(), name='srp-price-delete'),
+
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
+    path('withdraw/<int:pk>/edit/', a.WithdrawUpdateView.as_view(), name='withdraw-edit'),
+    path("withdraw-item/<pk>/delete", a.WithdrawDeleteView.as_view(), name="withdraw-delete"),
     path("withdraw-item/", a.WithdrawItemView.as_view(), name="withdraw-item"),
     path('withdrawals/<int:pk>/archive/', a.WithdrawalsArchiveView.as_view(), name='withdrawals-archive'),
     path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
@@ -128,6 +164,7 @@ urlpatterns = [
     path("api/sales-vs-expenses/", a.sales_vs_expenses, name="sales-vs-expenses"),
 
     path('notifications/', a.NotificationsList.as_view(), name='notifications'),
+    path('notifications/<pk>/delete/', a.NotificationsDeleteView.as_view(), name='notification-delete'),
 
     path("register/", a.register, name="register"),
 

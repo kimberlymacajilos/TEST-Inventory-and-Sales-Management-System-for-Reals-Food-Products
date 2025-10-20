@@ -11,15 +11,16 @@
 
                     <div class="col-md-6">
                     <div class="card-body">
-                        <form action="" method="post" novalidate>
-                            {% csrf_token %} {% include 'includes/form.html' %}
-
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
-                            </div>
-                        </form>
+<form action="" method="post" novalidate enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="form-container">
+                        {% include 'includes/form.html' %}
+                        <div class="form-actions btn-row mt-3">
+                        <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
+                        <a href="{% url 'rawmaterials' %}" class="btn btn-soft">Cancel</a>
+                        </div>
+                    </div>
+                    </form>
                     </div>
                     </div>
                 </div>

@@ -25,8 +25,8 @@
             </div>
             <div class="form-check">
               {{ form.deduct_raw_material }}
-              <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
-                <span class="custom-checkbox"></span>
+              <!-- <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
+                <span class="custom-checkbox"></span> -->
                 Deduct Raw Materials
               </label>
             </div>
@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function updateStatus(text, className) {
     statusBadge.textContent = text;
-    statusBadge.className = badge ${className};
+    statusBadge.className = `badge ${className}`;
   }
 
   function playBeep() {
@@ -96,7 +96,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = ${protocol}${window.location.host}/ws/scan/;
+    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
 
     console.log("🔌 Connecting to:", wsUrl);
     updateStatus("Connecting...", "badge-warning");
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function() {
         console.log("📦 Scanned barcode:", barcode);
 
         // Find the row with matching barcode
-        const row = document.querySelector(tr[data-barcode="${barcode}"]);
+        const row = document.querySelector(`tr[data-barcode="${barcode}"]`);
         
         if (row) {
           // Find the quantity input in that row

@@ -41,14 +41,15 @@ from realsproj.forms import (
     BulkRawMaterialBatchForm,
     ProductRecipeForm,
     UnifiedWithdrawForm,
-    CustomUserCreationForm
-    
+    CustomUserCreationForm,
+    WithdrawEditForm
 )
 
 from realsproj.models import (
     Products,
     RawMaterials,
     HistoryLog,
+    HistoryLogTypes,
     Sales,
     Expenses,
     ProductBatches,
@@ -90,6 +91,48 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+
+
+# Helper function for creating history logs
+def create_history_log(admin, log_category, entity_type, entity_id, before=None, after=None):
+    """
+    Create a history log entry.
+    
+    Args:
+        admin: User instance who performed the action
+        log_category: String category (e.g., "Withdrawal Edited", "Withdrawal Deleted")
+        entity_type: String entity type (e.g., "withdrawal")
+        entity_id: ID of the entity
+        before: Dict of values before change (for updates)
+        after: Dict of values after change (for creates/updates)
+    """
+    try:
+        # Get or create log type
+        log_type, _ = HistoryLogTypes.objects.get_or_create(
+            category=log_category,
+            defaults={'created_by_admin_id': admin.id}
+        )
+        
+        # Build details
+        details = {}
+        if before:
+            details['before'] = before
+        if after:
+            details['after'] = after
+        
+        # Create log entry
+        HistoryLog.objects.create(
+            admin_id=admin.id,
+            log_type_id=log_type.id,
+            log_date=timezone.now(),
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details if details else None,
+            is_archived=False
+        )
+    except Exception as e:
+        # Silently fail to avoid breaking the main operation
+        pass
 
 
 @method_decorator(login_required, name='dispatch')
@@ -361,7 +404,7 @@ class ProductsList(ListView):
         queryset = (
             Products.objects.filter(is_archived=False)
             .select_related("product_type", "variant", "size", "size_unit", "unit_price", "srp_price")
-            .order_by("id")
+            .order_by("-id")
         )
 
         query = self.request.GET.get("q", "").strip()
@@ -375,7 +418,10 @@ class ProductsList(ListView):
         variant = self.request.GET.get("variant")
         size = self.request.GET.get("size")
         date_created = self.request.GET.get("date_created")
+        barcode = self.request.GET.get("barcode")
 
+        if barcode:
+            queryset = queryset.filter(barcode__icontains=barcode)
         if product_type:
             queryset = queryset.filter(product_type__name__icontains=product_type)
         if variant:
@@ -426,6 +472,35 @@ class ProductsList(ListView):
 def product_scan_phone(request):
     
     return render(request, "product_scan_phone.html")
+
+@require_GET
+def check_barcode_availability(request):
+    """API endpoint to check if a barcode already exists"""
+    barcode = request.GET.get('barcode', '').strip()
+    product_id = request.GET.get('product_id', None)  # For edit mode
+    
+    if not barcode:
+        return JsonResponse({'available': True, 'message': ''})
+    
+    # Check if barcode exists
+    qs = Products.objects.filter(barcode=barcode)
+    
+    # Exclude current product if editing
+    if product_id:
+        qs = qs.exclude(pk=product_id)
+    
+    if qs.exists():
+        product = qs.first()
+        return JsonResponse({
+            'available': False,
+            'message': f'Barcode already used by: {product.product_type.name} - {product.variant.name}',
+            'product_id': product.id
+        })
+    
+    return JsonResponse({
+        'available': True,
+        'message': 'Barcode is available'
+    })
 
 class ProductArchiveView(View):
     def post(self, request, pk):
@@ -798,28 +873,63 @@ class HistoryLogList(ListView):
             .order_by("-log_date")
         )
 
+        # Get filter parameters
         admin_filter = self.request.GET.get("admin", "").strip()
+        log_filter = self.request.GET.get("log", "").strip()
+        date_str = self.request.GET.get("date", "").strip()
+
+        # Apply admin filter
         if admin_filter:
             queryset = queryset.filter(admin__username=admin_filter)
 
-        log_filter = self.request.GET.get("log", "").strip()
+        # Apply log type filter
         if log_filter:
             queryset = queryset.filter(log_type__category=log_filter)
 
-        date_str = self.request.GET.get("date", "").strip()
+        # Apply date filter (month-based)
         if date_str:
             try:
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-                queryset = queryset.filter(log_date__date=date_obj)
-            except ValueError:
+                # Convert YYYY-MM to start and end dates of the month
+                year, month = map(int, date_str.split('-'))
+                import calendar
+                last_day = calendar.monthrange(year, month)[1]
+                
+                start_date = timezone.make_aware(datetime(year, month, 1))
+                end_date = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+                
+                queryset = queryset.filter(
+                    log_date__gte=start_date,
+                    log_date__lte=end_date
+                )
+            except (ValueError, IndexError):
+                # If date format is invalid, skip the date filter
                 pass
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['admins'] = HistoryLog.objects.filter(is_archived=False).values_list('admin__username', flat=True).distinct()
-        context['logs'] = HistoryLog.objects.filter(is_archived=False).values_list('log_type__category', flat=True).distinct()
+        
+        # Get unique admins and log types for the filter dropdowns
+        context['admins'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('admin__username').values_list('admin__username', flat=True).distinct()
+        
+        context['logs'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('log_type__category').values_list('log_type__category', flat=True).distinct()
+        
+        # Preserve filter parameters in pagination
+        filter_params = self.request.GET.copy()
+        if 'page' in filter_params:
+            del filter_params['page']
+        context['filter_params'] = filter_params.urlencode()
+        
+        # Add current filter values to context
+        context['current_admin'] = self.request.GET.get('admin', '')
+        context['current_log'] = self.request.GET.get('log', '')
+        context['current_date'] = self.request.GET.get('date', '')
+        
         return context
     
 class SaleArchiveView(View):
@@ -1463,6 +1573,207 @@ class SrpPricesCreateView(CreateView):
         return super().form_valid(form)
 
 
+# Product Attributes Management View
+class ProductAttributesView(LoginRequiredMixin, TemplateView):
+    template_name = "product_attributes.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['product_types'] = ProductTypes.objects.all().order_by('name')
+        context['product_variants'] = ProductVariants.objects.all().order_by('name')
+        context['sizes'] = Sizes.objects.all().order_by('size_label')
+        context['size_units'] = SizeUnits.objects.all().order_by('unit_name')
+        context['unit_prices'] = UnitPrices.objects.all().order_by('unit_price')
+        context['srp_prices'] = SrpPrices.objects.all().order_by('srp_price')
+        return context
+
+
+# Product Type CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductTypeAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Type added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeEditView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_type.name = name
+            product_type.save()
+            messages.success(request, 'Product Type updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductTypeDeleteView(View):
+    def post(self, request, pk):
+        product_type = get_object_or_404(ProductTypes, pk=pk)
+        product_type.delete()
+        messages.success(request, 'Product Type deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Product Variant CRUD
+@method_decorator(login_required, name='dispatch')
+class ProductVariantAddView(View):
+    def post(self, request):
+        name = request.POST.get('name')
+        if name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+            messages.success(request, 'Product Variant added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantEditView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        name = request.POST.get('name')
+        if name:
+            product_variant.name = name
+            product_variant.save()
+            messages.success(request, 'Product Variant updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class ProductVariantDeleteView(View):
+    def post(self, request, pk):
+        product_variant = get_object_or_404(ProductVariants, pk=pk)
+        product_variant.delete()
+        messages.success(request, 'Product Variant deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeAddView(View):
+    def post(self, request):
+        size_label = request.POST.get('size_label')
+        if size_label:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+            messages.success(request, 'Size added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeEditView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size_label = request.POST.get('size_label')
+        if size_label:
+            size.size_label = size_label
+            size.save()
+            messages.success(request, 'Size updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeDeleteView(View):
+    def post(self, request, pk):
+        size = get_object_or_404(Sizes, pk=pk)
+        size.delete()
+        messages.success(request, 'Size deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Size Unit CRUD
+@method_decorator(login_required, name='dispatch')
+class SizeUnitAddView(View):
+    def post(self, request):
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+            messages.success(request, 'Size Unit added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitEditView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        unit_name = request.POST.get('unit_name')
+        if unit_name:
+            size_unit.unit_name = unit_name
+            size_unit.save()
+            messages.success(request, 'Size Unit updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SizeUnitDeleteView(View):
+    def post(self, request, pk):
+        size_unit = get_object_or_404(SizeUnits, pk=pk)
+        size_unit.delete()
+        messages.success(request, 'Size Unit deleted successfully!')
+        return redirect('product-attributes')
+
+
+# Unit Price CRUD
+@method_decorator(login_required, name='dispatch')
+class UnitPriceAddView(View):
+    def post(self, request):
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
+            messages.success(request, 'Unit Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceEditView(View):
+    def post(self, request, pk):
+        unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
+        unit_price = request.POST.get('unit_price')
+        if unit_price:
+            unit_price_obj.unit_price = unit_price
+            unit_price_obj.save()
+            messages.success(request, 'Unit Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class UnitPriceDeleteView(View):
+    def post(self, request, pk):
+        unit_price = get_object_or_404(UnitPrices, pk=pk)
+        unit_price.delete()
+        messages.success(request, 'Unit Price deleted successfully!')
+        return redirect('product-attributes')
+
+
+# SRP Price CRUD
+@method_decorator(login_required, name='dispatch')
+class SrpPriceAddView(View):
+    def post(self, request):
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
+            messages.success(request, 'SRP Price added successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceEditView(View):
+    def post(self, request, pk):
+        srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
+        srp_price = request.POST.get('srp_price')
+        if srp_price:
+            srp_price_obj.srp_price = srp_price
+            srp_price_obj.save()
+            messages.success(request, 'SRP Price updated successfully!')
+        return redirect('product-attributes')
+
+@method_decorator(login_required, name='dispatch')
+class SrpPriceDeleteView(View):
+    def post(self, request, pk):
+        srp_price = get_object_or_404(SrpPrices, pk=pk)
+        srp_price.delete()
+        messages.success(request, 'SRP Price deleted successfully!')
+        return redirect('product-attributes')
+
+
 class WithdrawSuccessView(ListView):
     model = Withdrawals
     context_object_name = 'withdrawals'
@@ -1540,9 +1851,19 @@ class WithdrawItemView(View):
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
-        price_type = request.POST.get("price_type")
+        price_input = request.POST.get("price_input")
 
-        count = 0  
+        if price_input in ['UNIT', 'SRP']:
+            price_type = price_input
+            custom_price = None
+        else:
+            price_type = None
+            try:
+                custom_price = float(price_input)
+            except (TypeError, ValueError):
+                custom_price = None
+
+        count = 0
 
         if item_type == "PRODUCT":
             for key, value in request.POST.items():
@@ -1576,7 +1897,8 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" else None,
+                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" or custom_price else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )
@@ -1628,8 +1950,29 @@ class WithdrawItemView(View):
 class WithdrawalsArchiveView(View):
     def post(self, request, pk):
         withdrawal = get_object_or_404(Withdrawals, pk=pk)
+        
+        # Capture withdrawal data for history log
+        withdrawal_data = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
         withdrawal.is_archived = True
         withdrawal.save()
+        
+        # Create history log
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Archived",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            after=withdrawal_data
+        )
+        
         messages.success(request, "📦 Withdrawal archived successfully.")
         page = request.GET.get('page')
         if page:
@@ -1664,7 +2007,98 @@ class WithdrawalsArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
 
+class WithdrawUpdateView(UpdateView):
+    model = Withdrawals
+    form_class = WithdrawEditForm
+    template_name = "withdraw_edit.html"
+    success_url = reverse_lazy("withdrawals")
 
+    def form_valid(self, form):
+        withdrawal = self.get_object()
+
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
+        }
+
+        response = super().form_valid(form)
+
+        withdrawal.refresh_from_db()
+
+        after = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
+        }
+
+        create_history_log(
+            admin=self.request.user,
+            log_category="Withdrawal Edited",
+            entity_type="withdrawal",
+            entity_id=withdrawal.id,
+            before=before,
+            after=after
+        )
+
+        messages.success(self.request, "✅ Withdrawal successfully updated.")
+
+        return response
+
+    def form_invalid(self, form):
+        messages.error(self.request, "❌ Please correct the errors below.")
+        return super().form_invalid(form)
+
+
+class WithdrawDeleteView(DeleteView):
+    model = Withdrawals
+    success_url = reverse_lazy('withdrawals')
+
+    def post(self, request, *args, **kwargs):
+        """Override post to capture data before delete is called"""
+        # Capture withdrawal data before deletion
+        withdrawal = self.get_object()
+        before = {
+            'item_type': withdrawal.item_type,
+            'item_id': withdrawal.item_id,
+            'quantity': str(withdrawal.quantity),
+            'reason': withdrawal.reason,
+            'sales_channel': withdrawal.sales_channel,
+            'price_type': withdrawal.price_type,
+        }
+        
+        withdrawal_id = withdrawal.id
+        
+        # Call parent delete
+        response = super().post(request, *args, **kwargs)
+        
+        # Create history log after deletion
+        create_history_log(
+            admin=request.user,
+            log_category="Withdrawal Deleted",
+            entity_type="withdrawal",
+            entity_id=withdrawal_id,
+            before=before
+        )
+        
+        return response
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
+        return super().get_success_url()
+    
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -1703,6 +2137,14 @@ class NotificationsList(ListView):
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
         return super().get(request, *args, **kwargs)
+
+class NotificationsDeleteView(DeleteView):
+    model = Notifications
+    success_url = reverse_lazy('notifications')
+
+    def get_success_url(self):
+        messages.success(self.request, "🗑️ Notification deleted successfully.")
+        return super().get_success_url()
 
 
 class BulkProductBatchCreateView(View):

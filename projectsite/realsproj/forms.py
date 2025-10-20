@@ -1,12 +1,12 @@
 from django.forms import ModelForm
 from django import forms
 from datetime import timedelta
-from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts, ProductRecipes
+from .models import Expenses, Products, RawMaterials, HistoryLog, Sales, ProductBatches, ProductInventory, RawMaterialBatches, RawMaterialInventory, ProductTypes, ProductVariants, Sizes, SizeUnits, UnitPrices, SrpPrices, Notifications, StockChanges, Discounts, ProductRecipes, Withdrawals
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory
-
+from decimal import Decimal, InvalidOperation
 
 class ProductsForm(forms.ModelForm):
     # ADD THIS - Barcode field
@@ -129,8 +129,11 @@ class ProductRecipeForm(forms.ModelForm):
         fields = ["material", "quantity_needed", "yield_factor"]
 
 class RawMaterialsForm(ModelForm):
+    field_order = ["name", "size", "unit", "price_per_unit"]
+
     class Meta:
         model = RawMaterials
+        field_order = ["name", "size", "unit", "price_per_unit"]
         exclude = ['created_by_admin', 'date_created', 'is_archived'] 
         widgets = {
             'expiration_date': forms.DateInput(attrs={'type': 'date'}),
@@ -243,14 +246,7 @@ class SrpPricesForm(ModelForm):
         model = SrpPrices
         fields = "__all__"
 
-class WithdrawForm(forms.Form):
-    quantity = forms.IntegerField(min_value=1, label='Quantity to Withdraw')
-
-class UnifiedWithdrawForm(forms.Form):
-    ITEM_TYPE_CHOICES = [
-        ('PRODUCT', 'Product'),
-        ('RAW_MATERIAL', 'Raw Material'),
-    ]
+class WithdrawEditForm(forms.ModelForm):
     SALES_CHANNEL_CHOICES = [
         ('ORDER', 'Order'),
         ('CONSIGNMENT', 'Consignment'),
@@ -269,15 +265,151 @@ class UnifiedWithdrawForm(forms.Form):
         ('OTHERS', 'Others'),
     ]
 
+    item_id = forms.ChoiceField(choices=[], required=True, label="Item")
+    quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
+    reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
+    sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+
+    price_type_or_custom = forms.CharField(
+        required=False,
+        label="Price Type or Custom Price",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Type custom price or select from dropdown",
+                "list": "price_type_list"
+            }
+        )
+    )
+
+    discount = forms.ModelChoiceField(
+        queryset=Discounts.objects.all(),
+        required=False,
+        empty_label="No Discount",
+        label="Select Discount"
+    )
+    custom_discount_value = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label="Custom Discount (%)"
+    )
+
+    class Meta:
+        model = Withdrawals
+        fields = [
+            'item_id', 'quantity', 'reason', 'sales_channel',
+            'price_type_or_custom', 'discount', 'custom_discount_value',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        products = [(p.id, str(p)) for p in Products.objects.all()]
+        materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
+        self.fields['item_id'].choices = products + materials
+
+        if self.instance.pk:
+            if self.instance.price_type:
+                self.fields['price_type_or_custom'].initial = self.instance.price_type
+            elif self.instance.custom_price:
+                self.fields['price_type_or_custom'].initial = str(self.instance.custom_price)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get("reason")
+        sales_channel = cleaned_data.get("sales_channel")
+        price_input = cleaned_data.get("price_type_or_custom")
+
+        discount = cleaned_data.get("discount")
+        custom_discount = cleaned_data.get("custom_discount_value")
+        if discount and custom_discount:
+            self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
+
+        if reason == "SOLD":
+            if not sales_channel:
+                self.add_error("sales_channel", "This field is required when reason is SOLD.")
+            if not price_input:
+                self.add_error("price_type_or_custom", "Please select a price type or enter a custom price.")
+                return cleaned_data
+
+            price_upper = str(price_input).upper().strip()
+
+            try:
+                custom_price = Decimal(price_input)
+                cleaned_data["custom_price"] = custom_price
+                cleaned_data["price_type"] = None
+            except (TypeError, ValueError, InvalidOperation):
+                if price_upper not in dict(self.PRICE_TYPE_CHOICES):
+                    self.add_error("price_type_or_custom", "Enter a numeric price or select UNIT or SRP as price type.")
+                else:
+                    cleaned_data["price_type"] = price_upper
+                    cleaned_data["custom_price"] = None
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        instance.price_type = None
+        instance.custom_price = None
+
+        price_input = self.cleaned_data.get("price_type_or_custom")
+        if price_input:
+            try:
+                custom_price = Decimal(str(price_input))
+                instance.custom_price = custom_price
+                instance.price_type = None
+            except (ValueError, TypeError, InvalidOperation):
+                price_upper = str(price_input).upper().strip()
+                if price_upper in dict(self.PRICE_TYPE_CHOICES):
+                    instance.price_type = price_upper
+                    instance.custom_price = None
+
+        discount_obj = self.cleaned_data.get("discount")
+        custom_discount = self.cleaned_data.get("custom_discount_value")
+        if discount_obj:
+            instance.discount_id = discount_obj.id
+            instance.custom_discount_value = None
+        else:
+            instance.discount_id = None
+            instance.custom_discount_value = custom_discount
+
+        if commit:
+            instance.save()
+
+        return instance
+
+class UnifiedWithdrawForm(forms.Form):
+    ITEM_TYPE_CHOICES = [
+        ('PRODUCT', 'Product'),
+        ('RAW_MATERIAL', 'Raw Material'),
+    ]
+    SALES_CHANNEL_CHOICES = [
+        ('ORDER', 'Order'),
+        ('CONSIGNMENT', 'Consignment'),
+        ('RESELLER', 'Reseller'),
+        ('PHYSICAL_STORE', 'Physical Store'),
+    ]
+    REASON_CHOICES = [
+        ('SOLD', 'Sold'),
+        ('EXPIRED', 'Expired'),
+        ('DAMAGED', 'Damaged'),
+        ('RETURNED', 'Returned'),
+        ('OTHERS', 'Others'),
+    ]
+
     item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, required=True)
     item = forms.ChoiceField(choices=[], required=True)
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
 
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
-    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
+    price_input = forms.CharField(
+        required=False,
+        label="Price",
+        help_text="Enter custom price or select UNIT/SRP"
+    )
 
-    # NEW: discount fields
     discount = forms.ModelChoiceField(queryset=Discounts.objects.all(), required=False)
     custom_discount_value = forms.DecimalField(
         required=False, min_value=0, decimal_places=2, label="Custom Discount"
@@ -290,16 +422,20 @@ class UnifiedWithdrawForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
+        sales_channel = cleaned_data.get("sales_channel")
+        price_input = cleaned_data.get("price_input")
+
+        if reason == "SOLD" and not sales_channel:
+            self.add_error("sales_channel", "This field is required when reason is SOLD.")
 
         if reason == "SOLD":
-            if not cleaned_data.get("sales_channel"):
-                self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not cleaned_data.get("price_type"):
-                self.add_error("price_type", "This field is required when reason is SOLD.")
-
-            # require either a discount or a custom discount
-            if not cleaned_data.get("discount") and not cleaned_data.get("custom_discount_value"):
-                self.add_error("discount", "Select a discount or enter a custom discount.")
+            if not price_input:
+                self.add_error("price_input", "This field is required for SOLD items.")
+            elif price_input not in ['UNIT', 'SRP']:
+                try:
+                    float(price_input)
+                except ValueError:
+                    self.add_error("price_input", "Enter a number or select UNIT/SRP.")
 
         return cleaned_data
 
@@ -373,15 +509,10 @@ class StockChangesForm(ModelForm):
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
-    user_type = forms.ChoiceField(
-        choices=[('staff', 'Staff'), ('superuser', 'Superuser')],
-        widget=forms.Select,
-        required=True
-    )
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'user_type']
+        fields = ['username', 'first_name', 'last_name', 'email']
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -399,13 +530,6 @@ class CustomUserCreationForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
-        user_type = self.cleaned_data.get('user_type')
-        if user_type == 'staff':
-            user.is_staff = True
-            user.is_superuser = False
-        elif user_type == 'superuser':
-            user.is_staff = True
-            user.is_superuser = True
         if commit:
             user.save()
         return user

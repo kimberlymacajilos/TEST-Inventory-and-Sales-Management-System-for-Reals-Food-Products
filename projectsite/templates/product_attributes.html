@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="content">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="page-title mb-0">Product Attributes</h4>
+
+        </div>
+        
+        <!-- Attribute Selection Buttons -->
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="btn-group btn-group-toggle" role="group">
+                                <a href="{% url 'products' %}" class="btn btn-secondary btn-rounded">
+                <i class="la la-arrow-left"></i> 
+            </a>
+                    <button type="button" class="btn btn-primary active" onclick="showSection('productTypes')">
+                        <i class="la la-tag"></i> Product Types
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="showSection('productVariants')">
+                        <i class="la la-tags"></i> Product Variants
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="showSection('sizes')">
+                        <i class="la la-ruler"></i> Sizes
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="showSection('sizeUnits')">
+                        <i class="la la-balance-scale"></i> Size Units
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="showSection('unitPrices')">
+                        <i class="la la-money"></i> Unit Prices
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="showSection('srpPrices')">
+                        <i class="la la-dollar"></i> SRP Prices
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Types Section -->
+        <div id="productTypes" class="attribute-section">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">Product Types</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addProductTypeModal">
+                                <i class="la la-plus"></i> Add Product Type
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for type in product_types %}
+                                    <tr>
+                                        <td>{{ type.name }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editProductTypeModal{{ type.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteProductTypeModal{{ type.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No product types found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Variants Section -->
+        <div id="productVariants" class="attribute-section" style="display:none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">Product Variants</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addProductVariantModal">
+                                <i class="la la-plus"></i> Add Product Variant
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for variant in product_variants %}
+                                    <tr>
+                                        <td>{{ variant.name }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editProductVariantModal{{ variant.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteProductVariantModal{{ variant.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No product variants found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sizes Section -->
+        <div id="sizes" class="attribute-section" style="display:none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">Sizes</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addSizeModal">
+                                <i class="la la-plus"></i> Add Size
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Size Label</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for size in sizes %}
+                                    <tr>
+                                        <td>{{ size.size_label }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editSizeModal{{ size.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteSizeModal{{ size.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No sizes found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Size Units Section -->
+        <div id="sizeUnits" class="attribute-section" style="display:none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">Size Units</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addSizeUnitModal">
+                                <i class="la la-plus"></i> Add Size Unit
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Unit Name</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for unit in size_units %}
+                                    <tr>
+                                        <td>{{ unit.unit_name }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editSizeUnitModal{{ unit.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteSizeUnitModal{{ unit.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No size units found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unit Prices Section -->
+        <div id="unitPrices" class="attribute-section" style="display:none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">Unit Prices</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addUnitPriceModal">
+                                <i class="la la-plus"></i> Add Unit Price
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Price</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for price in unit_prices %}
+                                    <tr>
+                                        <td>₱{{ price.unit_price }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editUnitPriceModal{{ price.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteUnitPriceModal{{ price.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No unit prices found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SRP Prices Section -->
+        <div id="srpPrices" class="attribute-section" style="display:none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-title">SRP Prices</div>
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#addSrpPriceModal">
+                                <i class="la la-plus"></i> Add SRP Price
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Price</th>
+                                        <th width="150">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for price in srp_prices %}
+                                    <tr>
+                                        <td>₱{{ price.srp_price }}</td>
+                                        <td>
+                                            <a href="#" data-toggle="modal" data-target="#editSrpPriceModal{{ price.id }}" class="text-primary" title="Edit">
+                                                <i class="la la-edit la-lg"></i>
+                                            </a>
+                                            <a href="#" data-toggle="modal" data-target="#deleteSrpPriceModal{{ price.id }}" class="text-danger ml-3" title="Delete">
+                                                <i class="la la-trash la-lg"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-center">No SRP prices found.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'includes/product_attributes_modals.html' %}
+
+<script>
+function showSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.attribute-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.btn-group button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected section
+    document.getElementById(sectionId).style.display = 'block';
+    
+    // Add active class to clicked button
+    event.target.closest('button').classList.add('active');
+}
+</script>
+
+<style>
+.btn-group .btn {
+    margin-right: 5px;
+    border-radius: 4px !important;
+}
+.btn-group .btn.active {
+    background-color: #1572e8;
+    border-color: #1572e8;
+}
+</style>
+{% endblock %}
