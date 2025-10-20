@@ -91,7 +91,6 @@
                       <label>SRP Price</label>
                       <input type="number" step="0.01" name="srp_price"
                              class="form-control" value="{{ form.srp_price.value|default:'' }}">
-                    </div>
                   </div>
 
                   <!-- Description -->
@@ -125,8 +124,7 @@
                       <input type="file" name="photo" class="custom-file-input" id="customFileEdit" accept="image/*">
                       <label class="custom-file-label" for="customFileEdit">Choose file</label>
                     </div>
-                  </div>
-                  <!-- Actions -->
+
                   <div class="form-actions btn-row mt-3">
                     {% if object and object.id %}
                       <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
@@ -199,19 +197,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function updateScannerStatus(text, className) {
     if (!scannerStatus) return;
-    scannerStatus.textContent = `Scanner: ${text}`;
-    scannerStatus.className = `badge ${className} ml-2`;
+    scannerStatus.textContent = Scanner: ${text};
+    scannerStatus.className = badge ${className} ml-2;
   }
   function updateBarcodeStatus(text, color = "text-muted") {
     if (!barcodeStatus) return;
     barcodeStatus.textContent = text;
-    barcodeStatus.className = `form-text ${color}`;
+    barcodeStatus.className = form-text ${color};
   }
 
   function connectWebSocket() {
     if (socket) { try { socket.close(); } catch(e){} }
     const protocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = `${protocol}${location.host}/ws/scan/`;
+    const wsUrl = ${protocol}${location.host}/ws/scan/;
     updateScannerStatus("Connecting...", "badge-warning");
     socket = new WebSocket(wsUrl);
 
@@ -240,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function() {
           setTimeout(() => { barcodeInput.style.border = ""; }, 700);
         }
         const now = new Date().toLocaleTimeString();
-        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
+        updateBarcodeStatus(✓ Scanned: ${barcode} at ${now}, "text-success");
       } catch {
         updateBarcodeStatus("✗ Error processing barcode", "text-danger");
       }

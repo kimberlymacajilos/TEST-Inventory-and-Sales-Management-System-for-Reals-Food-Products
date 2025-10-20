@@ -62,8 +62,8 @@ body, .main-panel{
 .main-panel{
   position: relative;
   z-index: 1;
-  margin-top: 0 !important;
-  padding-top: 0 !important;
+  margin-top: 60px !important;
+  /* padding-top: 50px !important; */
 }
 .main-panel > .content,
 .main-panel > .container,
@@ -98,7 +98,7 @@ body, .main-panel{
   background: linear-gradient(180deg, var(--bg-soft), var(--bg)) !important;
   color: #2c2c2c;
   border-right: 1px solid var(--border);
-  width: 250px;
+  width: 300px;
 }
 .sidebar .user .info span{ 
   color:#2c2c2c !important; 
@@ -220,6 +220,8 @@ body, .main-panel{
   color:#0f172a !important; 
 }
 
+/* Forms */
+
 .form-control, .form-select{
   border-radius: 10px !important; 
   border: 1px solid var(--border) !important;
@@ -228,6 +230,7 @@ body, .main-panel{
   width: 100%;
   margin-bottom: 16px;
 }
+
 .form-control:focus, .form-select:focus{
   border-color: var(--primary-500) !important; 
   box-shadow: 0 0 0 4px rgba(107,191,89,.18) !important;
@@ -235,22 +238,27 @@ body, .main-panel{
 .form-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px; 
-  justify-content: space-between;
+  gap: 10px; 
+  justify-content: space-start;
+  margin-bottom: 20px;
 }
 
+/* Control Width of Each Field */
 .form-item {
-  flex: 1 1 48%;
+  flex: 1 1 45%; 
   display: flex;
   flex-direction: column;
+  margin-bottom: 12px;
+
 }
 
 .form-item label {
   font-weight: 600;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
 }
 
-.form-item input, .form-item select, .form-item textarea {
+.form-item input, 
+.form-item select, .form-item textarea {
   padding: 10px;
   border-radius: 10px;
   border: 1px solid var(--border);

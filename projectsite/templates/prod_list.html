@@ -12,6 +12,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
                         <div class="card-title">List of Products</div>
+                        <span id="scanner-status" class="badge badge-secondary">Scanner: Connecting...</span>
                     </div>
                     <div class="d-flex align-items-center" style="gap:0.5rem;">
                         
@@ -42,6 +43,9 @@
                     <!-- Filters -->
                     <div class="card-body">
                         <form method="get" id="filterForm" class="mb-3">
+
+                            
+                            <!-- Other Filters Row -->
                             <div class="row">
                                 <div class="col-md-2">
                                     <input type="text" name="product_type" class="form-control"
@@ -58,6 +62,18 @@
                                 <div class="col-md-2">
                                     <input type="date" name="date_created" class="form-control"
                                            value="{{ request.GET.date_created }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group">
+                                        <input type="text" name="barcode" id="barcode-search" class="form-control"
+                                            placeholder="🔍 Scan or enter barcode..." value="{{ request.GET.barcode }}">
+                                        <div class="input-group-append">
+                                            <button type="button" id="clear-barcode" class="btn btn-outline-secondary" title="Clear barcode">
+                                                <i class="la la-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
                                 </div>
                             </div>
                         </form>
@@ -217,10 +233,144 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("filterForm");
+    const barcodeInput = document.getElementById("barcode-search");
+    const barcodeStatus = document.getElementById("barcode-status");
+    const scannerStatus = document.getElementById("scanner-status");
+    const clearBarcodeBtn = document.getElementById("clear-barcode");
 
     let typingTimer;
     const debounceTime = 600;
+    let socket = null;
+    let reconnectTimer = null;
+    let lastScannedBarcode = "";
 
+    // Update scanner status badge
+    function updateScannerStatus(text, className) {
+        scannerStatus.textContent = `Scanner: ${text}`;
+        scannerStatus.className = `badge ${className}`;
+    }
+
+    // Update barcode status message
+    function updateBarcodeStatus(text, color = "text-muted") {
+        barcodeStatus.textContent = text;
+        barcodeStatus.className = `form-text ${color}`;
+    }
+
+    // Flash input border
+    function flashInput(input, success = true) {
+        const originalBorder = input.style.border;
+        input.style.border = success ? "2px solid #28a745" : "2px solid #ffc107";
+        input.style.transition = "border 0.3s ease";
+        
+        setTimeout(() => {
+            input.style.border = originalBorder;
+        }, 800);
+    }
+
+    // WebSocket connection for scanner
+    function connectWebSocket() {
+        if (socket) {
+            socket.close();
+        }
+
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
+
+        console.log("🔌 Connecting to scanner:", wsUrl);
+        updateScannerStatus("Connecting...", "badge-warning");
+
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = function() {
+            console.log("✅ Scanner connected");
+            updateScannerStatus("Connected", "badge-success");
+            updateBarcodeStatus("✓ Scanner ready. Scan a barcode to search...", "text-success");
+            
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+        };
+
+        socket.onmessage = function(e) {
+            try {
+                const data = JSON.parse(e.data);
+                const barcode = data.barcode;
+
+                if (!barcode) return;
+
+                console.log("📦 Scanned barcode:", barcode);
+
+                // Prevent duplicate scans within 1 second
+                if (barcode === lastScannedBarcode) {
+                    console.log("⚠️ Duplicate scan ignored");
+                    flashInput(barcodeInput, false);
+                    return;
+                }
+
+                lastScannedBarcode = barcode;
+                setTimeout(() => { lastScannedBarcode = ""; }, 1000);
+
+                // Update barcode input and submit form
+                barcodeInput.value = barcode;
+                flashInput(barcodeInput, true);
+                
+                const now = new Date().toLocaleTimeString();
+                updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
+                
+                // Auto-submit form to search
+                setTimeout(() => {
+                    form.submit();
+                }, 300);
+
+            } catch (err) {
+                console.error("❌ Error processing scan:", err);
+                updateBarcodeStatus("✗ Error processing barcode", "text-danger");
+            }
+        };
+
+        socket.onclose = function(e) {
+            console.log("🔌 Disconnected:", e.code);
+            updateScannerStatus("Disconnected", "badge-danger");
+            updateBarcodeStatus("✗ Scanner disconnected. Reconnecting...", "text-warning");
+
+            // Auto-reconnect after 3 seconds
+            if (!reconnectTimer) {
+                reconnectTimer = setTimeout(() => {
+                    console.log("🔄 Reconnecting...");
+                    connectWebSocket();
+                }, 3000);
+            }
+        };
+
+        socket.onerror = function(err) {
+            console.error("⚠️ WebSocket error:", err);
+            updateScannerStatus("Error", "badge-danger");
+            updateBarcodeStatus("✗ Connection error", "text-danger");
+        };
+    }
+
+    // Start WebSocket connection
+    connectWebSocket();
+
+    // Clear barcode button
+    clearBarcodeBtn.addEventListener("click", function() {
+        barcodeInput.value = "";
+        barcodeInput.focus();
+        updateBarcodeStatus("Ready to scan...", "text-muted");
+        form.submit();
+    });
+
+    // Manual input handling
+    barcodeInput.addEventListener("input", function() {
+        if (this.value.length > 0) {
+            updateBarcodeStatus(`Searching for: ${this.value}`, "text-info");
+        } else {
+            updateBarcodeStatus("Ready to scan...", "text-muted");
+        }
+    });
+
+    // Auto-submit form on input change (with debounce)
     form.querySelectorAll("input").forEach(input => {
         input.addEventListener("change", () => form.submit());
         input.addEventListener("keyup", () => {
@@ -229,6 +379,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 form.submit();
             }, debounceTime);
         });
+    });
+
+    // Cleanup on page unload
+    window.addEventListener("beforeunload", function() {
+        if (socket) socket.close();
+        if (reconnectTimer) clearTimeout(reconnectTimer);
     });
 });
 </script>
