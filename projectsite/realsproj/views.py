@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    ListView, CreateView, UpdateView, DeleteView, TemplateView, View
+)
+from django.views.generic.edit import ModelFormMixin
 from django.contrib import messages
 from django.utils import timezone
 from django.views import View
@@ -2015,6 +2018,14 @@ class WithdrawUpdateView(UpdateView):
 
     def form_valid(self, form):
         withdrawal = self.get_object()
+        
+        # Save the original date before any changes
+        original_date = withdrawal.date
+        
+        # Log the current time for debugging
+        current_time = timezone.now()
+        print(f"Current time: {current_time}")
+        print(f"Original date before save: {original_date}")
 
         before = {
             'item_type': withdrawal.item_type,
@@ -2026,11 +2037,25 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(original_date),
         }
 
-        response = super().form_valid(form)
-
+        # Get the form data but don't save yet
+        self.object = form.save(commit=False)
+        
+        # Explicitly set the date to the original date
+        self.object.date = original_date
+        
+        # Save with update_fields to only update specific fields
+        self.object.save(update_fields=[
+            'item_id', 'quantity', 'reason', 'sales_channel', 
+            'price_type', 'custom_price', 'discount_id', 'custom_discount_value'
+        ])
+        
+        # Refresh from database to ensure we have the latest data
         withdrawal.refresh_from_db()
+        
+        print(f"Date after save: {withdrawal.date}")
 
         after = {
             'item_type': withdrawal.item_type,
@@ -2042,6 +2067,7 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(withdrawal.date),
         }
 
         create_history_log(
@@ -2054,8 +2080,9 @@ class WithdrawUpdateView(UpdateView):
         )
 
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-
-        return response
+        
+        # Return a redirect response instead of the original response
+        return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
