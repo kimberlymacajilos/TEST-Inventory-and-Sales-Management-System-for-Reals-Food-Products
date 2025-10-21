@@ -2678,3 +2678,119 @@ def check_expirations(request):
         print("\n".join(messages))
 
     return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+
+@login_required
+def database_backup(request):
+    """
+    Generate and download a PostgreSQL database backup in SQL format
+    """
+    from django.http import HttpResponse
+    from django.db import connection
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        try:
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'reals_backup_{timestamp}.sql'
+            
+            # Generate SQL dump using Django's connection
+            sql_statements = []
+            
+            # Add header comment
+            sql_statements.append('-- Real\'s Food Products Database Backup')
+            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            sql_statements.append('-- \n')
+            
+            # Get all table names from realsproj app
+            with connection.cursor() as cursor:
+                # Get list of tables
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name;
+                """)
+                tables = [row[0] for row in cursor.fetchall()]
+                
+                # For each table, generate INSERT statements
+                for table in tables:
+                    sql_statements.append(f'\n-- Table: {table}')
+                    
+                    # Get column names
+                    cursor.execute(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = '{table}'
+                        ORDER BY ordinal_position;
+                    """)
+                    columns = [row[0] for row in cursor.fetchall()]
+                    
+                    if not columns:
+                        continue
+                    
+                    # Get all data from table
+                    cursor.execute(f'SELECT * FROM {table};')
+                    rows = cursor.fetchall()
+                    
+                    if rows:
+                        # Generate INSERT statements
+                        for row in rows:
+                            values = []
+                            for val in row:
+                                if val is None:
+                                    values.append('NULL')
+                                elif isinstance(val, str):
+                                    # Escape single quotes
+                                    escaped = val.replace("'", "''")
+                                    values.append(f"'{escaped}'")
+                                elif isinstance(val, (int, float)):
+                                    values.append(str(val))
+                                elif isinstance(val, bool):
+                                    values.append('TRUE' if val else 'FALSE')
+                                else:
+                                    # For dates, timestamps, etc.
+                                    values.append(f"'{str(val)}'")
+                            
+                            column_list = ', '.join(columns)
+                            value_list = ', '.join(values)
+                            sql_statements.append(
+                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
+                            )
+            
+            # Join all SQL statements
+            sql_content = '\n'.join(sql_statements)
+            
+            # Create SQL response
+            response = HttpResponse(
+                sql_content,
+                content_type='application/sql'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Log the backup action
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            
+            # Get or create HistoryLogTypes for backup
+            log_type, created = HistoryLogTypes.objects.get_or_create(
+                category='Database Backup',
+                defaults={'created_by_admin': auth_user}
+            )
+            
+            HistoryLog.objects.create(
+                admin_id=auth_user.id,
+                log_type_id=log_type.id,
+                log_date=timezone.now(),
+                entity_type='system',
+                entity_id=0
+            )
+            
+            messages.success(request, '✅ Database backup created successfully!')
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'❌ Backup error: {str(e)}')
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+    
+    return redirect('home')
