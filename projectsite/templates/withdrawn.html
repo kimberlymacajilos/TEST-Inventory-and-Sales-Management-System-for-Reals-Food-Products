@@ -161,7 +161,9 @@
               </table>
             </div>
 
-            {% include 'includes/pagination.html' %}
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
           </div>
         </div>
       </div>
@@ -196,65 +198,110 @@
 </div>
 
 <script>
-(function () {
+document.addEventListener('DOMContentLoaded', function() {
   const adminFilter = document.getElementById('adminFilter');
   const itemTypeFilter = document.getElementById('itemTypeFilter');
   const reasonFilter = document.getElementById('reasonFilter');
   const dateFilter = document.getElementById('dateFilter');
-  const tbody = document.getElementById('withdrawalTableBody');
-  const table = document.getElementById('withdrawalTable');
-
-  function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
-
-  function showNoResults(show){
-    let existing = document.getElementById('noResultsRow');
-    if(show){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noResultsRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No withdrawals found.</td>`;
-        tbody.appendChild(tr);
+  const tableBody = document.getElementById('withdrawalTableBody');
+  const pagination = document.querySelector('.pagination-container');
+  
+  let timeout;
+  
+  function fetchWithdrawals(resetPage = true) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove filters
+      if (adminFilter.value) {
+        params.set("q", adminFilter.value);
+      } else {
+        params.delete("q");
       }
-    } else {
-      if(existing) existing.remove();
+      
+      if (itemTypeFilter.value) {
+        params.set("item_type", itemTypeFilter.value);
+      } else {
+        params.delete("item_type");
+      }
+      
+      if (reasonFilter.value) {
+        params.set("reason", reasonFilter.value);
+      } else {
+        params.delete("reason");
+      }
+      
+      if (dateFilter.value) {
+        params.set("date", dateFilter.value);
+      } else {
+        params.delete("date");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
+      
+      const url = "/withdrawals/?" + params.toString();
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#withdrawalTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+        })
+        .catch(err => console.error("Error fetching withdrawals:", err));
+    }, 300);
+  }
+  
+  // Event listeners for filters
+  adminFilter.addEventListener('change', () => fetchWithdrawals(true));
+  itemTypeFilter.addEventListener('change', () => fetchWithdrawals(true));
+  reasonFilter.addEventListener('change', () => fetchWithdrawals(true));
+  dateFilter.addEventListener('change', () => fetchWithdrawals(true));
+  
+  // Handle pagination clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.pagination a')) {
+      e.preventDefault();
+      const link = e.target.closest('a');
+      const url = link.getAttribute('href');
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#withdrawalTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Scroll to top of table
+          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => console.error("Error fetching withdrawals:", err));
     }
-  }
-
-  function filterRows(){
-    const selectedAdmin = normalize(adminFilter.value);
-    const selectedItemType = normalize(itemTypeFilter.value);
-    const selectedReason = normalize(reasonFilter.value);
-    const selectedDate = dateFilter.value; 
-
-    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.id !== 'noResultsRow');
-    let visible = 0;
-
-    rows.forEach(row => {
-      const dateCell = (row.cells[0].textContent || '').trim().substring(0,7); 
-      const itemType = normalize(row.cells[1].textContent);
-      const reason = normalize(row.cells[4].textContent);
-      const admin = normalize(row.cells[5].textContent); 
-
-      let match = true;
-
-      if (selectedAdmin && admin !== selectedAdmin) match = false;
-      if (selectedItemType && itemType !== selectedItemType) match = false;
-      if (selectedReason && reason !== selectedReason) match = false;
-      if (selectedDate && dateCell !== selectedDate) match = false;
-
-      row.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
-
-    showNoResults(visible === 0);
-  }
-
-  [adminFilter, itemTypeFilter, reasonFilter, dateFilter].forEach(el =>
-    el.addEventListener('change', filterRows)
-  );
-
-  document.addEventListener('DOMContentLoaded', filterRows);
-})();
+  });
+});
 </script>
 {% endblock %}

@@ -222,7 +222,9 @@
                         </table>
 
                         <!-- Pagination -->
-                        {% include 'includes/pagination.html' with products=products query_params=query_params %}
+                        <div class="pagination-container">
+                            {% include 'includes/pagination.html' with products=products query_params=query_params %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -358,7 +360,7 @@ document.addEventListener("DOMContentLoaded", function () {
         barcodeInput.value = "";
         barcodeInput.focus();
         updateBarcodeStatus("Ready to scan...", "text-muted");
-        form.submit();
+        fetchProducts(true);
     });
 
     // Manual input handling
@@ -370,15 +372,91 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    // AJAX fetch function
+    function fetchProducts(resetPage = true) {
+        const params = new URLSearchParams(window.location.search);
+        const formData = new FormData(form);
+        
+        // Update params with form data
+        for (let [key, value] of formData.entries()) {
+            if (value) {
+                params.set(key, value);
+            } else {
+                params.delete(key);
+            }
+        }
+        
+        // Reset to page 1 when filters change
+        if (resetPage) {
+            params.delete("page");
+        }
+        
+        const url = "/products/?" + params.toString();
+        
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                
+                // Replace table body
+                const newRows = doc.querySelector("#productsTable tbody");
+                const currentTable = document.querySelector("#productsTable tbody");
+                if (newRows && currentTable) currentTable.innerHTML = newRows.innerHTML;
+                
+                // Replace pagination
+                const newPagination = doc.querySelector(".pagination-container");
+                const currentPagination = document.querySelector(".pagination-container");
+                if (newPagination && currentPagination) currentPagination.innerHTML = newPagination.innerHTML;
+                
+                // Update URL without page reload
+                window.history.pushState({}, '', url);
+            })
+            .catch(err => console.error("Error fetching products:", err));
+    }
+    
     // Auto-submit form on input change (with debounce)
     form.querySelectorAll("input").forEach(input => {
-        input.addEventListener("change", () => form.submit());
+        input.addEventListener("change", () => fetchProducts(true));
         input.addEventListener("keyup", () => {
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
-                form.submit();
+                fetchProducts(true);
             }, debounceTime);
         });
+    });
+    
+    // Handle pagination clicks
+    document.addEventListener("click", function(e) {
+        if (e.target.closest(".pagination a")) {
+            e.preventDefault();
+            const link = e.target.closest("a");
+            const url = link.getAttribute("href");
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, "text/html");
+                    
+                    // Replace table body
+                    const newRows = doc.querySelector("#productsTable tbody");
+                    const currentTable = document.querySelector("#productsTable tbody");
+                    if (newRows && currentTable) currentTable.innerHTML = newRows.innerHTML;
+                    
+                    // Replace pagination
+                    const newPagination = doc.querySelector(".pagination-container");
+                    const currentPagination = document.querySelector(".pagination-container");
+                    if (newPagination && currentPagination) currentPagination.innerHTML = newPagination.innerHTML;
+                    
+                    // Update URL without page reload
+                    window.history.pushState({}, '', url);
+                    
+                    // Scroll to top of table
+                    document.querySelector(".card").scrollIntoView({ behavior: "smooth" });
+                })
+                .catch(err => console.error("Error fetching products:", err));
+        }
     });
 
     // Cleanup on page unload

@@ -79,7 +79,9 @@
             </div>
             
             <!-- Pagination with preserved filters -->
-            {% include 'includes/pagination.html' %}
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
           </div>
         </div>
       </div>
@@ -89,36 +91,126 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('filterForm');
+    const adminFilter = document.getElementById('adminFilter');
+    const logFilter = document.getElementById('logFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const tableBody = document.getElementById('historyTableBody');
+    const pagination = document.querySelector('.pagination-container');
     const loadingSpinner = document.getElementById('loadingSpinner');
     
-    // Function to show loading spinner
+    let timeout;
+    
     function showLoading() {
       if (loadingSpinner) loadingSpinner.classList.remove('d-none');
-      document.body.style.cursor = 'wait';
     }
     
-    // Auto-submit form when any filter changes
-    document.querySelectorAll('.auto-submit').forEach(element => {
-      element.addEventListener('change', function() {
+    function hideLoading() {
+      if (loadingSpinner) loadingSpinner.classList.add('d-none');
+    }
+    
+    function fetchHistory(resetPage = true) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
         showLoading();
-        form.submit();
-      });
-    });
+        
+        const params = new URLSearchParams(window.location.search);
+        
+        // Update or remove admin filter
+        if (adminFilter.value) {
+          params.set("admin", adminFilter.value);
+        } else {
+          params.delete("admin");
+        }
+        
+        // Update or remove log filter
+        if (logFilter.value) {
+          params.set("log", logFilter.value);
+        } else {
+          params.delete("log");
+        }
+        
+        // Update or remove date filter
+        if (dateFilter.value) {
+          params.set("date", dateFilter.value);
+        } else {
+          params.delete("date");
+        }
+        
+        // Reset to page 1 when filters change
+        if (resetPage) {
+          params.delete("page");
+        }
+        
+        const url = "/history/?" + params.toString();
+        
+        fetch(url)
+          .then(response => response.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            
+            // Replace table body
+            const newRows = doc.querySelector("#historyTableBody");
+            if (newRows) tableBody.innerHTML = newRows.innerHTML;
+            
+            // Replace pagination
+            const newPagination = doc.querySelector(".pagination-container");
+            if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+            
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+            
+            hideLoading();
+          })
+          .catch(err => {
+            console.error("Error fetching history:", err);
+            hideLoading();
+          });
+      }, 300);
+    }
+    
+    // Event listeners for filters
+    adminFilter.addEventListener('change', () => fetchHistory(true));
+    logFilter.addEventListener('change', () => fetchHistory(true));
+    dateFilter.addEventListener('change', () => fetchHistory(true));
     
     // Handle pagination clicks
-    document.querySelectorAll('.pagination-link').forEach(link => {
-      link.addEventListener('click', function(e) {
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.pagination a')) {
         e.preventDefault();
         showLoading();
-        window.location.href = this.href;
-      });
+        
+        const link = e.target.closest('a');
+        const url = link.getAttribute('href');
+        
+        fetch(url)
+          .then(response => response.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            
+            // Replace table body
+            const newRows = doc.querySelector("#historyTableBody");
+            if (newRows) tableBody.innerHTML = newRows.innerHTML;
+            
+            // Replace pagination
+            const newPagination = doc.querySelector(".pagination-container");
+            if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+            
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+            
+            // Scroll to top of table
+            document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+            
+            hideLoading();
+          })
+          .catch(err => {
+            console.error("Error fetching history:", err);
+            hideLoading();
+          });
+      }
     });
-    
-    // Show loading spinner when form is submitted
-    if (form) {
-      form.addEventListener('submit', showLoading);
-    }
   });
 </script>
 

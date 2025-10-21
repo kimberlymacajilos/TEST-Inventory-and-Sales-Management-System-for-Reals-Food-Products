@@ -146,7 +146,9 @@
                             </table>
                         </div>
 
-                        {% include 'includes/pagination.html' %}
+                        <div class="pagination-container">
+                            {% include 'includes/pagination.html' %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -181,41 +183,95 @@
 </div>
 
 <script>
-document.getElementById("batchSearchInput").addEventListener("keyup", function() {
-    var search = this.value.toLowerCase();
-    var rows = document.querySelectorAll("#batchTableBody tr");
-    rows.forEach(function(row) {
-        row.style.display = row.textContent.toLowerCase().includes(search) ? "" : "none";
-    });
-});
-
-document.addEventListener('DOMContentLoaded', function () {
-    const filterForm = document.getElementById('filterForm');
-    const dateFilter = document.getElementById('dateFilter');
-    const searchInput = document.getElementById('batchSearchInput');
-
-    if (dateFilter) {
-        dateFilter.addEventListener('change', function () {
-            filterForm.submit();
-        });
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('batchSearchInput');
+  const dateFilter = document.getElementById('dateFilter');
+  const tableBody = document.getElementById('batchTableBody');
+  const pagination = document.querySelector('.pagination-container');
+  
+  let timeout;
+  
+  function fetchBatches(resetPage = true) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove search query
+      if (searchInput.value) {
+        params.set("q", searchInput.value);
+      } else {
+        params.delete("q");
+      }
+      
+      // Update or remove date filter
+      if (dateFilter.value) {
+        params.set("date_filter", dateFilter.value);
+      } else {
+        params.delete("date_filter");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
+      
+      const url = "/product-batch/?" + params.toString();
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#batchTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+        })
+        .catch(err => console.error("Error fetching batches:", err));
+    }, 300);
+  }
+  
+  // Event listeners
+  searchInput.addEventListener('keyup', () => fetchBatches(true));
+  dateFilter.addEventListener('change', () => fetchBatches(true));
+  
+  // Handle pagination clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.pagination a')) {
+      e.preventDefault();
+      const link = e.target.closest('a');
+      const url = link.getAttribute('href');
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#batchTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Scroll to top of table
+          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => console.error("Error fetching batches:", err));
     }
-
-    let typingTimer;
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function (e) {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(function () {
-                filterForm.submit();
-            }, 500);
-        });
-
-        searchInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                filterForm.submit();
-            }
-        });
-    }
+  });
 });
 </script>
 {% endblock %}

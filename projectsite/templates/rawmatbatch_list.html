@@ -133,7 +133,9 @@
               </table>
             </div>
 
-            {% include 'includes/pagination.html' %}
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
           </div>
         </div>
       </div>
@@ -168,51 +170,95 @@
 </div>
 
 <script>
-    document.getElementById("searchInput").addEventListener("keyup", function() {
-        var search = this.value.toLowerCase();
-        var rows = document.querySelectorAll("#batchTable tbody tr");
-
-    rows.forEach(function(row) {
-        var text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? "" : "none";
-    });
-
-});
-
-    document.addEventListener('DOMContentLoaded', function () {
-    const filterForm = document.getElementById('filterForm');
-    const dateFilter = document.getElementById('rawDateFilter');
-    const searchInput = document.getElementById('searchInput');
-
-    if (!filterForm) {
-        console.warn('filterForm not found');
-        return;
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const dateFilter = document.getElementById('rawDateFilter');
+  const tableBody = document.getElementById('batchTableBody');
+  const pagination = document.querySelector('.pagination-container');
+  
+  let timeout;
+  
+  function fetchRawBatches(resetPage = true) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove search query
+      if (searchInput.value) {
+        params.set("q", searchInput.value);
+      } else {
+        params.delete("q");
+      }
+      
+      // Update or remove date filter
+      if (dateFilter.value) {
+        params.set("date_filter", dateFilter.value);
+      } else {
+        params.delete("date_filter");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
+      
+      const url = "/rawmaterial-batch/?" + params.toString();
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#batchTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+        })
+        .catch(err => console.error("Error fetching raw batches:", err));
+    }, 300);
+  }
+  
+  // Event listeners
+  searchInput.addEventListener('keyup', () => fetchRawBatches(true));
+  dateFilter.addEventListener('change', () => fetchRawBatches(true));
+  
+  // Handle pagination clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.pagination a')) {
+      e.preventDefault();
+      const link = e.target.closest('a');
+      const url = link.getAttribute('href');
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#batchTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Scroll to top of table
+          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => console.error("Error fetching raw batches:", err));
     }
-
-    if (dateFilter) {
-        dateFilter.addEventListener('change', function () {
-            console.log('Auto-submitting month:', this.value);
-            filterForm.submit();
-        });
-    }
-
-    let typingTimer;
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function (e) {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(function () {
-                console.log('Auto-submitting search:', searchInput.value);
-                filterForm.submit();
-            }, 500);
-        });
-
-      searchInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                filterForm.submit();
-            }
-        });
-    }
+  });
 });
 </script>
 {% endblock %}

@@ -1880,7 +1880,7 @@ class WithdrawItemView(View):
                         inv = product.productinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {product}")
+                            messages.error(request, f"⚠️ Insufficient stock for {product}. Available: {inv.total_stock}")
                             continue
 
                         discount_val = request.POST.get(f"discount_{product_id}")
@@ -1910,7 +1910,7 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing product: {e}")
+                        messages.error(request, f"❌ Error withdrawing product: {e}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
@@ -1924,7 +1924,7 @@ class WithdrawItemView(View):
                         inv = material.rawmaterialinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {material}")
+                            messages.error(request, f"⚠️ Insufficient stock for {material}. Available: {inv.total_stock}")
                             continue
 
                         Withdrawals.objects.create(
@@ -1940,12 +1940,12 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing raw material: {e}")
+                        messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            messages.success(request, f"{count} item(s) withdrawn successfully.")
+            messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
-            messages.warning(request, "No withdrawals were recorded.")
+            messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
 
         return redirect("withdrawals")
 
@@ -2496,10 +2496,15 @@ def export_sales(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Sales.objects.all()
+    qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        qs = qs.filter(date=start_date)
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2539,10 +2544,15 @@ def export_expenses(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Expenses.objects.all()
+    qs = Expenses.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        qs = qs.filter(date=start_date)
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
