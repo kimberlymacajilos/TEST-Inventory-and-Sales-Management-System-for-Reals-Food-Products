@@ -2194,7 +2194,7 @@ class BulkProductBatchCreateView(View):
                 'products': form.products
             })
 
-        batch_date = date.today()
+        batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
         auth_user = AuthUser.objects.get(id=request.user.id)
@@ -2256,7 +2256,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     def post(self, request):
         form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            batch_date = date.today()
+            batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
             auth_user = AuthUser.objects.get(id=request.user.id)
 

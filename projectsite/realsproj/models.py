@@ -527,8 +527,7 @@ class Notifications(models.Model):
             return f"{notif_type}: {item_name}"
 
     def _expiration_message(self):
-        from datetime import date
-        today = date.today()
+        today = timezone.localdate()
 
         try:
             if self.item_type.upper() == "PRODUCT":

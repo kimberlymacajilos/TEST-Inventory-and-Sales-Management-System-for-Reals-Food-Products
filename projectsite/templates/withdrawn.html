@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load tz %}
 
 {% block content %}
 <div class="content">
@@ -76,7 +77,7 @@
                 <tbody id="withdrawalTableBody">
                   {% for object in withdrawals %}
                   <tr>
-                    <td>{{ object.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ object.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
                     <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity }}</td>
@@ -111,7 +112,7 @@
                               <strong>Item:</strong> {{ object.get_item_display }}<br>
                               <strong>Quantity:</strong> {{ object.quantity }}<br>
                               <strong>Reason:</strong> {{ object.get_reason_display }}<br>
-                              <strong>Date:</strong> {{ object.date|date:"Y-m-d H:i" }}
+                              <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
                             </div>
                             <div class="modal-footer">
                               <form method="post" action="{% url 'withdrawals-archive' object.id %}">
@@ -140,7 +141,7 @@
                               <strong>Item:</strong> {{ object.get_item_display }}<br>
                               <strong>Quantity:</strong> {{ object.quantity }}<br>
                               <strong>Reason:</strong> {{ object.get_reason_display }}<br>
-                              <strong>Date:</strong> {{ object.date|date:"Y-m-d H:i" }}
+                              <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
                             </div>
                             <div class="modal-footer">
                               <form method="post" action="{% url 'withdraw-delete' object.id %}">
