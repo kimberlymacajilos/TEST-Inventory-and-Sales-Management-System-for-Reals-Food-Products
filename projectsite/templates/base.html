@@ -22,7 +22,30 @@
     html body a:visited {
     text-decoration: none !important;
     }
+
+    /* Dark mode logo fix */
+    html[data-theme="dark"] .logo-header .logo {
+      color: #f1f8f4 !important;
+    }
+    html[data-theme="dark"] .logo-header .logo:hover,
+    html[data-theme="dark"] .logo-header .logo:visited,
+    html[data-theme="dark"] .logo-header .logo:active {
+      color: #f1f8f4 !important;
+    }
   </style>
+
+  <!-- Theme Detection Script - MUST run BEFORE page renders to prevent flash -->
+  <script>
+    (function(){
+      var html = document.documentElement;
+      var key = 'rfp-theme';
+      var saved = localStorage.getItem(key);
+      // Apply theme IMMEDIATELY before page renders
+      if(saved === 'dark'){ 
+        html.setAttribute('data-theme','dark');
+      }
+    })();
+  </script>
 
     
     {% block page_css %}{% endblock page_css %}
@@ -292,10 +315,13 @@
   var key = 'rfp-theme';
   var toggle = document.getElementById('themeToggle');
 
-  // apply saved theme on load
+  // Set toggle button state based on current theme
   var saved = localStorage.getItem(key);
-  if(saved === 'dark'){ html.setAttribute('data-theme','dark'); if(toggle) toggle.setAttribute('aria-checked','true'); }
+  if(saved === 'dark' && toggle){ 
+    toggle.setAttribute('aria-checked','true'); 
+  }
 
+  // Handle theme toggle clicks
   if(toggle){
     toggle.addEventListener('click', function(e){
       e.preventDefault();
