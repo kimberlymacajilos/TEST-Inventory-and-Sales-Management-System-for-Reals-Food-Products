@@ -405,6 +405,7 @@ class HistoryLogTypes(models.Model):
     def __str__(self):
         return self.category
 
+
 class Notifications(models.Model):
     id = models.BigAutoField(primary_key=True)
     item_type = models.CharField(max_length=12)
@@ -441,34 +442,77 @@ class Notifications(models.Model):
 
     @property
     def formatted_message(self):
-        """Generate readable message dynamically."""
         notif_type = self.notification_type.upper()
+        from realsproj.models import ProductBatches, RawMaterialBatches, Products, RawMaterials
         item_name = "Unknown Item"
 
         try:
             if self.item_type.upper() == "PRODUCT":
-                from .models import ProductBatches, Products
-                batch = ProductBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    product = batch.product
-                    item_name = str(product)
+                if notif_type == "EXPIRATION_ALERT":
+                    batch = (
+                        ProductBatches.objects.filter(id=self.item_id)
+                        .select_related(
+                            "product__product_type",
+                            "product__variant",
+                            "product__size_unit",
+                            "product__size"
+                        ).first()
+                    )
+                    if batch and batch.product:
+                        p = batch.product
+                        product_type = getattr(p.product_type, "name", "")
+                        variant = getattr(p.variant, "name", "")
+                        size_label = getattr(p.size, "size_label", None)
+                        size_unit = getattr(p.size_unit, "unit_name", None)
+                        size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {product_type} - {variant}{size_text}"
+
                 else:
-                    product = Products.objects.filter(id=self.item_id).first()
+                    product = (
+                        Products.objects.filter(id=self.item_id)
+                        .select_related(
+                            "product_type",
+                            "variant",
+                            "size_unit",
+                            "size"
+                        ).first()
+                    )
                     if product:
-                        item_name = str(product)
+                        product_type = getattr(product.product_type, "name", "")
+                        variant = getattr(product.variant, "name", "")
+                        size_label = getattr(product.size, "size_label", None)
+                        size_unit = getattr(product.size_unit, "unit_name", None)
+                        size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
+                        item_name = f"{product_type} - {variant}{size_text}"
 
             elif self.item_type.upper() == "RAW_MATERIAL":
-                from .models import RawMaterialBatches, RawMaterials
-                batch = RawMaterialBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    material = batch.material
-                    item_name = str(material)
-                else:
-                    material = RawMaterials.objects.filter(id=self.item_id).first()
-                    if material:
-                        item_name = str(material)
 
-        except Exception:
+                if notif_type == "EXPIRATION_ALERT":
+                    batch = (
+                        RawMaterialBatches.objects.filter(id=self.item_id)
+                        .select_related("material__unit")
+                        .first()
+                    )
+                    if batch and batch.material:
+                        material_name = getattr(batch.material, "name", "")
+                        unit_name = getattr(batch.material.unit, "unit_name", "")
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {material_name} ({unit_name})"
+
+                else:
+                    material = (
+                        RawMaterials.objects.filter(id=self.item_id)
+                        .select_related("unit")
+                        .first()
+                    )
+                    if material:
+                        material_name = getattr(material, "name", "")
+                        unit_name = getattr(material.unit, "unit_name", "")
+                        item_name = f"{material_name} ({unit_name})"
+
+        except Exception as e:
+            print(f"[Notification Error] Failed to format {self.item_type} #{self.item_id}: {e}")
             item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
         if notif_type == "EXPIRATION_ALERT":
@@ -479,12 +523,11 @@ class Notifications(models.Model):
             return f"OUT OF STOCK: {item_name}"
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
-
-        return f"{notif_type}: {item_name}"
+        else:
+            return f"{notif_type}: {item_name}"
 
     def _expiration_message(self):
-        from datetime import date
-        today = date.today()
+        today = timezone.localdate()
 
         try:
             if self.item_type.upper() == "PRODUCT":
@@ -509,7 +552,8 @@ class Notifications(models.Model):
             else:
                 return f"has expired ({batch.expiration_date})"
 
-        except Exception:
+        except Exception as e:
+            print(f"[Expiration Error] {self.item_type} #{self.item_id}: {e}")
             return "has unknown expiration date"
 
 
@@ -808,6 +852,30 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+    
+    def is_truly_active(self):
+        """
+        Check if user is truly active based on:
+        1. They are marked as active (logged in)
+        2. They have an active (non-expired) session
+        """
+        if not self.active:
+            return False
+        
+        # Check if user has any active sessions
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+        
+        # Get all non-expired sessions
+        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        
+        # Check if any of these sessions belong to this user
+        for session in active_sessions:
+            session_data = session.get_decoded()
+            if session_data.get('_auth_user_id') == str(self.user.id):
+                return True
+        
+        return False
 
 
 class Withdrawals(models.Model):

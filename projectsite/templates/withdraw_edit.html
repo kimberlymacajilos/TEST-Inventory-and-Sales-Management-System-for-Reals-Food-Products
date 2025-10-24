@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
     form.addEventListener("submit", function (e) {
         const selectedChannel = salesChannelField.value.trim().toUpperCase();
         const priceValue = priceField.value.trim().toUpperCase();
-
+        
         if (
             priceValue === "" ||
             (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")

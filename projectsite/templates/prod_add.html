@@ -144,13 +144,13 @@ document.addEventListener("DOMContentLoaded", function() {
   let lastScannedBarcode = "";
 
   function updateScannerStatus(text, className) {
-    scannerStatus.textContent = Scanner: ${text};
-    scannerStatus.className = badge ${className} ml-3;
+    scannerStatus.textContent = `Scanner: ${text}`;
+    scannerStatus.className = `badge ${className} ml-3`;
   }
 
   function updateBarcodeStatus(text, color = "text-muted") {
     barcodeStatus.textContent = text;
-    barcodeStatus.className = form-text ${color};
+    barcodeStatus.className = `form-text ${color}`;
   }
 
   function playBeep() {
@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = ${protocol}${window.location.host}/ws/scan/;
+    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
 
     console.log("🔌 Connecting to:", wsUrl);
     updateScannerStatus("Connecting...", "badge-warning");
@@ -222,7 +222,7 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Update status
         const now = new Date().toLocaleTimeString();
-        updateBarcodeStatus(✓ Scanned: ${barcode} at ${now}, "text-success");
+        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
         
         // Focus next field (Product Type)
         const productTypeInput = document.querySelector('input[name="product_type"]');
@@ -263,7 +263,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Manual barcode input (keyboard)
   barcodeInput.addEventListener('input', function() {
     if (this.value.length > 0) {
-      updateBarcodeStatus(Manual entry: ${this.value}, "text-info");
+      updateBarcodeStatus(`Manual entry: ${this.value}`, "text-info");
     }
   });
 

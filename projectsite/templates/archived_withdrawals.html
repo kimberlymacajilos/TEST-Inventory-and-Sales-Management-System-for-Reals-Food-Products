@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load tz %}
 
 {% block content %}
 <div class="content">
@@ -31,7 +32,7 @@
                 <tbody>
                   {% for object in object_list %}
                   <tr>
-                    <td>{{ object.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ object.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
                     <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity }}</td>
@@ -54,7 +55,7 @@
                               <strong>Item:</strong> {{ object.get_item_display }}<br>
                               <strong>Quantity:</strong> {{ object.quantity }}<br>
                               <strong>Reason:</strong> {{ object.get_reason_display }}<br>
-                              <strong>Date:</strong> {{ object.date|date:"Y-m-d H:i" }}
+                              <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
                             </div>
                             <div class="modal-footer">
                               <form method="post" action="{% url 'withdrawals-unarchive' object.id %}">

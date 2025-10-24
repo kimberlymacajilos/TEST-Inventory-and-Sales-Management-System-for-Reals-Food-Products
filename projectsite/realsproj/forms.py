@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory
-
+from decimal import Decimal, InvalidOperation
 
 class ProductsForm(forms.ModelForm):
     # ADD THIS - Barcode field
@@ -329,24 +329,55 @@ class WithdrawEditForm(forms.ModelForm):
             if not sales_channel:
                 self.add_error("sales_channel", "This field is required when reason is SOLD.")
             if not price_input:
-                self.add_error("price_type_or_custom", "Please select or enter a price.")
+                self.add_error("price_type_or_custom", "Please select a price type or enter a custom price.")
                 return cleaned_data
 
             price_upper = str(price_input).upper().strip()
 
             try:
-                custom_price = float(price_input)
+                custom_price = Decimal(price_input)
                 cleaned_data["custom_price"] = custom_price
                 cleaned_data["price_type"] = None
-            except (TypeError, ValueError):
-                # If not numeric, must be valid price type
+            except (TypeError, ValueError, InvalidOperation):
                 if price_upper not in dict(self.PRICE_TYPE_CHOICES):
-                    self.add_error("price_type_or_custom", "Enter a numeric price or select a valid price type (UNIT or SRP).")
+                    self.add_error("price_type_or_custom", "Enter a numeric price or select UNIT or SRP as price type.")
                 else:
                     cleaned_data["price_type"] = price_upper
                     cleaned_data["custom_price"] = None
 
         return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        instance.price_type = None
+        instance.custom_price = None
+
+        price_input = self.cleaned_data.get("price_type_or_custom")
+        if price_input:
+            try:
+                custom_price = Decimal(str(price_input))
+                instance.custom_price = custom_price
+                instance.price_type = None
+            except (ValueError, TypeError, InvalidOperation):
+                price_upper = str(price_input).upper().strip()
+                if price_upper in dict(self.PRICE_TYPE_CHOICES):
+                    instance.price_type = price_upper
+                    instance.custom_price = None
+
+        discount_obj = self.cleaned_data.get("discount")
+        custom_discount = self.cleaned_data.get("custom_discount_value")
+        if discount_obj:
+            instance.discount_id = discount_obj.id
+            instance.custom_discount_value = None
+        else:
+            instance.discount_id = None
+            instance.custom_discount_value = custom_discount
+
+        if commit:
+            instance.save()
+
+        return instance
 
 class UnifiedWithdrawForm(forms.Form):
     ITEM_TYPE_CHOICES = [
@@ -358,10 +389,6 @@ class UnifiedWithdrawForm(forms.Form):
         ('CONSIGNMENT', 'Consignment'),
         ('RESELLER', 'Reseller'),
         ('PHYSICAL_STORE', 'Physical Store'),
-    ]
-    PRICE_TYPE_CHOICES = [
-        ('UNIT', 'Unit Price'),
-        ('SRP', 'Suggested Retail Price'),
     ]
     REASON_CHOICES = [
         ('SOLD', 'Sold'),
@@ -377,10 +404,12 @@ class UnifiedWithdrawForm(forms.Form):
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
 
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
-    price_type = forms.ChoiceField(choices=PRICE_TYPE_CHOICES, required=False)
-    custom_price = forms.DecimalField(required=False, min_value=0, decimal_places=2)
+    price_input = forms.CharField(
+        required=False,
+        label="Price",
+        help_text="Enter custom price or select UNIT/SRP"
+    )
 
-    # NEW: discount fields
     discount = forms.ModelChoiceField(queryset=Discounts.objects.all(), required=False)
     custom_discount_value = forms.DecimalField(
         required=False, min_value=0, decimal_places=2, label="Custom Discount"
@@ -394,20 +423,21 @@ class UnifiedWithdrawForm(forms.Form):
         cleaned_data = super().clean()
         reason = cleaned_data.get("reason")
         sales_channel = cleaned_data.get("sales_channel")
-        custom_price = cleaned_data.get("custom_price")
+        price_input = cleaned_data.get("price_input")
+
+        if reason == "SOLD" and not sales_channel:
+            self.add_error("sales_channel", "This field is required when reason is SOLD.")
 
         if reason == "SOLD":
-            if not cleaned_data.get("sales_channel"):
-                self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not cleaned_data.get("price_type") and sales_channel != "CONSIGNMENT":
-                self.add_error("price_type", "Price type is required unless it's a consignment sale.")
-
-            if sales_channel == "CONSIGNMENT":
-                if not custom_price:
-                    self.add_error("custom_price", "Custom price is required for consignment sales.")
+            if not price_input:
+                self.add_error("price_input", "This field is required for SOLD items.")
+            elif price_input not in ['UNIT', 'SRP']:
+                try:
+                    float(price_input)
+                except ValueError:
+                    self.add_error("price_input", "Enter a number or select UNIT/SRP.")
 
         return cleaned_data
-
 
 class NotificationsForm(forms.Form):
     class Meta:

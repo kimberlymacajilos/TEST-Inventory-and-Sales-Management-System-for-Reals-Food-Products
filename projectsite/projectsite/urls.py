@@ -52,6 +52,7 @@ urlpatterns = [
     path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
+    path('history/', a.HistoryLogList.as_view(), name='history_log'),  # Added this line to match template reference
 
     path('sales/', a.SalesList.as_view(), name='sales'),
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
@@ -201,5 +202,9 @@ urlpatterns = [
     path('export-expenses/', a.export_expenses, name='export_expenses'),
 
     path('user-activity/', a.UserActivityList.as_view(), name='user-activity'),
+
+    path("check-expirations/", a.check_expirations, name="check-expirations"),
+    
+    path('database-backup/', a.database_backup, name='database-backup'),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

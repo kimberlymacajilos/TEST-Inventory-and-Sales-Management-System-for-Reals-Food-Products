@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    ListView, CreateView, UpdateView, DeleteView, TemplateView, View
+)
+from django.views.generic.edit import ModelFormMixin
 from django.contrib import messages
-from django.utils import timezone
 from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -92,6 +94,7 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+from django.db.models import Count
 
 
 # Helper function for creating history logs
@@ -885,28 +888,63 @@ class HistoryLogList(ListView):
             .order_by("-log_date")
         )
 
+        # Get filter parameters
         admin_filter = self.request.GET.get("admin", "").strip()
+        log_filter = self.request.GET.get("log", "").strip()
+        date_str = self.request.GET.get("date", "").strip()
+
+        # Apply admin filter
         if admin_filter:
             queryset = queryset.filter(admin__username=admin_filter)
 
-        log_filter = self.request.GET.get("log", "").strip()
+        # Apply log type filter
         if log_filter:
             queryset = queryset.filter(log_type__category=log_filter)
 
-        date_str = self.request.GET.get("date", "").strip()
+        # Apply date filter (month-based)
         if date_str:
             try:
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-                queryset = queryset.filter(log_date__date=date_obj)
-            except ValueError:
+                # Convert YYYY-MM to start and end dates of the month
+                year, month = map(int, date_str.split('-'))
+                import calendar
+                last_day = calendar.monthrange(year, month)[1]
+                
+                start_date = timezone.make_aware(datetime(year, month, 1))
+                end_date = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+                
+                queryset = queryset.filter(
+                    log_date__gte=start_date,
+                    log_date__lte=end_date
+                )
+            except (ValueError, IndexError):
+                # If date format is invalid, skip the date filter
                 pass
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['admins'] = HistoryLog.objects.filter(is_archived=False).values_list('admin__username', flat=True).distinct()
-        context['logs'] = HistoryLog.objects.filter(is_archived=False).values_list('log_type__category', flat=True).distinct()
+        
+        # Get unique admins and log types for the filter dropdowns
+        context['admins'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('admin__username').values_list('admin__username', flat=True).distinct()
+        
+        context['logs'] = HistoryLog.objects.filter(
+            is_archived=False
+        ).order_by('log_type__category').values_list('log_type__category', flat=True).distinct()
+        
+        # Preserve filter parameters in pagination
+        filter_params = self.request.GET.copy()
+        if 'page' in filter_params:
+            del filter_params['page']
+        context['filter_params'] = filter_params.urlencode()
+        
+        # Add current filter values to context
+        context['current_admin'] = self.request.GET.get('admin', '')
+        context['current_log'] = self.request.GET.get('log', '')
+        context['current_date'] = self.request.GET.get('date', '')
+        
         return context
     
 class SaleArchiveView(View):
@@ -1828,10 +1866,19 @@ class WithdrawItemView(View):
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
-        price_type = request.POST.get("price_type")
-        custom_price = request.POST.get("custom_price")
+        price_input = request.POST.get("price_input")
 
-        count = 0  
+        if price_input in ['UNIT', 'SRP']:
+            price_type = price_input
+            custom_price = None
+        else:
+            price_type = None
+            try:
+                custom_price = float(price_input)
+            except (TypeError, ValueError):
+                custom_price = None
+
+        count = 0
 
         if item_type == "PRODUCT":
             for key, value in request.POST.items():
@@ -1845,7 +1892,7 @@ class WithdrawItemView(View):
                         inv = product.productinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {product}")
+                            messages.error(request, f"⚠️ Insufficient stock for {product}. Available: {inv.total_stock}")
                             continue
 
                         discount_val = request.POST.get(f"discount_{product_id}")
@@ -1866,7 +1913,7 @@ class WithdrawItemView(View):
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
                             price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
-                            custom_price=custom_price if sales_channel == "CONSIGNMENT" else None,
+                            custom_price=custom_price if sales_channel == "CONSIGNMENT" or custom_price else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
                         )
@@ -1875,7 +1922,7 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing product: {e}")
+                        messages.error(request, f"❌ Error withdrawing product: {e}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
@@ -1889,7 +1936,7 @@ class WithdrawItemView(View):
                         inv = material.rawmaterialinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {material}")
+                            messages.error(request, f"⚠️ Insufficient stock for {material}. Available: {inv.total_stock}")
                             continue
 
                         Withdrawals.objects.create(
@@ -1905,12 +1952,12 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing raw material: {e}")
+                        messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            messages.success(request, f"{count} item(s) withdrawn successfully.")
+            messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
-            messages.warning(request, "No withdrawals were recorded.")
+            messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
 
         return redirect("withdrawals")
 
@@ -1982,8 +2029,16 @@ class WithdrawUpdateView(UpdateView):
     success_url = reverse_lazy("withdrawals")
 
     def form_valid(self, form):
-        # Capture before state
         withdrawal = self.get_object()
+        
+        # Save the original date before any changes
+        original_date = withdrawal.date
+        
+        # Log the current time for debugging
+        current_time = timezone.now()
+        print(f"Current time: {current_time}")
+        print(f"Original date before save: {original_date}")
+
         before = {
             'item_type': withdrawal.item_type,
             'item_id': withdrawal.item_id,
@@ -1991,13 +2046,29 @@ class WithdrawUpdateView(UpdateView):
             'reason': withdrawal.reason,
             'sales_channel': withdrawal.sales_channel,
             'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(original_date),
         }
+
+        # Get the form data but don't save yet
+        self.object = form.save(commit=False)
         
-        # Save the form
-        response = super().form_valid(form)
+        # Explicitly set the date to the original date
+        self.object.date = original_date
         
-        # Capture after state
+        # Save with update_fields to only update specific fields
+        self.object.save(update_fields=[
+            'item_id', 'quantity', 'reason', 'sales_channel', 
+            'price_type', 'custom_price', 'discount_id', 'custom_discount_value'
+        ])
+        
+        # Refresh from database to ensure we have the latest data
         withdrawal.refresh_from_db()
+        
+        print(f"Date after save: {withdrawal.date}")
+
         after = {
             'item_type': withdrawal.item_type,
             'item_id': withdrawal.item_id,
@@ -2005,9 +2076,12 @@ class WithdrawUpdateView(UpdateView):
             'reason': withdrawal.reason,
             'sales_channel': withdrawal.sales_channel,
             'price_type': withdrawal.price_type,
+            'custom_price': str(withdrawal.custom_price),
+            'discount_id': withdrawal.discount_id,
+            'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(withdrawal.date),
         }
-        
-        # Create history log
+
         create_history_log(
             admin=self.request.user,
             log_category="Withdrawal Edited",
@@ -2016,9 +2090,11 @@ class WithdrawUpdateView(UpdateView):
             before=before,
             after=after
         )
-        
+
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-        return response
+        
+        # Return a redirect response instead of the original response
+        return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
@@ -2130,7 +2206,7 @@ class BulkProductBatchCreateView(View):
                 'products': form.products
             })
 
-        batch_date = date.today()
+        batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
         auth_user = AuthUser.objects.get(id=request.user.id)
@@ -2192,7 +2268,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     def post(self, request):
         form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            batch_date = date.today()
+            batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
@@ -2422,11 +2498,15 @@ def export_sales(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Sales.objects.all()
+    qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2444,7 +2524,7 @@ def export_sales(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_sales = sum(s.amount for s in qs)
 
@@ -2466,11 +2546,15 @@ def export_expenses(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Expenses.objects.all()
+    qs = Expenses.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2488,7 +2572,7 @@ def export_expenses(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_expenses = sum(e.amount for e in qs)
 
@@ -2534,3 +2618,191 @@ def set_user_inactive(sender, user, request, **kwargs):
         activity.save()
     except UserActivity.DoesNotExist:
         pass
+
+
+def check_expirations(request):
+    today = timezone.localdate()
+    next_week = today + timedelta(days=7)
+    next_month = today + timedelta(days=30)
+    messages = []
+
+    product_batches = (
+        ProductBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values(
+            "product__product_type__name",
+            "product__variant__name",
+            "product__size__size_label",
+            "product__size_unit__unit_name",
+            "expiration_date"
+        )
+        .annotate(count=Count("id"))
+    )
+
+    for pb in product_batches:
+        days = (pb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
+        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
+        messages.append(message)
+
+    raw_batches = (
+        RawMaterialBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values("material__name", "expiration_date")
+        .annotate(count=Count("id"))
+    )
+
+    for rb in raw_batches:
+        days = (rb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
+        messages.append(message)
+
+    if messages:
+        Notifications.objects.create(
+            item_type="SYSTEM",
+            item_id=0,
+            notification_type="EXPIRATION_ALERT",
+            notification_timestamp=timezone.now(),
+            is_read=False,
+        )
+        print("\n".join(messages))
+
+    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+
+@login_required
+def database_backup(request):
+    """
+    Generate and download a PostgreSQL database backup in SQL format
+    """
+    from django.http import HttpResponse
+    from django.db import connection
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        try:
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'reals_backup_{timestamp}.sql'
+            
+            # Generate SQL dump using Django's connection
+            sql_statements = []
+            
+            # Add header comment
+            sql_statements.append('-- Real\'s Food Products Database Backup')
+            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            sql_statements.append('-- \n')
+            
+            # Get all table names from realsproj app
+            with connection.cursor() as cursor:
+                # Get list of tables
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name;
+                """)
+                tables = [row[0] for row in cursor.fetchall()]
+                
+                # For each table, generate INSERT statements
+                for table in tables:
+                    sql_statements.append(f'\n-- Table: {table}')
+                    
+                    # Get column names
+                    cursor.execute(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = '{table}'
+                        ORDER BY ordinal_position;
+                    """)
+                    columns = [row[0] for row in cursor.fetchall()]
+                    
+                    if not columns:
+                        continue
+                    
+                    # Get all data from table
+                    cursor.execute(f'SELECT * FROM {table};')
+                    rows = cursor.fetchall()
+                    
+                    if rows:
+                        # Generate INSERT statements
+                        for row in rows:
+                            values = []
+                            for val in row:
+                                if val is None:
+                                    values.append('NULL')
+                                elif isinstance(val, str):
+                                    # Escape single quotes
+                                    escaped = val.replace("'", "''")
+                                    values.append(f"'{escaped}'")
+                                elif isinstance(val, (int, float)):
+                                    values.append(str(val))
+                                elif isinstance(val, bool):
+                                    values.append('TRUE' if val else 'FALSE')
+                                else:
+                                    # For dates, timestamps, etc.
+                                    values.append(f"'{str(val)}'")
+                            
+                            column_list = ', '.join(columns)
+                            value_list = ', '.join(values)
+                            sql_statements.append(
+                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
+                            )
+            
+            # Join all SQL statements
+            sql_content = '\n'.join(sql_statements)
+            
+            # Create SQL response
+            response = HttpResponse(
+                sql_content,
+                content_type='application/sql'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Log the backup action
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            
+            # Get or create HistoryLogTypes for backup
+            log_type, created = HistoryLogTypes.objects.get_or_create(
+                category='Database Backup',
+                defaults={'created_by_admin': auth_user}
+            )
+            
+            HistoryLog.objects.create(
+                admin_id=auth_user.id,
+                log_type_id=log_type.id,
+                log_date=timezone.now(),
+                entity_type='system',
+                entity_id=0
+            )
+            
+            messages.success(request, '✅ Database backup created successfully!')
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'❌ Backup error: {str(e)}')
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+    
+    return redirect('home')
