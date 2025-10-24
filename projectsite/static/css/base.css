@@ -874,3 +874,16 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
    padding: 10px 15px;
    color: #333;
 }
+
+/* Fix modal z-index issues */
+.modal-backdrop {
+   z-index: 1040 !important;
+}
+
+.modal {
+   z-index: 1050 !important;
+}
+
+.modal-dialog {
+   z-index: 1051 !important;
+}
