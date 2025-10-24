@@ -38,30 +38,6 @@
                       <a href="#" data-toggle="modal" data-target="#unarchiveStockChangeModal{{ object.id }}" class="text-success" title="Unarchive">
                         <i class="la la-undo la-lg"></i>
                       </a>
-                      <div class="modal fade" id="unarchiveStockChangeModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered" role="document">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h5 class="modal-title">Confirm Unarchive</h5>
-                              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
-                            </div>
-                            <div class="modal-body">
-                              Are you sure you want to restore this stock change record?
-                              <br><br>
-                              <strong>Item:</strong> {{ object.item_display }}<br>
-                              <strong>Change:</strong> {{ object.quantity_change }}<br>
-                              <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
-                            </div>
-                            <div class="modal-footer">
-                              <form method="post" action="{% url 'stock-changes-unarchive' object.id %}">
-                                {% csrf_token %}
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Yes, Restore</button>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </td>
                   </tr>
                   {% empty %}
@@ -79,4 +55,32 @@
     </div>
   </div>
 </div>
+
+<!-- Unarchive Modals -->
+{% for object in object_list %}
+<div class="modal fade" id="unarchiveStockChangeModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Unarchive</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to restore this stock change record?
+        <br><br>
+        <strong>Item:</strong> {{ object.item_display }}<br>
+        <strong>Change:</strong> {{ object.quantity_change }}<br>
+        <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="{% url 'stock-changes-unarchive' object.id %}">
+          {% csrf_token %}
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Yes, Restore</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
 {% endblock %}
