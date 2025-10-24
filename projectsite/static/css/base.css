@@ -929,17 +929,16 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
    padding: 10px 15px;
    color: #333;
 }
-#barcode-input {
-  font-weight: 500;
-  font-size: 1.1rem;
+
+/* Fix modal z-index issues */
+.modal-backdrop {
+   z-index: 1040 !important;
 }
 
-#scanner-status {
-  font-size: 0.85rem;
-  padding: 0.3rem 0.6rem;
+.modal {
+   z-index: 1050 !important;
 }
 
-#barcode-status {
-  font-size: 0.9rem;
-  margin-top: 0.3rem;
+.modal-dialog {
+   z-index: 1051 !important;
 }
