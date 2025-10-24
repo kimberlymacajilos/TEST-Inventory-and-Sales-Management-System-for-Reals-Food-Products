@@ -1880,7 +1880,7 @@ class WithdrawItemView(View):
                         inv = product.productinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {product}")
+                            messages.error(request, f"⚠️ Insufficient stock for {product}. Available: {inv.total_stock}")
                             continue
 
                         discount_val = request.POST.get(f"discount_{product_id}")
@@ -1910,7 +1910,7 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing product: {e}")
+                        messages.error(request, f"❌ Error withdrawing product: {e}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
@@ -1924,7 +1924,7 @@ class WithdrawItemView(View):
                         inv = material.rawmaterialinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {material}")
+                            messages.error(request, f"⚠️ Insufficient stock for {material}. Available: {inv.total_stock}")
                             continue
 
                         Withdrawals.objects.create(
@@ -1940,12 +1940,12 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing raw material: {e}")
+                        messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            messages.success(request, f"{count} item(s) withdrawn successfully.")
+            messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
-            messages.warning(request, "No withdrawals were recorded.")
+            messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
 
         return redirect("withdrawals")
 
@@ -2194,7 +2194,7 @@ class BulkProductBatchCreateView(View):
                 'products': form.products
             })
 
-        batch_date = date.today()
+        batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
         auth_user = AuthUser.objects.get(id=request.user.id)
@@ -2256,7 +2256,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     def post(self, request):
         form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            batch_date = date.today()
+            batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
@@ -2496,10 +2496,15 @@ def export_sales(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Sales.objects.all()
+    qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        qs = qs.filter(date=start_date)
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2539,10 +2544,15 @@ def export_expenses(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Expenses.objects.all()
+    qs = Expenses.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        qs = qs.filter(date=start_date)
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2678,3 +2688,119 @@ def check_expirations(request):
         print("\n".join(messages))
 
     return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+
+@login_required
+def database_backup(request):
+    """
+    Generate and download a PostgreSQL database backup in SQL format
+    """
+    from django.http import HttpResponse
+    from django.db import connection
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        try:
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'reals_backup_{timestamp}.sql'
+            
+            # Generate SQL dump using Django's connection
+            sql_statements = []
+            
+            # Add header comment
+            sql_statements.append('-- Real\'s Food Products Database Backup')
+            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            sql_statements.append('-- \n')
+            
+            # Get all table names from realsproj app
+            with connection.cursor() as cursor:
+                # Get list of tables
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name;
+                """)
+                tables = [row[0] for row in cursor.fetchall()]
+                
+                # For each table, generate INSERT statements
+                for table in tables:
+                    sql_statements.append(f'\n-- Table: {table}')
+                    
+                    # Get column names
+                    cursor.execute(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = '{table}'
+                        ORDER BY ordinal_position;
+                    """)
+                    columns = [row[0] for row in cursor.fetchall()]
+                    
+                    if not columns:
+                        continue
+                    
+                    # Get all data from table
+                    cursor.execute(f'SELECT * FROM {table};')
+                    rows = cursor.fetchall()
+                    
+                    if rows:
+                        # Generate INSERT statements
+                        for row in rows:
+                            values = []
+                            for val in row:
+                                if val is None:
+                                    values.append('NULL')
+                                elif isinstance(val, str):
+                                    # Escape single quotes
+                                    escaped = val.replace("'", "''")
+                                    values.append(f"'{escaped}'")
+                                elif isinstance(val, (int, float)):
+                                    values.append(str(val))
+                                elif isinstance(val, bool):
+                                    values.append('TRUE' if val else 'FALSE')
+                                else:
+                                    # For dates, timestamps, etc.
+                                    values.append(f"'{str(val)}'")
+                            
+                            column_list = ', '.join(columns)
+                            value_list = ', '.join(values)
+                            sql_statements.append(
+                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
+                            )
+            
+            # Join all SQL statements
+            sql_content = '\n'.join(sql_statements)
+            
+            # Create SQL response
+            response = HttpResponse(
+                sql_content,
+                content_type='application/sql'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Log the backup action
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            
+            # Get or create HistoryLogTypes for backup
+            log_type, created = HistoryLogTypes.objects.get_or_create(
+                category='Database Backup',
+                defaults={'created_by_admin': auth_user}
+            )
+            
+            HistoryLog.objects.create(
+                admin_id=auth_user.id,
+                log_type_id=log_type.id,
+                log_date=timezone.now(),
+                entity_type='system',
+                entity_id=0
+            )
+            
+            messages.success(request, '✅ Database backup created successfully!')
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'❌ Backup error: {str(e)}')
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+    
+    return redirect('home')

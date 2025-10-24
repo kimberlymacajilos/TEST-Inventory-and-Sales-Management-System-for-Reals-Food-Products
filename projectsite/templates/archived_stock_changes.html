@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load tz %}
 
 {% block content %}
 <div class="content">
@@ -32,7 +33,7 @@
                     <td>{{ object.item_display }}</td>
                     <td>{{ object.quantity_change }}</td>
                     <td>{{ object.category }}</td>
-                    <td>{{ object.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ object.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>
                       <a href="#" data-toggle="modal" data-target="#unarchiveStockChangeModal{{ object.id }}" class="text-success" title="Unarchive">
                         <i class="la la-undo la-lg"></i>
@@ -49,7 +50,7 @@
                               <br><br>
                               <strong>Item:</strong> {{ object.item_display }}<br>
                               <strong>Change:</strong> {{ object.quantity_change }}<br>
-                              <strong>Date:</strong> {{ object.date|date:"Y-m-d H:i" }}
+                              <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
                             </div>
                             <div class="modal-footer">
                               <form method="post" action="{% url 'stock-changes-unarchive' object.id %}">
