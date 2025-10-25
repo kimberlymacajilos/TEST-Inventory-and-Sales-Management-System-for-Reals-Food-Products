@@ -2380,26 +2380,170 @@ class StockChangesArchiveOldView(View):
     
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        if 'otp_code' in request.POST:
+            user_id = request.session.get('2fa_user_id')
+            if not user_id:
+                messages.error(request, "Session expired. Please login again.")
+                return redirect('login')
+            
+            from realsproj.models import UserOTP, User2FASettings, TrustedDevice, LoginAttempt
+            from django.utils import timezone
+            
+            try:
+                user = User.objects.get(id=user_id)
+                otp_code = request.POST.get('otp_code', '').strip()
+                
+                otp = UserOTP.objects.filter(
+                    user=user,
+                    otp_code=otp_code,
+                    is_used=False,
+                    expires_at__gt=timezone.now()
+                ).first()
+                
+                if otp:
+                    otp.is_used = True
+                    otp.save()
+                    
+                    device_fingerprint = get_device_fingerprint(request)
+                    device_info = get_device_info(request)
+                    ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                    
+                    TrustedDevice.objects.get_or_create(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        defaults={
+                            'device_name': device_info['device_name'],
+                            'browser': device_info['browser'],
+                            'os': device_info['os'],
+                            'ip_address': ip_address,
+                        }
+                    )
+                    
+                    LoginAttempt.objects.create(
+                        user=user,
+                        username=user.username,
+                        ip_address=ip_address,
+                        device_fingerprint=device_fingerprint,
+                        browser=device_info['browser'],
+                        os=device_info['os'],
+                        success=True,
+                        required_otp=True,
+                        is_trusted_device=True
+                    )
+                    
+                    send_login_notification(user, device_info, ip_address, is_new_device=True)
+                    
+                    del request.session['2fa_user_id']
+                    
+                    login(request, user)
+                    messages.success(request, "✅ Successfully logged in! This device is now trusted.")
+                    return redirect('home')
+                else:
+                    messages.error(request, "❌ Invalid or expired OTP code.")
+                    return render(request, '2fa_verify.html', {'user_email': user.email})
+            except Exception as e:
+                messages.error(request, f"An error occurred: {str(e)}")
+                return render(request, '2fa_verify.html')
+        
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             if user.is_active:
-                login(request, user)
-                return redirect('home') 
+                from realsproj.models import User2FASettings, UserOTP, TrustedDevice, LoginAttempt
+                import random
+                from datetime import timedelta
+                from django.utils import timezone
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                device_fingerprint = get_device_fingerprint(request)
+                device_info = get_device_info(request)
+                ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                
+                try:
+                    twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
+                    
+                    trusted_device = TrustedDevice.objects.filter(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        is_active=True
+                    ).first()
+                    
+                    if trusted_device:
+                        trusted_device.last_used = timezone.now()
+                        trusted_device.save()
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=True,
+                            required_otp=False,
+                            is_trusted_device=True
+                        )
+                        
+                        send_login_notification(user, device_info, ip_address, is_new_device=False)
+                        
+                        login(request, user)
+                        messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
+                        return redirect('home')
+                    else:
+                        otp_code = str(random.randint(100000, 999999))
+                        
+                        UserOTP.objects.create(
+                            user=user,
+                            otp_code=otp_code,
+                            expires_at=timezone.now() + timedelta(minutes=5),
+                            ip_address=ip_address
+                        )
+                        
+                        email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
+                        send_mail(
+                            subject='🔐 New Device Login - OTP Required',
+                            message=f'Hello {user.username},\n\nA login attempt was made from a new device:\n\nDevice: {device_info["device_name"]}\nIP Address: {ip_address}\n\nYour OTP code is: {otp_code}\n\nThis code will expire in 5 minutes.\n\nIf this wasn\'t you, please secure your account immediately.\n\nReals Food Products Security Team',
+                            from_email=settings.EMAIL_HOST_USER,
+                            recipient_list=[email_to],
+                            fail_silently=False,
+                        )
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=False,
+                            required_otp=True,
+                            is_trusted_device=False
+                        )
+                        
+                        request.session['2fa_user_id'] = user.id
+                        messages.info(request, f"📧 New device detected! OTP sent to {email_to}")
+                        return render(request, '2fa_verify.html', {'user_email': email_to})
+                        
+                except User2FASettings.DoesNotExist:
+                    login(request, user)
+                    return redirect('home')
+                except Exception as e:
+                    messages.error(request, f"Failed to process login: {str(e)}")
+                    return render(request, 'login.html')
             else:
                 messages.error(request, "Your account is not active.")
         else:
             messages.error(request, "Invalid username or password.")
     return render(request, 'login.html')
 
-
 def register(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()  # Save the new user to the database
+            user = form.save()  
             login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
             return redirect('login')  
@@ -2806,3 +2950,66 @@ def database_backup(request):
             return redirect(request.META.get('HTTP_REFERER', 'home'))
     
     return redirect('home')
+
+@login_required
+def setup_2fa(request):
+    """Enable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        backup_email = request.POST.get('backup_email', '').strip()
+        
+        # Create or update 2FA settings
+        settings, created = User2FASettings.objects.get_or_create(
+            user=request.user,
+            defaults={
+                'is_enabled': True,
+                'method': 'email',
+                'backup_email': backup_email if backup_email else None
+            }
+        )
+        
+        if not created:
+            settings.is_enabled = True
+            settings.backup_email = backup_email if backup_email else None
+            settings.save()
+        
+        messages.success(request, "✅ Two-Factor Authentication has been enabled!")
+        return redirect('profile')
+    
+    # GET request - show setup form
+    try:
+        twofa_settings = User2FASettings.objects.get(user=request.user)
+    except User2FASettings.DoesNotExist:
+        twofa_settings = None
+    
+    return render(request, '2fa_setup.html', {
+        'user_email': request.user.email,
+        'twofa_settings': twofa_settings
+    })
+
+
+@login_required
+def disable_2fa(request):
+    """Disable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        
+        # Verify password before disabling
+        if not request.user.check_password(password):
+            messages.error(request, "❌ Incorrect password. Cannot disable 2FA.")
+            return redirect('profile')
+        
+        try:
+            settings = User2FASettings.objects.get(user=request.user)
+            settings.is_enabled = False
+            settings.save()
+            messages.success(request, "✅ Two-Factor Authentication has been disabled.")
+        except User2FASettings.DoesNotExist:
+            messages.info(request, "2FA was not enabled.")
+        
+        return redirect('profile')
+    
+    return redirect('profile')

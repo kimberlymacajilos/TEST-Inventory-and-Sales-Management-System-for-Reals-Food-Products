@@ -1000,3 +1000,61 @@ class Withdrawals(models.Model):
                 Q(item_type__icontains=query)
             )
         return qs
+
+class User2FASettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='twofa_settings')
+    is_enabled = models.BooleanField(default=False)
+    method = models.CharField(max_length=10, choices=[('email', 'Email'), ('sms', 'SMS')], default='email')
+    phone_number = models.CharField(max_length=15, null=True, blank=True)
+    backup_email = models.EmailField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False  # ← Important!
+        db_table = 'user_2fa_settings'
+
+class UserOTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otp_codes')
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        managed = False  # ← Important!
+        db_table = 'user_otp'
+
+class TrustedDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_devices')
+    device_fingerprint = models.CharField(max_length=255)
+    device_name = models.CharField(max_length=255)
+    browser = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    ip_address = models.GenericIPAddressField()
+    last_used = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False  # ← Important!
+        db_table = 'trusted_devices'
+        unique_together = ['user', 'device_fingerprint']
+
+class LoginAttempt(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_attempts', null=True, blank=True)
+    username = models.CharField(max_length=150)
+    ip_address = models.GenericIPAddressField()
+    device_fingerprint = models.CharField(max_length=255, blank=True)
+    browser = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    success = models.BooleanField(default=False)
+    required_otp = models.BooleanField(default=False)
+    is_trusted_device = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False  # ← Important!
+        db_table = 'login_attempts'

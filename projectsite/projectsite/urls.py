@@ -207,4 +207,7 @@ urlpatterns = [
     
     path('database-backup/', a.database_backup, name='database-backup'),
 
+    path('2fa-setup/', a.setup_2fa, name='2fa_setup'),
+    path('2fa-disable/', a.disable_2fa, name='2fa_disable'),
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
