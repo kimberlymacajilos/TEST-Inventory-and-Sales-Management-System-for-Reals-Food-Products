@@ -7,16 +7,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
   let timeout;
 
-  function fetchExpenses() {
+  function fetchExpenses(resetPage = true) {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
-      let url = "/expenses/?";
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove category filter
+      if (categoryFilter.value) {
+        params.set("category", categoryFilter.value);
+      } else {
+        params.delete("category");
+      }
+      
+      // Update or remove month filter
+      if (dateFilter.value) {
+        params.set("month", dateFilter.value);
+      } else {
+        params.delete("month");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
 
-      if (categoryFilter.value) params.append("category", categoryFilter.value);
-      if (dateFilter.value) params.append("month", dateFilter.value);
-
-      url += params.toString();
+      const url = "/expenses/?" + params.toString();
 
       fetch(url)
         .then(response => response.text())
@@ -35,12 +50,50 @@ document.addEventListener("DOMContentLoaded", function () {
           // Replace summary
           const newSummary = doc.querySelector("#expensesSummary");
           if (newSummary && summaryContainer) summaryContainer.innerHTML = newSummary.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
         })
         .catch(err => console.error("Error fetching expenses:", err));
     }, 300);
   }
 
   // Event listeners
-  categoryFilter.addEventListener("change", fetchExpenses);
-  dateFilter.addEventListener("change", fetchExpenses);
+  categoryFilter.addEventListener("change", () => fetchExpenses(true));
+  dateFilter.addEventListener("change", () => fetchExpenses(true));
+  
+  // Handle pagination clicks
+  document.addEventListener("click", function(e) {
+    if (e.target.closest(".pagination a")) {
+      e.preventDefault();
+      const link = e.target.closest("a");
+      const url = link.getAttribute("href");
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+
+          // Replace table body
+          const newRows = doc.querySelector("#expensesTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+
+          // Replace summary
+          const newSummary = doc.querySelector("#expensesSummary");
+          if (newSummary && summaryContainer) summaryContainer.innerHTML = newSummary.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Scroll to top of table
+          document.querySelector(".card").scrollIntoView({ behavior: "smooth" });
+        })
+        .catch(err => console.error("Error fetching expenses:", err));
+    }
+  });
 });

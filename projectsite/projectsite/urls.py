@@ -205,5 +205,7 @@ urlpatterns = [
     path('user-activity/', a.UserActivityList.as_view(), name='user-activity'),
 
     path("check-expirations/", a.check_expirations, name="check-expirations"),
+    
+    path('database-backup/', a.database_backup, name='database-backup'),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

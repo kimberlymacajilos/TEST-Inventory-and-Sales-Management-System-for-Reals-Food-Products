@@ -12,7 +12,7 @@ class Command(BaseCommand):
     help = "Check expired and about-to-expire products/raw materials, create notifications, and deduct expired quantities."
 
     def handle(self, *args, **options):
-        today = date.today()
+        today = timezone.localdate()
 
         processed_product_batches = set(
             Notifications.objects.filter(

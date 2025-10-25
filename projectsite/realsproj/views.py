@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    ListView, CreateView, UpdateView, DeleteView, TemplateView, View
+)
+from django.views.generic.edit import ModelFormMixin
 from django.contrib import messages
 from django.views import View
 from django.http import JsonResponse
@@ -1877,7 +1880,7 @@ class WithdrawItemView(View):
                         inv = product.productinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {product}")
+                            messages.error(request, f"⚠️ Insufficient stock for {product}. Available: {inv.total_stock}")
                             continue
 
                         discount_val = request.POST.get(f"discount_{product_id}")
@@ -1907,7 +1910,7 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing product: {e}")
+                        messages.error(request, f"❌ Error withdrawing product: {e}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
@@ -1921,7 +1924,7 @@ class WithdrawItemView(View):
                         inv = material.rawmaterialinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {material}")
+                            messages.error(request, f"⚠️ Insufficient stock for {material}. Available: {inv.total_stock}")
                             continue
 
                         Withdrawals.objects.create(
@@ -1937,12 +1940,12 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing raw material: {e}")
+                        messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            messages.success(request, f"{count} item(s) withdrawn successfully.")
+            messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
-            messages.warning(request, "No withdrawals were recorded.")
+            messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
 
         return redirect("withdrawals")
 
@@ -2015,6 +2018,14 @@ class WithdrawUpdateView(UpdateView):
 
     def form_valid(self, form):
         withdrawal = self.get_object()
+        
+        # Save the original date before any changes
+        original_date = withdrawal.date
+        
+        # Log the current time for debugging
+        current_time = timezone.now()
+        print(f"Current time: {current_time}")
+        print(f"Original date before save: {original_date}")
 
         before = {
             'item_type': withdrawal.item_type,
@@ -2026,11 +2037,25 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(original_date),
         }
 
-        response = super().form_valid(form)
-
+        # Get the form data but don't save yet
+        self.object = form.save(commit=False)
+        
+        # Explicitly set the date to the original date
+        self.object.date = original_date
+        
+        # Save with update_fields to only update specific fields
+        self.object.save(update_fields=[
+            'item_id', 'quantity', 'reason', 'sales_channel', 
+            'price_type', 'custom_price', 'discount_id', 'custom_discount_value'
+        ])
+        
+        # Refresh from database to ensure we have the latest data
         withdrawal.refresh_from_db()
+        
+        print(f"Date after save: {withdrawal.date}")
 
         after = {
             'item_type': withdrawal.item_type,
@@ -2042,6 +2067,7 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(withdrawal.date),
         }
 
         create_history_log(
@@ -2054,8 +2080,9 @@ class WithdrawUpdateView(UpdateView):
         )
 
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-
-        return response
+        
+        # Return a redirect response instead of the original response
+        return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
@@ -2167,7 +2194,7 @@ class BulkProductBatchCreateView(View):
                 'products': form.products
             })
 
-        batch_date = date.today()
+        batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
         auth_user = AuthUser.objects.get(id=request.user.id)
@@ -2229,7 +2256,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     def post(self, request):
         form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            batch_date = date.today()
+            batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
@@ -2469,11 +2496,15 @@ def export_sales(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Sales.objects.all()
+    qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2491,7 +2522,7 @@ def export_sales(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_sales = sum(s.amount for s in qs)
 
@@ -2513,11 +2544,15 @@ def export_expenses(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Expenses.objects.all()
+    qs = Expenses.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2535,7 +2570,7 @@ def export_expenses(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_expenses = sum(e.amount for e in qs)
 
@@ -2826,3 +2861,119 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         ]
         
         return context
+
+@login_required
+def database_backup(request):
+    """
+    Generate and download a PostgreSQL database backup in SQL format
+    """
+    from django.http import HttpResponse
+    from django.db import connection
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        try:
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'reals_backup_{timestamp}.sql'
+            
+            # Generate SQL dump using Django's connection
+            sql_statements = []
+            
+            # Add header comment
+            sql_statements.append('-- Real\'s Food Products Database Backup')
+            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            sql_statements.append('-- \n')
+            
+            # Get all table names from realsproj app
+            with connection.cursor() as cursor:
+                # Get list of tables
+                cursor.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_type = 'BASE TABLE'
+                    ORDER BY table_name;
+                """)
+                tables = [row[0] for row in cursor.fetchall()]
+                
+                # For each table, generate INSERT statements
+                for table in tables:
+                    sql_statements.append(f'\n-- Table: {table}')
+                    
+                    # Get column names
+                    cursor.execute(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = '{table}'
+                        ORDER BY ordinal_position;
+                    """)
+                    columns = [row[0] for row in cursor.fetchall()]
+                    
+                    if not columns:
+                        continue
+                    
+                    # Get all data from table
+                    cursor.execute(f'SELECT * FROM {table};')
+                    rows = cursor.fetchall()
+                    
+                    if rows:
+                        # Generate INSERT statements
+                        for row in rows:
+                            values = []
+                            for val in row:
+                                if val is None:
+                                    values.append('NULL')
+                                elif isinstance(val, str):
+                                    # Escape single quotes
+                                    escaped = val.replace("'", "''")
+                                    values.append(f"'{escaped}'")
+                                elif isinstance(val, (int, float)):
+                                    values.append(str(val))
+                                elif isinstance(val, bool):
+                                    values.append('TRUE' if val else 'FALSE')
+                                else:
+                                    # For dates, timestamps, etc.
+                                    values.append(f"'{str(val)}'")
+                            
+                            column_list = ', '.join(columns)
+                            value_list = ', '.join(values)
+                            sql_statements.append(
+                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
+                            )
+            
+            # Join all SQL statements
+            sql_content = '\n'.join(sql_statements)
+            
+            # Create SQL response
+            response = HttpResponse(
+                sql_content,
+                content_type='application/sql'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Log the backup action
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            
+            # Get or create HistoryLogTypes for backup
+            log_type, created = HistoryLogTypes.objects.get_or_create(
+                category='Database Backup',
+                defaults={'created_by_admin': auth_user}
+            )
+            
+            HistoryLog.objects.create(
+                admin_id=auth_user.id,
+                log_type_id=log_type.id,
+                log_date=timezone.now(),
+                entity_type='system',
+                entity_id=0
+            )
+            
+            messages.success(request, '✅ Database backup created successfully!')
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'❌ Backup error: {str(e)}')
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+    
+    return redirect('home')
