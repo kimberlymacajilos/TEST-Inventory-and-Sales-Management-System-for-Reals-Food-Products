@@ -2653,3 +2653,176 @@ def check_expirations(request):
         print("\n".join(messages))
 
     return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+
+
+@method_decorator(login_required, name='dispatch')
+class BestSellerProductsView(LoginRequiredMixin, TemplateView):
+    template_name = "bestseller_products.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        now = timezone.now()
+        
+        # Get filter parameters
+        filter_date = self.request.GET.get('month')  # YYYY-MM format
+        filter_year_only = self.request.GET.get('year')  # Year only
+        
+        filter_type = None  # 'month', 'year', or None (current month)
+        
+        # Check if filtering by specific month
+        if filter_date:
+            try:
+                year, month = filter_date.split('-')
+                current_year = int(year)
+                current_month = int(month)
+                filter_month = current_month
+                filter_year = current_year
+                filter_type = 'month'
+            except (ValueError, AttributeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+        # Check if filtering by year only
+        elif filter_year_only:
+            try:
+                current_year = int(filter_year_only)
+                current_month = None
+                filter_month = None
+                filter_year = current_year
+                filter_type = 'year'
+            except (ValueError, TypeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+        # Default to current month
+        else:
+            current_month = now.month
+            current_year = now.year
+            filter_month = None
+            filter_year = None
+
+        # Build query filters
+        filters = {
+            'item_type': 'PRODUCT',
+            'reason': 'SOLD',
+            'is_archived': False,
+            'date__year': current_year
+        }
+        
+        # Add month filter only if not filtering by year only
+        if filter_type != 'year':
+            filters['date__month'] = current_month
+
+        withdrawals = Withdrawals.objects.filter(**filters).values('item_id', 'quantity', 'custom_price')
+
+        product_sales = {}
+        for w in withdrawals:
+            product_id = w['item_id']
+            quantity = w['quantity'] or 0
+            price = w['custom_price'] or 0
+            
+            if product_id not in product_sales:
+                product_sales[product_id] = {
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                }
+            
+            product_sales[product_id]['total_quantity'] += quantity
+            product_sales[product_id]['total_revenue'] += quantity * price
+
+        sold_products_list = []
+        for product_id, sales_data in product_sales.items():
+            try:
+                product = Products.objects.select_related(
+                    'product_type', 'variant', 'size', 'size_unit'
+                ).get(id=product_id)
+                
+                sold_products_list.append({
+                    'item_id': product_id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': sales_data['total_quantity'],
+                    'total_revenue': sales_data['total_revenue']
+                })
+            except Products.DoesNotExist:
+                continue
+
+        sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
+        
+        best_sellers = sold_products_list[:10]
+        
+        sold_product_ids = [p['item_id'] for p in sold_products_list]
+        no_sales_products = Products.objects.filter(
+            is_archived=False
+        ).exclude(id__in=sold_product_ids).select_related(
+            'product_type', 'variant', 'size', 'size_unit'
+        )
+        
+        low_sellers_list = []
+        
+        if len(sold_products_list) > 10:
+            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            low_sellers_list.extend(low_sellers_from_sold)
+        else:
+            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+
+        remaining_slots = 10 - len(low_sellers_list)
+        if remaining_slots > 0:
+            for product in no_sales_products[:remaining_slots]:
+                low_sellers_list.append({
+                    'item_id': product.id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                })
+        
+        low_sellers = low_sellers_list[:10]
+        total_quantity = sum(p['total_quantity'] for p in sold_products_list)
+        total_revenue = sum(p['total_revenue'] for p in sold_products_list)
+        total_products = len(sold_products_list)
+        average_revenue = total_revenue / total_products if total_products > 0 else 0
+        available_years = Withdrawals.objects.filter(
+            item_type='PRODUCT',
+            reason='SOLD',
+            is_archived=False
+        ).dates('date', 'year', order='DESC')
+        
+        context['best_sellers'] = best_sellers
+        context['low_sellers'] = low_sellers
+        context['total_products'] = total_products
+        context['total_quantity'] = total_quantity
+        context['total_revenue'] = total_revenue
+        context['average_revenue'] = average_revenue
+        context['no_sales_products'] = no_sales_products
+        context['current_month'] = current_month
+        context['current_year'] = current_year
+        context['filter_month'] = filter_month
+        context['filter_year'] = filter_year
+        context['filter_type'] = filter_type
+        
+        # Set display values based on filter type
+        if filter_type == 'year':
+            context['current_month_name'] = None
+            context['filter_month_name'] = None
+            context['filter_month_value'] = ''
+        else:
+            context['current_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_value'] = f"{current_year}-{current_month:02d}"
+        
+        context['available_years'] = [d.year for d in available_years]
+        context['months'] = [
+            (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+            (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+            (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
+        ]
+        
+        return context
