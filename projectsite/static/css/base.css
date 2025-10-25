@@ -117,13 +117,33 @@ body, .main-panel{
   border: none;
 }
 
+/* Sidebar icons - LineAwesome */
+.sidebar .nav-item a i {
+  color: #2c3e50 !important; /* Dark gray/black for icons */
+  font-size: 22px !important;
+}
+.sidebar .nav-item a:hover i {
+  color: var(--primary-600) !important; /* Green on hover */
+}
+.sidebar .nav-item.active a i {
+  color: #ffffff !important; /* White when active */
+}
+
 /* Inline SVG nav icons */
 .nav-icon-svg{
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; min-width: 22px; margin-right: 2px;
+  color: #2c3e50 !important; /* Dark gray/black for icons */
 }
 .nav-icon-svg svg{ width: 18px; height: 18px; fill: currentColor; display: block; }
-.sidebar .nav-item a:hover .nav-icon-svg { transform: translateY(-1px); transition: transform .18s ease; }
+.sidebar .nav-item a:hover .nav-icon-svg { 
+  transform: translateY(-1px); 
+  transition: transform .18s ease; 
+  color: var(--primary-600) !important; /* Green on hover */
+}
+.sidebar .nav-item.active .nav-icon-svg {
+  color: #ffffff !important; /* White when active */
+}
 
 /* Cards */
 .card{
@@ -445,6 +465,27 @@ html[data-theme="dark"] .sidebar .nav-item a {
 html[data-theme="dark"] .sidebar .nav-item a:hover {
   background: rgba(119, 178, 84, 0.2) !important;
   color: #c8e6c9 !important;  /* Lighter green on hover */
+}
+/* Dark mode - LineAwesome icons */
+html[data-theme="dark"] .sidebar .nav-item a i {
+  color: #e8f5e9 !important; /* Bright icons in dark mode */
+}
+html[data-theme="dark"] .sidebar .nav-item a:hover i {
+  color: #c8e6c9 !important; /* Lighter green on hover */
+}
+html[data-theme="dark"] .sidebar .nav-item.active a i {
+  color: #0a0e0f !important; /* Dark icons on active green background */
+}
+
+/* Dark mode - SVG icons */
+html[data-theme="dark"] .nav-icon-svg {
+  color: #e8f5e9 !important; /* Bright icons in dark mode */
+}
+html[data-theme="dark"] .sidebar .nav-item a:hover .nav-icon-svg {
+  color: #c8e6c9 !important; /* Lighter green on hover */
+}
+html[data-theme="dark"] .sidebar .nav-item.active .nav-icon-svg {
+  color: #0a0e0f !important; /* Dark icons on active green background */
 }
 html[data-theme="dark"] .card {
   background: var(--glass-card) !important;
