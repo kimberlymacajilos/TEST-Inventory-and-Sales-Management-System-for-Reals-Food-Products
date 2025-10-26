@@ -1035,3 +1035,10 @@ html[data-theme="dark"] .pagination .page-item.disabled .page-link {
   border-color: rgba(119, 178, 84, 0.2) !important;
   color: rgba(232, 245, 233, 0.4) !important;
 }
+
+/* Recent Sales Dark Mode Styles */
+html[data-theme="dark"] .list-group-item {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(119, 178, 84, 0.2) !important;
+  color: #e8f5e9 !important;
+}

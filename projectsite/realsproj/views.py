@@ -2700,90 +2700,44 @@ def check_expirations(request):
 @login_required
 def database_backup(request):
     """
-    Generate and download a PostgreSQL database backup in SQL format
+    Generate and download a Django JSON fixture backup
     """
     from django.http import HttpResponse
-    from django.db import connection
+    from django.core import serializers
+    from django.apps import apps
     from datetime import datetime
+    import json
     
     if request.method == 'POST':
         try:
             # Create filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f'reals_backup_{timestamp}.sql'
+            filename = f'reals_backup_{timestamp}.json'
             
-            # Generate SQL dump using Django's connection
-            sql_statements = []
+            # Get all models from realsproj app (including managed=False)
+            app_models = apps.get_app_config('realsproj').get_models()
             
-            # Add header comment
-            sql_statements.append('-- Real\'s Food Products Database Backup')
-            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-            sql_statements.append('-- \n')
+            # Serialize all data
+            all_data = []
+            for model in app_models:
+                try:
+                    # Get all objects from this model
+                    queryset = model.objects.all()
+                    if queryset.exists():
+                        model_data = serializers.serialize('json', queryset)
+                        all_data.extend(json.loads(model_data))
+                except Exception as e:
+                    # Skip models that can't be serialized
+                    print(f"Skipping {model.__name__}: {str(e)}")
+                    continue
             
-            # Get all table names from realsproj app
-            with connection.cursor() as cursor:
-                # Get list of tables
-                cursor.execute("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_type = 'BASE TABLE'
-                    ORDER BY table_name;
-                """)
-                tables = [row[0] for row in cursor.fetchall()]
-                
-                # For each table, generate INSERT statements
-                for table in tables:
-                    sql_statements.append(f'\n-- Table: {table}')
-                    
-                    # Get column names
-                    cursor.execute(f"""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = '{table}'
-                        ORDER BY ordinal_position;
-                    """)
-                    columns = [row[0] for row in cursor.fetchall()]
-                    
-                    if not columns:
-                        continue
-                    
-                    # Get all data from table
-                    cursor.execute(f'SELECT * FROM {table};')
-                    rows = cursor.fetchall()
-                    
-                    if rows:
-                        # Generate INSERT statements
-                        for row in rows:
-                            values = []
-                            for val in row:
-                                if val is None:
-                                    values.append('NULL')
-                                elif isinstance(val, str):
-                                    # Escape single quotes
-                                    escaped = val.replace("'", "''")
-                                    values.append(f"'{escaped}'")
-                                elif isinstance(val, (int, float)):
-                                    values.append(str(val))
-                                elif isinstance(val, bool):
-                                    values.append('TRUE' if val else 'FALSE')
-                                else:
-                                    # For dates, timestamps, etc.
-                                    values.append(f"'{str(val)}'")
-                            
-                            column_list = ', '.join(columns)
-                            value_list = ', '.join(values)
-                            sql_statements.append(
-                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
-                            )
+            # Convert to JSON string with pretty formatting
+            json_content = json.dumps(all_data, indent=2, ensure_ascii=False)
             
-            # Join all SQL statements
-            sql_content = '\n'.join(sql_statements)
-            
-            # Create SQL response
+            # Create JSON response
             response = HttpResponse(
-                sql_content,
-                content_type='application/sql'
+                json_content,
+                content_type='application/json'
             )
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             
