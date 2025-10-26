@@ -83,8 +83,7 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-
-#DATABASES = {
+# DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.postgresql',
 #        'NAME': 'postgres',
@@ -93,13 +92,14 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 #        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
 #        'PORT': '5432',
 #    }
-#}
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'admin',
+        'PASSWORD': 'root',
         'HOST': 'localhost',
         'PORT': '5432',
     }

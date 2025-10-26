@@ -204,7 +204,9 @@ class HistoryLog(models.Model):
 
             elif self.entity_type == "sale":
                 s = Sales.objects.get(pk=self.entity_id)
-                return f"{s.category}"
+                # Format category to title case (e.g., ORDER -> Order)
+                category = s.category.replace('_', ' ').title() if s.category else s.category
+                return f"{category}"
 
             elif self.entity_type == "withdrawal":
                 try:
@@ -273,7 +275,6 @@ class HistoryLog(models.Model):
                 if value is None:
                     return None
 
-                # 🔹 Choice fields for Withdrawals
                 if key == "reason":
                     return dict(Withdrawals.REASON_CHOICES).get(value, value)
                 if key == "sales_channel":
@@ -282,8 +283,8 @@ class HistoryLog(models.Model):
                     return dict(Withdrawals.PRICE_TYPE_CHOICES).get(value, value)
                 if key == "item_type":
                     return dict(Withdrawals.ITEM_TYPE_CHOICES).get(value, value)
-
-                # 🔹 Product relations
+                if key == "category" and isinstance(value, str):
+                    return value.replace('_', ' ').title()
                 if key == "product_id":
                     try:
                         product = Products.objects.select_related("product_type", "variant", "size_unit", "size").get(id=value)
@@ -315,14 +316,12 @@ class HistoryLog(models.Model):
                     except SizeUnits.DoesNotExist:
                         return f"Unit #{value}"
 
-                # 🔹 Raw material relation
                 if key == "material_id":
                     try:
                         return RawMaterials.objects.get(id=value).name
                     except RawMaterials.DoesNotExist:
                         return f"Material #{value}"
 
-                # 🔹 Price lookups
                 if key == "srp_price_id":
                     try:
                         return str(SrpPrices.objects.get(id=value))
@@ -346,13 +345,9 @@ class HistoryLog(models.Model):
                 "batch_date",
                 "received_date",
                 "description",
+                "date", 
             ]
 
-            # hide date changes for expenses & sales
-            if self.entity_type in ("expense", "sale"):
-                ignore_fields.append("date")
-            
-            # hide date_joined for user sign-ups
             if self.entity_type == "user":
                 ignore_fields.append("date_joined")
 
@@ -375,7 +370,10 @@ class HistoryLog(models.Model):
                 after = self.details["after"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in after.items() if k not in ignore_fields
+                    for k, v in after.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -383,7 +381,10 @@ class HistoryLog(models.Model):
                 before = self.details["before"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in before.items() if k not in ignore_fields
+                    for k, v in before.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -484,6 +485,16 @@ class Notifications(models.Model):
                         qty = int(batch.quantity or 0)
                         item_name = f"{qty} {material_name} ({unit_name})"
                     else:
+                        item_name = f"{material_name} ({unit_name})"
+                else:
+                    material = (
+                        RawMaterials.objects.filter(id=self.item_id)
+                        .select_related("unit")
+                        .first()
+                    )
+                    if material:
+                        material_name = getattr(material, "name", "")
+                        unit_name = getattr(material.unit, "unit_name", "")
                         item_name = f"{material_name} ({unit_name})"
 
         except Exception as e:
