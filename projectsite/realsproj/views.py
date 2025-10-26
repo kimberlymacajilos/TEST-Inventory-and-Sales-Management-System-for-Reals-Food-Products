@@ -652,6 +652,11 @@ class ProductsUpdateView(UpdateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+        
+        # Check if photo should be deleted
+        if self.request.POST.get('delete_photo_flag') == '1':
+            form.instance.photo = None
+        
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
         
@@ -745,6 +750,7 @@ class ProductRecipeUpdateView(UpdateView):
     template_name = "prodrecipe_edit.html"
 
     def get_success_url(self):
+        messages.success(self.request, "✅ Recipe updated successfully.")
         return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class ProductRecipeDeleteView(DeleteView):
@@ -1016,8 +1022,32 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display
+        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
+
+        # Add withdrawal-based sales (reason='SOLD')
+        month = self.request.GET.get("month", "").strip()
+        withdrawal_sales_qs = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False
+        ).select_related("created_by_admin").order_by("-date")
+        
+        # Apply same month filter as regular sales
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context['withdrawal_sales'] = withdrawal_sales_qs
 
         return context
 

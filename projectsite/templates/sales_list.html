@@ -41,9 +41,9 @@
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
-                  {% for cat in categories %}
-                    <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>
-                      {{ cat }}
+                  {% for cat_value, cat_display in categories %}
+                    <option value="{{ cat_value }}" {% if request.GET.category == cat_value %}selected{% endif %}>
+                      {{ cat_display }}
                     </option>
                   {% endfor %}
               </select>
@@ -126,6 +126,64 @@
             </div>
           </div>
         </div>
+
+        <!-- Withdrawal-Based Sales Table -->
+        <div class="card mt-4">
+          <div class="card-header">
+            <div class="card-title">Sales from Withdrawals (SOLD Items)</div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Sales Channel</th>
+                    <th>Price Type</th>
+                    <th>Custom Price</th>
+                    <th>Discount</th>
+                    <th>Date</th>
+                    <th>Created By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for withdrawal in withdrawal_sales %}
+                  <tr>
+                    <td>{{ withdrawal.get_item_display }}</td>
+                    <td>{{ withdrawal.quantity|floatformat:2 }}</td>
+                    <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
+                    <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
+                    <td>
+                      {% if withdrawal.custom_price %}
+                        ₱{{ withdrawal.custom_price|floatformat:2 }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if withdrawal.custom_discount_value %}
+                        {{ withdrawal.custom_discount_value }}%
+                      {% elif withdrawal.discount %}
+                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value }}%)
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ withdrawal.created_by_admin.username }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="8" class="text-center text-muted">No withdrawal-based sales found for this period</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -148,7 +206,7 @@
         Are you sure you want to archive this sale?
       </div>
       <div class="modal-footer">
-        <form method="post" action="{% url 'sales-archive' object.id %}">
+        <form method="post" action="{% url 'sales-archive' object.id %}" onsubmit="handleArchiveSubmit(event, '{{ object.category }} - ₱{{ object.amount }}')">
           {% csrf_token %}
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-success">Archive</button>
@@ -173,7 +231,7 @@
         <strong>{{ object.category }} - ₱{{ object.amount }} on {{ object.date|date:"Y-m-d" }}</strong>?
       </div>
       <div class="modal-footer">
-        <form method="post" action="{% url 'sales-delete' object.id %}">
+        <form method="post" action="{% url 'sales-delete' object.id %}" onsubmit="handleDeleteSubmit(event, '{{ object.category }} - ₱{{ object.amount }}')">
           {% csrf_token %}
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-danger">Delete</button>
@@ -263,6 +321,78 @@ document.getElementById("salesFilterType").addEventListener("change", function()
     start.type = "month"; end.type = "month"; endDiv.style.display = "block";
   }
 });
+
+// Handle archive form submission with toast
+function handleArchiveSubmit(event, saleName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Archiving sale...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Sale "${saleName}" archived successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to archive sale. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Archive error:', error);
+        showToast('An error occurred while archiving the sale.', 'error');
+    });
+}
+
+// Handle delete form submission with toast
+function handleDeleteSubmit(event, saleName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Deleting sale...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Sale "${saleName}" deleted successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to delete sale. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showToast('An error occurred while deleting the sale.', 'error');
+    });
+}
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

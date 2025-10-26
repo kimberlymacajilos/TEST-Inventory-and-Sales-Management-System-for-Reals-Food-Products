@@ -342,13 +342,11 @@
 
     const toastHTML = `
       <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
+        <div class="toast-body d-flex align-items-center">
           <i class="me-2 ${icon}"></i>
-          <strong class="me-auto text-capitalize">${type}</strong>
-          <small>Just now</small>
-          <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
+          <span class="flex-grow-1">${message}</span>
+          <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
-        <div class="toast-body">${message}</div>
       </div>`;
 
     const container = document.getElementById("toast-container");
