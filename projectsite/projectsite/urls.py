@@ -31,7 +31,6 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
-    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     re_path(r'^logout/$', auth_views.LogoutView.as_view(), name='logout'),
 
     path('products/', a.ProductsList.as_view(), name='products'),
@@ -145,7 +144,6 @@ urlpatterns = [
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
-    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path("login/", a.login_view, name="login"),
 
     path('password_reset/', 

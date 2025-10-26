@@ -2378,6 +2378,119 @@ class StockChangesArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
         return redirect('stock-changes')
     
+
+def mask_email(email):
+    """Mask email address for privacy: john@example.com -> j***@example.com"""
+    if not email or '@' not in email:
+        return email
+    
+    local, domain = email.split('@', 1)
+    if len(local) <= 1:
+        masked_local = local + '***'
+    else:
+        masked_local = local[0] + '***'
+    
+    return f"{masked_local}@{domain}"
+
+def get_device_fingerprint(request):
+    """Create unique device ID from browser characteristics"""
+    import hashlib
+    
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    accept_language = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    accept_encoding = request.META.get('HTTP_ACCEPT_ENCODING', '')
+    
+    fingerprint_string = f"{user_agent}{accept_language}{accept_encoding}"
+    return hashlib.sha256(fingerprint_string.encode()).hexdigest()
+
+
+def get_device_info(request):
+    """Extract human-readable device details"""
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    # Detect browser
+    if 'Chrome' in user_agent and 'Edg' not in user_agent:
+        browser = 'Chrome'
+    elif 'Firefox' in user_agent:
+        browser = 'Firefox'
+    elif 'Safari' in user_agent and 'Chrome' not in user_agent:
+        browser = 'Safari'
+    elif 'Edg' in user_agent:
+        browser = 'Edge'
+    else:
+        browser = 'Unknown'
+    
+    # Detect OS
+    if 'Windows' in user_agent:
+        os = 'Windows'
+    elif 'Mac' in user_agent:
+        os = 'macOS'
+    elif 'Linux' in user_agent:
+        os = 'Linux'
+    elif 'Android' in user_agent:
+        os = 'Android'
+    elif 'iPhone' in user_agent or 'iPad' in user_agent:
+        os = 'iOS'
+    else:
+        os = 'Unknown'
+    
+    return {
+        'browser': browser,
+        'os': os,
+        'device_name': f"{os} - {browser}"
+    }
+
+
+def send_login_notification(user, device_info, ip_address, is_new_device=False):
+    """Send email notification about login"""
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+    
+    if is_new_device:
+        subject = '🔐 New Device Verified - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+A new device has been verified for your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This device is now trusted and will not require OTP for future logins.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    else:
+        subject = '✅ Login Notification - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+You recently logged in to your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This login was from a trusted device.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+        print(f"[EMAIL] Notification sent to {user.email}")
+    except Exception as e:
+        print(f"[EMAIL ERROR] Failed to send notification: {e}")
+
+
 def login_view(request):
     if request.method == 'POST':
         if 'otp_code' in request.POST:
@@ -2462,8 +2575,16 @@ def login_view(request):
                 device_info = get_device_info(request)
                 ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
                 
+                print(f"\n{'='*60}")
+                print(f"[2FA DEBUG] Login attempt for user: {user.username}")
+                print(f"[2FA DEBUG] Device fingerprint: {device_fingerprint[:20]}...")
+                print(f"[2FA DEBUG] Device info: {device_info}")
+                print(f"[2FA DEBUG] IP Address: {ip_address}")
+                
                 try:
                     twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
+                    print(f"[2FA DEBUG] ✅ 2FA is ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Backup email: {twofa_settings.backup_email or 'None (using primary)'}")
                     
                     trusted_device = TrustedDevice.objects.filter(
                         user=user,
@@ -2472,6 +2593,17 @@ def login_view(request):
                     ).first()
                     
                     if trusted_device:
+                        print(f"[2FA DEBUG] ✅ TRUSTED DEVICE FOUND: {trusted_device.device_name}")
+                        print(f"[2FA DEBUG] Last used: {trusted_device.last_used}")
+                    else:
+                        print(f"[2FA DEBUG] ⚠️ NEW DEVICE - OTP Required")
+                        all_devices = TrustedDevice.objects.filter(user=user)
+                        print(f"[2FA DEBUG] Total trusted devices for user: {all_devices.count()}")
+                        for dev in all_devices:
+                            print(f"  - {dev.device_name} (fingerprint: {dev.device_fingerprint[:20]}...)")
+
+                    if trusted_device:
+                        print(f"[2FA DEBUG] 🔓 Allowing login from trusted device")
                         trusted_device.last_used = timezone.now()
                         trusted_device.save()
                         
@@ -2491,9 +2623,13 @@ def login_view(request):
                         
                         login(request, user)
                         messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
+                        print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
+                        print(f"{'='*60}\n")
                         return redirect('home')
                     else:
+                        print(f"[2FA DEBUG] 📧 Generating OTP for new device...")
                         otp_code = str(random.randint(100000, 999999))
+                        print(f"[2FA DEBUG] OTP Code: {otp_code}")
                         
                         UserOTP.objects.create(
                             user=user,
@@ -2503,13 +2639,19 @@ def login_view(request):
                         )
                         
                         email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
-                        send_mail(
-                            subject='🔐 New Device Login - OTP Required',
-                            message=f'Hello {user.username},\n\nA login attempt was made from a new device:\n\nDevice: {device_info["device_name"]}\nIP Address: {ip_address}\n\nYour OTP code is: {otp_code}\n\nThis code will expire in 5 minutes.\n\nIf this wasn\'t you, please secure your account immediately.\n\nReals Food Products Security Team',
-                            from_email=settings.EMAIL_HOST_USER,
-                            recipient_list=[email_to],
-                            fail_silently=False,
-                        )
+                        print(f"[2FA DEBUG] Sending OTP to: {email_to}")
+                        
+                        try:
+                            send_mail(
+                                subject='🔐 New Device Login - OTP Required',
+                                message=f'Hello {user.username},\n\nA login attempt was made from a new device:\n\nDevice: {device_info["device_name"]}\nIP Address: {ip_address}\n\nYour OTP code is: {otp_code}\n\nThis code will expire in 5 minutes.\n\nIf this wasn\'t you, please secure your account immediately.\n\nReals Food Products Security Team',
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[email_to],
+                                fail_silently=False,
+                            )
+                            print(f"[2FA DEBUG] ✅ OTP email sent successfully!")
+                        except Exception as email_error:
+                            print(f"[2FA DEBUG] ❌ EMAIL ERROR: {email_error}")
                         
                         LoginAttempt.objects.create(
                             user=user,
@@ -2524,13 +2666,21 @@ def login_view(request):
                         )
                         
                         request.session['2fa_user_id'] = user.id
-                        messages.info(request, f"📧 New device detected! OTP sent to {email_to}")
-                        return render(request, '2fa_verify.html', {'user_email': email_to})
+                        masked_email = mask_email(email_to)
+                        messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
+                        print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
+                        print(f"{'='*60}\n")
+                        return render(request, '2fa_verify.html', {'user_email': masked_email})
                         
                 except User2FASettings.DoesNotExist:
+                    print(f"[2FA DEBUG] ❌ 2FA is NOT ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
+                    print(f"{'='*60}\n")
                     login(request, user)
                     return redirect('home')
                 except Exception as e:
+                    print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
+                    print(f"{'='*60}\n")
                     messages.error(request, f"Failed to process login: {str(e)}")
                     return render(request, 'login.html')
             else:
