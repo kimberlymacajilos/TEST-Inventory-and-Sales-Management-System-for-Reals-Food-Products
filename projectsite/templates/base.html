@@ -179,10 +179,10 @@
 
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#productsMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products' %}true{% else %}false{% endif %}">
                         <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}show{% endif %}" id="productsMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products' %}show{% endif %}" id="productsMenu">
                         <ul class="nav nav-collapse">
                             <li class="{% if request.resolver_match.url_name in 'products product-list' %}active{% endif %}">
                                 <a href="{% url 'products' %}"><span class="sub-item">Product List</span></a>
@@ -192,6 +192,9 @@
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'product-inventory' %}active{% endif %}">
                                 <a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'best-seller-products' %}active{% endif %}">
+                                <a href="{% url 'best-seller-products' %}"><span class="sub-item">Best Seller Products</span></a>
                             </li>
                         </ul>
                     </div>
