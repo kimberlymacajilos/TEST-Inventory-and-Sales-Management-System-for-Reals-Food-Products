@@ -831,6 +831,7 @@ class UserActivity(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     last_logout = models.DateTimeField(blank=True, null=True)
     active = models.BooleanField(default=False)
+    last_activity = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -838,6 +839,22 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+    
+    @property
+    def is_truly_active(self):
+        """
+        User is truly active if:
+        - They are marked as active (logged in)
+        - AND their last activity was within the last 5 minutes
+        """
+        if not self.active:
+            return False
+        
+        if not self.last_activity:
+            return False
+
+        time_threshold = timezone.now() - timedelta(minutes=5)
+        return self.last_activity >= time_threshold
     
 
 class Withdrawals(models.Model):
