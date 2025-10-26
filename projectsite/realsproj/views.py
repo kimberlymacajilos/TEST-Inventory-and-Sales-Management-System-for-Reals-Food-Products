@@ -1021,6 +1021,28 @@ class SalesList(ListView):
         categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
 
+        # Add withdrawal-based sales (reason='SOLD')
+        month = self.request.GET.get("month", "").strip()
+        withdrawal_sales_qs = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False
+        ).select_related("created_by_admin").order_by("-date")
+        
+        # Apply same month filter as regular sales
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context['withdrawal_sales'] = withdrawal_sales_qs
+
         return context
 
 
