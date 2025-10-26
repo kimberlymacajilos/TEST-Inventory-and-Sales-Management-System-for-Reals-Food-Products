@@ -1625,30 +1625,42 @@ class ProductAttributesView(LoginRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class ProductTypeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Type added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Type added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_type.name = name
-            product_type.save()
-            messages.success(request, 'Product Type updated successfully!')
+            try:
+                product_type.name = name
+                product_type.save()
+                messages.success(request, 'Product Type updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
-        product_type.delete()
-        messages.success(request, 'Product Type deleted successfully!')
+        try:
+            product_type.delete()
+            messages.success(request, 'Product Type deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Type because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1656,30 +1668,42 @@ class ProductTypeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class ProductVariantAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Variant added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Variant added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_variant.name = name
-            product_variant.save()
-            messages.success(request, 'Product Variant updated successfully!')
+            try:
+                product_variant.name = name
+                product_variant.save()
+                messages.success(request, 'Product Variant updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
-        product_variant.delete()
-        messages.success(request, 'Product Variant deleted successfully!')
+        try:
+            product_variant.delete()
+            messages.success(request, 'Product Variant deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Variant because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1687,30 +1711,42 @@ class ProductVariantDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         size_label = request.POST.get('size_label')
         if size_label:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
-            messages.success(request, 'Size added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+                messages.success(request, 'Size added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
         size_label = request.POST.get('size_label')
         if size_label:
-            size.size_label = size_label
-            size.save()
-            messages.success(request, 'Size updated successfully!')
+            try:
+                size.size_label = size_label
+                size.save()
+                messages.success(request, 'Size updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
-        size.delete()
-        messages.success(request, 'Size deleted successfully!')
+        try:
+            size.delete()
+            messages.success(request, 'Size deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1718,30 +1754,42 @@ class SizeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeUnitAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         unit_name = request.POST.get('unit_name')
         if unit_name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
-            messages.success(request, 'Size Unit added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+                messages.success(request, 'Size Unit added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
         unit_name = request.POST.get('unit_name')
         if unit_name:
-            size_unit.unit_name = unit_name
-            size_unit.save()
-            messages.success(request, 'Size Unit updated successfully!')
+            try:
+                size_unit.unit_name = unit_name
+                size_unit.save()
+                messages.success(request, 'Size Unit updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
-        size_unit.delete()
-        messages.success(request, 'Size Unit deleted successfully!')
+        try:
+            size_unit.delete()
+            messages.success(request, 'Size Unit deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size Unit because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1749,30 +1797,42 @@ class SizeUnitDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class UnitPriceAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         unit_price = request.POST.get('unit_price')
         if unit_price:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
-            messages.success(request, 'Unit Price added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
+                messages.success(request, 'Unit Price added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Unit Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
         unit_price = request.POST.get('unit_price')
         if unit_price:
-            unit_price_obj.unit_price = unit_price
-            unit_price_obj.save()
-            messages.success(request, 'Unit Price updated successfully!')
+            try:
+                unit_price_obj.unit_price = unit_price
+                unit_price_obj.save()
+                messages.success(request, 'Unit Price updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Unit Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price = get_object_or_404(UnitPrices, pk=pk)
-        unit_price.delete()
-        messages.success(request, 'Unit Price deleted successfully!')
+        try:
+            unit_price.delete()
+            messages.success(request, 'Unit Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1780,30 +1840,42 @@ class UnitPriceDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SrpPriceAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         srp_price = request.POST.get('srp_price')
         if srp_price:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
-            messages.success(request, 'SRP Price added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
+                messages.success(request, 'SRP Price added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This SRP Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
         srp_price = request.POST.get('srp_price')
         if srp_price:
-            srp_price_obj.srp_price = srp_price
-            srp_price_obj.save()
-            messages.success(request, 'SRP Price updated successfully!')
+            try:
+                srp_price_obj.srp_price = srp_price
+                srp_price_obj.save()
+                messages.success(request, 'SRP Price updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This SRP Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         srp_price = get_object_or_404(SrpPrices, pk=pk)
-        srp_price.delete()
-        messages.success(request, 'SRP Price deleted successfully!')
+        try:
+            srp_price.delete()
+            messages.success(request, 'SRP Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
         return redirect('product-attributes')
 
 
