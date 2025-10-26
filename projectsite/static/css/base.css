@@ -1000,3 +1000,38 @@ html[data-theme="dark"] #toast-container .toast-header {
 html[data-theme="dark"] #toast-container .toast-body {
   color: #e8f5e9 !important;
 }
+
+/* Fix dropdown z-index to appear above all elements */
+.dropdown-menu {
+  z-index: 9999 !important;
+}
+
+.card-header {
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+/* Pagination Dark Mode Styles */
+html[data-theme="dark"] .pagination .page-link {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(119, 178, 84, 0.3) !important;
+  color: #e8f5e9 !important;
+}
+
+html[data-theme="dark"] .pagination .page-link:hover {
+  background-color: rgba(119, 178, 84, 0.3) !important;
+  border-color: var(--primary-400) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .pagination .page-item.active .page-link {
+  background-color: var(--primary-400) !important;
+  border-color: var(--primary-400) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .pagination .page-item.disabled .page-link {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(119, 178, 84, 0.2) !important;
+  color: rgba(232, 245, 233, 0.4) !important;
+}

@@ -104,7 +104,7 @@
                     <label>Product Photo</label>
 
                     {% if object.photo %}
-                      <div class="d-flex align-items-center mb-2">
+                      <div id="photo-container" class="d-flex align-items-center mb-2">
                         <img id="photo-preview" src="{{ object.photo.url }}" class="img-thumbnail mr-2" style="max-height:120px;">
                         <div>
                           <div class="mb-2">
@@ -116,7 +116,9 @@
                         </div>
                       </div>
                     {% else %}
-                      <img id="photo-preview" class="img-thumbnail mb-2" style="max-height:120px; display:none;">
+                      <div id="photo-container" style="display:none;">
+                        <img id="photo-preview" class="img-thumbnail mb-2" style="max-height:120px;">
+                      </div>
                     {% endif %}
 
                     <input type="hidden" name="delete_photo_flag" id="deletePhotoHidden" value="0">
@@ -127,7 +129,7 @@
                     </div>
                   </div>
                   <!-- Actions -->
-                  <div class="form-actions btn-row mt-3">
+                  <div class="form-actions btn-row mt-3" style="display: flex; gap: 10px;">
                     {% if object and object.id %}
                       <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
                     {% endif %}
@@ -168,16 +170,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (file) {
         const url = URL.createObjectURL(file);
-        if (preview) { preview.src = url; preview.style.display = 'block'; }
+        const photoContainer = document.getElementById('photo-container');
+        if (photoContainer) { 
+          photoContainer.style.display = 'block'; 
+        }
+        if (preview) { 
+          preview.src = url; 
+          preview.style.display = 'block'; 
+        }
         if (clearHidden) clearHidden.value = '0'; // override clear kapag may bagong upload
       }
     });
   }
 
-  // Clear current photo (hide preview, reset file input, set hidden flag)
+  // Clear current photo (hide entire container, reset file input, set hidden flag)
   if (clearBtn) {
     clearBtn.addEventListener('click', function () {
-      if (preview) { preview.style.display = 'none'; preview.src = ''; }
+      const photoContainer = document.getElementById('photo-container');
+      if (photoContainer) { 
+        photoContainer.style.display = 'none'; 
+      }
+      if (preview) { 
+        preview.src = ''; 
+      }
       if (fileInput) { 
         fileInput.value = ''; 
         const label = fileInput.nextElementSibling; 

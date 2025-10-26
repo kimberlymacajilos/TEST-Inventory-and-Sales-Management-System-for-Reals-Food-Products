@@ -652,6 +652,11 @@ class ProductsUpdateView(UpdateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+        
+        # Check if photo should be deleted
+        if self.request.POST.get('delete_photo_flag') == '1':
+            form.instance.photo = None
+        
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
         
@@ -745,6 +750,7 @@ class ProductRecipeUpdateView(UpdateView):
     template_name = "prodrecipe_edit.html"
 
     def get_success_url(self):
+        messages.success(self.request, "✅ Recipe updated successfully.")
         return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class ProductRecipeDeleteView(DeleteView):

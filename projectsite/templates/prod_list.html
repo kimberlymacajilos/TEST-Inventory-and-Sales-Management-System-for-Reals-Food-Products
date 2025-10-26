@@ -14,7 +14,7 @@
                         <div class="card-title">List of Products</div>
                         <span id="scanner-status" class="badge badge-secondary">Scanner: Connecting...</span>
                     </div>
-                    <div class="d-flex align-items-center" style="gap:0.5rem;">
+                    <div class="d-flex align-items-center" style="gap:0.5rem; position: relative; z-index: 1050;">
                         
                 <!-- Product Attributes button -->
                 <a href="{% url 'product-attributes' %}" class="btn btn-info btn-rounded">
@@ -41,7 +41,7 @@
 
 
                     <!-- Filters -->
-                    <div class="card-body">
+                    <div class="card-body" style="position: relative; z-index: 1;">
                         <form method="get" id="filterForm" class="mb-3">
 
                             
