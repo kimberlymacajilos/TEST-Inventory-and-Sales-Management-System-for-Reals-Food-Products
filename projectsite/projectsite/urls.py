@@ -83,6 +83,7 @@ urlpatterns = [
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'),
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
+    path('best-seller-products/', a.BestSellerProductsView.as_view(), name='best-seller-products'),
 
     path('rawmatbatch/', a.RawMaterialBatchList.as_view(), name='rawmaterial-batch'),
     path('rawmatbatch/add', a.BulkRawMaterialBatchCreateView.as_view(), name='rawmaterial-batch-add'),

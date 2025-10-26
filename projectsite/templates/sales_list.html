@@ -126,6 +126,64 @@
             </div>
           </div>
         </div>
+
+        <!-- Withdrawal-Based Sales Table -->
+        <div class="card mt-4">
+          <div class="card-header">
+            <div class="card-title">Sales from Withdrawals (SOLD Items)</div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Sales Channel</th>
+                    <th>Price Type</th>
+                    <th>Custom Price</th>
+                    <th>Discount</th>
+                    <th>Date</th>
+                    <th>Created By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for withdrawal in withdrawal_sales %}
+                  <tr>
+                    <td>{{ withdrawal.get_item_display }}</td>
+                    <td>{{ withdrawal.quantity|floatformat:2 }}</td>
+                    <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
+                    <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
+                    <td>
+                      {% if withdrawal.custom_price %}
+                        ₱{{ withdrawal.custom_price|floatformat:2 }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if withdrawal.custom_discount_value %}
+                        {{ withdrawal.custom_discount_value }}%
+                      {% elif withdrawal.discount %}
+                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value }}%)
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ withdrawal.created_by_admin.username }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="8" class="text-center text-muted">No withdrawal-based sales found for this period</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

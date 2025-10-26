@@ -92,10 +92,20 @@
         var repeatPassword = document.getElementById("repeat_new_password").value;
         var errorDiv = document.getElementById("password-error");
 
-        // Check if the fields are not empty and new password matches repeat password
-        if ((currentPassword === "" || newPassword === "" || repeatPassword === "") || (newPassword !== repeatPassword)) {
-            errorDiv.style.display = "block"; // Show error message
-            return false; // Prevent form submission
+        // Only validate password fields if any of them are filled
+        if (currentPassword !== "" || newPassword !== "" || repeatPassword !== "") {
+            // If any password field is filled, all must be filled
+            if (currentPassword === "" || newPassword === "" || repeatPassword === "") {
+                errorDiv.innerHTML = "<p>Please fill out all password fields or leave them all empty.</p>";
+                errorDiv.style.display = "block";
+                return false;
+            }
+            // Check if new passwords match
+            if (newPassword !== repeatPassword) {
+                errorDiv.innerHTML = "<p>New passwords do not match.</p>";
+                errorDiv.style.display = "block";
+                return false;
+            }
         }
 
         // Hide error message if everything is correct
