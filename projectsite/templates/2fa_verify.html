@@ -1,0 +1,103 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two-Factor Authentication - Real's Food Products</title>
+
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .otp-input {
+      font-size: 24px;
+      text-align: center;
+      letter-spacing: 10px;
+      font-weight: bold;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box i {
+      color: #2196f3;
+      margin-right: 10px;
+    }
+    .resend-link {
+      color: #2196f3;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .resend-link:hover {
+      color: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <!-- Left Section -->
+    <div class="login-left">
+      <div class="brand">
+        <h1>🔐 SECURE LOGIN</h1>
+        <p>Two-Factor Authentication</p>
+      </div>
+      <div class="footer-left">
+        <p>&copy; Reals Food Products</p>
+      </div>
+    </div>
+
+    <!-- Right Section -->
+    <div class="login-right">
+      <div class="form-wrapper">
+        <h2>ENTER OTP CODE</h2>
+                
+        <div class="info-box">
+          <i class="bi bi-envelope-check"></i>
+          <strong>Check your email!</strong><br>
+          We've sent a 6-digit verification code to <strong>{{ user_email }}</strong>
+        </div>
+        
+        <form method="post" action="{% url 'login' %}">
+          {% csrf_token %}
+          <input 
+            type="text" 
+            name="otp_code" 
+            class="form-control otp-input" 
+            placeholder="000000" 
+            maxlength="6" 
+            pattern="[0-9]{6}" 
+            required 
+            autofocus
+          >
+          
+          <button type="submit">Verify & Login</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 20px;">
+          <p style="color: #666; font-size: 14px;">
+            Didn't receive the code? <a href="{% url 'login' %}" class="resend-link">Try again</a>
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 10px;">
+            ⏱️ Code expires in 5 minutes
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{% static 'js/core/jquery.3.2.1.min.js' %}"></script>
+  <script src="{% static 'js/core/bootstrap.min.js' %}"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  
+  <script>
+    document.querySelector('.otp-input').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+  </script>
+</body>
+</html>
