@@ -25,17 +25,6 @@
                             <!-- Add Button -->
                             <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">Add Product Batch</a>
                         </div>
-                        <!-- <div class="pull-right">
-                            <a href="{% url 'product-batch-archived-list' %}" class="btn btn-secondary btn-rounded mr-2">
-                                View Archived
-                            </a>
-                            <button type="button" class="btn btn-warning btn-rounded mr-2" data-toggle="modal" data-target="#archiveOldBatchesModal">
-                                Archive Old Data
-                            </button>
-                            <a href="{% url 'product-batch-add' %}" class="btn btn-success btn-rounded">
-                                Add Product Batch
-                            </a>
-                        </div> -->
                     </div>
 
                     <!-- Body -->
@@ -66,7 +55,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="batchTableBody">
-                                    {% for object in product_batch %}
+                                    {% for object in page_obj %}
                                     <tr>
                                         <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                                         <td>{{ object.product }}</td>
@@ -97,7 +86,7 @@
                         </div>
 
                         <div class="pagination-container">
-                            {% include 'includes/pagination.html' %}
+                            {% include 'includes/pagination.html' with page_obj=page_obj is_paginated=is_paginated %}
                         </div>
                     </div>
                 </div>
@@ -108,7 +97,7 @@
 
 <!-- Individual Batch Modals -->
 <div id="batchModalsContainer">
-{% for object in product_batch %}
+{% for object in page_obj %}
 <!-- Archive Modal -->
 <div class="modal fade" id="archiveBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
@@ -199,28 +188,27 @@ document.addEventListener('DOMContentLoaded', function() {
   function fetchBatches(resetPage = true) {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams();
       
-      // Update or remove search query
-      if (searchInput.value) {
-        params.set("q", searchInput.value);
-      } else {
-        params.delete("q");
+      // Add search query if present
+      if (searchInput.value.trim()) {
+        params.set("q", searchInput.value.trim());
       }
       
-      // Update or remove date filter
+      // Add date filter if present
       if (dateFilter.value) {
         params.set("date_filter", dateFilter.value);
-      } else {
-        params.delete("date_filter");
       }
       
-      // Reset to page 1 when filters change
-      if (resetPage) {
-        params.delete("page");
+      // Keep page number unless resetting
+      if (!resetPage) {
+        const currentPage = new URLSearchParams(window.location.search).get('page');
+        if (currentPage) {
+          params.set("page", currentPage);
+        }
       }
       
-      const url = "/product-batch/?" + params.toString();
+      const url = window.location.pathname + "?" + params.toString();
       
       fetch(url)
         .then(response => response.text())

@@ -928,3 +928,75 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
 .modal-dialog {
    z-index: 1051 !important;
 }
+
+/* Dark mode - Modals */
+html[data-theme="dark"] .modal-content {
+  background: rgba(26, 31, 32, 0.95) !important;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  color: #f1f8f4 !important;
+}
+
+html[data-theme="dark"] .modal-header {
+  background: rgba(119, 178, 84, 0.15) !important;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  color: #f1f8f4 !important;
+}
+
+html[data-theme="dark"] .modal-title {
+  color: #f1f8f4 !important;
+}
+
+html[data-theme="dark"] .modal-body {
+  color: #e8f5e9 !important;
+}
+
+html[data-theme="dark"] .modal-body strong {
+  color: #f1f8f4 !important;
+}
+
+html[data-theme="dark"] .modal-body p,
+html[data-theme="dark"] .modal-body ul,
+html[data-theme="dark"] .modal-body li,
+html[data-theme="dark"] .modal-body em {
+  color: #e8f5e9 !important;
+}
+
+html[data-theme="dark"] .modal-footer {
+  background: rgba(26, 31, 32, 0.8) !important;
+  border-top: 1px solid var(--border);
+}
+
+html[data-theme="dark"] .close {
+  color: #f1f8f4 !important;
+  opacity: 0.8;
+}
+
+html[data-theme="dark"] .close:hover {
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+/* Dark mode - Toast notifications */
+html[data-theme="dark"] #toast-container .toast {
+  background-color: rgba(26, 31, 32, 0.95) !important;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] #toast-container .toast.show {
+  background-color: rgba(26, 31, 32, 0.95) !important;
+}
+
+html[data-theme="dark"] #toast-container .toast-header {
+  background: rgba(119, 178, 84, 0.15) !important;
+  color: #f1f8f4 !important;
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-theme="dark"] #toast-container .toast-body {
+  color: #e8f5e9 !important;
+}
