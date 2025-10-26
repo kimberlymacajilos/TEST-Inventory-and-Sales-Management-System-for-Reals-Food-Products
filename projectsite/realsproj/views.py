@@ -2365,37 +2365,329 @@ class StockChangesArchiveOldView(View):
         archived_count = StockChanges.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
         return redirect('stock-changes')
+
+def mask_email(email):
+    """Mask email address for privacy: john@example.com -> j***@example.com"""
+    if not email or '@' not in email:
+        return email
     
+    local, domain = email.split('@', 1)
+    if len(local) <= 1:
+        masked_local = local + '*'
+    else:
+        masked_local = local[0] + '*'
+    
+    return f"{masked_local}@{domain}"
+
+def get_device_fingerprint(request):
+    """Create unique device ID from browser characteristics"""
+    import hashlib
+    
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    accept_language = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    accept_encoding = request.META.get('HTTP_ACCEPT_ENCODING', '')
+    
+    fingerprint_string = f"{user_agent}{accept_language}{accept_encoding}"
+    return hashlib.sha256(fingerprint_string.encode()).hexdigest()
+
+
+def get_device_info(request):
+    """Extract human-readable device details"""
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    # Detect browser
+    if 'Chrome' in user_agent and 'Edg' not in user_agent:
+        browser = 'Chrome'
+    elif 'Firefox' in user_agent:
+        browser = 'Firefox'
+    elif 'Safari' in user_agent and 'Chrome' not in user_agent:
+        browser = 'Safari'
+    elif 'Edg' in user_agent:
+        browser = 'Edge'
+    else:
+        browser = 'Unknown'
+    
+    # Detect OS
+    if 'Windows' in user_agent:
+        os = 'Windows'
+    elif 'Mac' in user_agent:
+        os = 'macOS'
+    elif 'Linux' in user_agent:
+        os = 'Linux'
+    elif 'Android' in user_agent:
+        os = 'Android'
+    elif 'iPhone' in user_agent or 'iPad' in user_agent:
+        os = 'iOS'
+    else:
+        os = 'Unknown'
+    
+    return {
+        'browser': browser,
+        'os': os,
+        'device_name': f"{os} - {browser}"
+    }
+
+
+def send_login_notification(user, device_info, ip_address, is_new_device=False):
+    """Send email notification about login"""
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+    
+    if is_new_device:
+        subject = '🔐 New Device Verified - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+A new device has been verified for your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This device is now trusted and will not require OTP for future logins.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    else:
+        subject = '✅ Login Notification - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+You recently logged in to your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This login was from a trusted device.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+        print(f"[EMAIL] Notification sent to {user.email}")
+    except Exception as e:
+        print(f"[EMAIL ERROR] Failed to send notification: {e}")
+
+
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        if 'otp_code' in request.POST:
+            user_id = request.session.get('2fa_user_id')
+            if not user_id:
+                messages.error(request, "Session expired. Please login again.")
+                return redirect('login')
+            
+            from realsproj.models import UserOTP, User2FASettings, TrustedDevice, LoginAttempt
+            from django.utils import timezone
+            
+            try:
+                user = User.objects.get(id=user_id)
+                otp_code = request.POST.get('otp_code', '').strip()
+                
+                otp = UserOTP.objects.filter(
+                    user=user,
+                    otp_code=otp_code,
+                    is_used=False,
+                    expires_at__gt=timezone.now()
+                ).first()
+                
+                if otp:
+                    otp.is_used = True
+                    otp.save()
+                    
+                    device_fingerprint = get_device_fingerprint(request)
+                    device_info = get_device_info(request)
+                    ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                    
+                    TrustedDevice.objects.get_or_create(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        defaults={
+                            'device_name': device_info['device_name'],
+                            'browser': device_info['browser'],
+                            'os': device_info['os'],
+                            'ip_address': ip_address,
+                        }
+                    )
+                    
+                    LoginAttempt.objects.create(
+                        user=user,
+                        username=user.username,
+                        ip_address=ip_address,
+                        device_fingerprint=device_fingerprint,
+                        browser=device_info['browser'],
+                        os=device_info['os'],
+                        success=True,
+                        required_otp=True,
+                        is_trusted_device=True
+                    )
+                    
+                    send_login_notification(user, device_info, ip_address, is_new_device=True)
+                    
+                    del request.session['2fa_user_id']
+                    
+                    login(request, user)
+                    messages.success(request, "✅ Successfully logged in! This device is now trusted.")
+                    return redirect('home')
+                else:
+                    messages.error(request, "❌ Invalid or expired OTP code.")
+                    return render(request, '2fa_verify.html', {'user_email': user.email})
+            except Exception as e:
+                messages.error(request, f"An error occurred: {str(e)}")
+                return render(request, '2fa_verify.html')
+        
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             if user.is_active:
-                login(request, user)
-                return redirect('home')  # Redirect to home after successful login
+                from realsproj.models import User2FASettings, UserOTP, TrustedDevice, LoginAttempt
+                import random
+                from datetime import timedelta
+                from django.utils import timezone
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                device_fingerprint = get_device_fingerprint(request)
+                device_info = get_device_info(request)
+                ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                
+                print(f"\n{'='*60}")
+                print(f"[2FA DEBUG] Login attempt for user: {user.username}")
+                print(f"[2FA DEBUG] Device fingerprint: {device_fingerprint[:20]}...")
+                print(f"[2FA DEBUG] Device info: {device_info}")
+                print(f"[2FA DEBUG] IP Address: {ip_address}")
+                
+                try:
+                    twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
+                    print(f"[2FA DEBUG] ✅ 2FA is ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Backup email: {twofa_settings.backup_email or 'None (using primary)'}")
+                    
+                    trusted_device = TrustedDevice.objects.filter(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        is_active=True
+                    ).first()
+                    
+                    if trusted_device:
+                        print(f"[2FA DEBUG] ✅ TRUSTED DEVICE FOUND: {trusted_device.device_name}")
+                        print(f"[2FA DEBUG] Last used: {trusted_device.last_used}")
+                    else:
+                        print(f"[2FA DEBUG] ⚠️ NEW DEVICE - OTP Required")
+                        all_devices = TrustedDevice.objects.filter(user=user)
+                        print(f"[2FA DEBUG] Total trusted devices for user: {all_devices.count()}")
+                        for dev in all_devices:
+                            print(f"  - {dev.device_name} (fingerprint: {dev.device_fingerprint[:20]}...)")
+
+                    if trusted_device:
+                        print(f"[2FA DEBUG] 🔓 Allowing login from trusted device")
+                        trusted_device.last_used = timezone.now()
+                        trusted_device.save()
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=True,
+                            required_otp=False,
+                            is_trusted_device=True
+                        )
+                        
+                        send_login_notification(user, device_info, ip_address, is_new_device=False)
+                        
+                        login(request, user)
+                        messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
+                        print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
+                        print(f"{'='*60}\n")
+                        return redirect('home')
+                    else:
+                        print(f"[2FA DEBUG] 📧 Generating OTP for new device...")
+                        otp_code = str(random.randint(100000, 999999))
+                        print(f"[2FA DEBUG] OTP Code: {otp_code}")
+                        
+                        UserOTP.objects.create(
+                            user=user,
+                            otp_code=otp_code,
+                            expires_at=timezone.now() + timedelta(minutes=5),
+                            ip_address=ip_address
+                        )
+                        
+                        email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
+                        print(f"[2FA DEBUG] Sending OTP to: {email_to}")
+                        
+                        try:
+                            send_mail(
+                                subject='🔐 New Device Login - OTP Required',
+                                message=f'Hello {user.username},\n\nA login attempt was made from a new device:\n\nDevice: {device_info["device_name"]}\nIP Address: {ip_address}\n\nYour OTP code is: {otp_code}\n\nThis code will expire in 5 minutes.\n\nIf this wasn\'t you, please secure your account immediately.\n\nReals Food Products Security Team',
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[email_to],
+                                fail_silently=False,
+                            )
+                            print(f"[2FA DEBUG] ✅ OTP email sent successfully!")
+                        except Exception as email_error:
+                            print(f"[2FA DEBUG] ❌ EMAIL ERROR: {email_error}")
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=False,
+                            required_otp=True,
+                            is_trusted_device=False
+                        )
+                        
+                        request.session['2fa_user_id'] = user.id
+                        masked_email = mask_email(email_to)
+                        messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
+                        print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
+                        print(f"{'='*60}\n")
+                        return render(request, '2fa_verify.html', {'user_email': masked_email})
+                        
+                except User2FASettings.DoesNotExist:
+                    print(f"[2FA DEBUG] ❌ 2FA is NOT ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
+                    print(f"{'='*60}\n")
+                    login(request, user)
+                    return redirect('home')
+                except Exception as e:
+                    print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
+                    print(f"{'='*60}\n")
+                    messages.error(request, f"Failed to process login: {str(e)}")
+                    return render(request, 'login.html')
             else:
                 messages.error(request, "Your account is not active.")
         else:
             messages.error(request, "Invalid username or password.")
-    return render(request, 'login.html')
-
+    return render(request, 'login.html')    
 
 def register(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()  # Save the new user to the database
+            user = form.save()  
             login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')  # Redirect to login page after successful registration
+            return redirect('login')  
         else:
-            # If the form is not valid, the errors will automatically be shown in the template
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = CustomUserCreationForm()  # Instantiate a blank form
+        form = CustomUserCreationForm() 
 
     return render(request, 'registration/register.html', {'form': form})
 
@@ -2698,14 +2990,12 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
 
         now = timezone.now()
+
+        filter_date = self.request.GET.get('month')  
+        filter_year_only = self.request.GET.get('year')  
         
-        # Get filter parameters
-        filter_date = self.request.GET.get('month')  # YYYY-MM format
-        filter_year_only = self.request.GET.get('year')  # Year only
+        filter_type = None 
         
-        filter_type = None  # 'month', 'year', or None (current month)
-        
-        # Check if filtering by specific month
         if filter_date:
             try:
                 year, month = filter_date.split('-')
@@ -2719,7 +3009,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
                 current_year = now.year
                 filter_month = None
                 filter_year = None
-        # Check if filtering by year only
+
         elif filter_year_only:
             try:
                 current_year = int(filter_year_only)
@@ -2732,14 +3022,13 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
                 current_year = now.year
                 filter_month = None
                 filter_year = None
-        # Default to current month
+
         else:
             current_month = now.month
             current_year = now.year
             filter_month = None
             filter_year = None
 
-        # Build query filters
         filters = {
             'item_type': 'PRODUCT',
             'reason': 'SOLD',
@@ -2747,7 +3036,6 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
             'date__year': current_year
         }
         
-        # Add month filter only if not filtering by year only
         if filter_type != 'year':
             filters['date__month'] = current_month
 
@@ -2843,7 +3131,6 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         context['filter_year'] = filter_year
         context['filter_type'] = filter_type
         
-        # Set display values based on filter type
         if filter_type == 'year':
             context['current_month_name'] = None
             context['filter_month_name'] = None
@@ -2977,3 +3264,256 @@ def database_backup(request):
             return redirect(request.META.get('HTTP_REFERER', 'home'))
     
     return redirect('home')
+
+
+@login_required
+def financial_loss(request):
+    """View for displaying financial losses from expired and damaged items"""
+
+    product_withdrawals = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    raw_material_withdrawals = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    product_loss_data = []
+    total_product_loss = Decimal('0.00')
+    
+    for withdrawal in product_withdrawals:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            product_loss_data.append({
+                'date': withdrawal.date,
+                'product_name': str(product),
+                'quantity': withdrawal.quantity,
+                'unit_price': product.unit_price.unit_price,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except Products.DoesNotExist:
+            continue
+
+    raw_material_loss_data = []
+    total_raw_material_loss = Decimal('0.00')
+    
+    for withdrawal in raw_material_withdrawals:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            raw_material_loss_data.append({
+                'date': withdrawal.date,
+                'material_name': material.name,
+                'quantity': withdrawal.quantity,
+                'unit_name': material.unit.unit_name,
+                'price_per_unit': material.price_per_unit,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    total_loss = total_product_loss + total_raw_material_loss
+    
+    context = {
+        'product_withdrawals': product_loss_data,
+        'raw_material_withdrawals': raw_material_loss_data,
+        'product_loss': total_product_loss,
+        'raw_material_loss': total_raw_material_loss,
+        'total_loss': total_loss,
+    }
+    
+    return render(request, 'financial_loss.html', context)
+
+
+@login_required
+def financial_loss_export(request):
+    """Export financial loss data to CSV"""
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    product_qs = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    raw_material_qs = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    if filter_type == "date" and start_date:
+        try:
+            year, month, day = start_date.split('-')
+            product_qs = product_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+            raw_material_qs = raw_material_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
+    
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        product_qs = product_qs.filter(date__year=start.year, date__month=start.month)
+        raw_material_qs = raw_material_qs.filter(date__year=start.year, date__month=start.month)
+    
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        product_qs = product_qs.filter(date__year=year)
+        raw_material_qs = raw_material_qs.filter(date__year=year)
+    
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        product_qs = product_qs.filter(date__range=(start.date(), end.date()))
+        raw_material_qs = raw_material_qs.filter(date__range=(start.date(), end.date()))
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="financial_loss_{filter_type}.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    
+    writer = csv.writer(response)
+
+    writer.writerow(['PRODUCTS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Product', 'Quantity', 'Unit Price', 'Reason', 'Financial Loss'])
+    
+    total_product_loss = Decimal('0.00')
+    for withdrawal in product_qs:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                str(product),
+                withdrawal.quantity,
+                product.unit_price.unit_price,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except Products.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL PRODUCT LOSS', f"₱{total_product_loss:.2f}"])
+    writer.writerow([])
+
+    writer.writerow(['RAW MATERIALS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Raw Material', 'Quantity', 'Price per Unit', 'Reason', 'Financial Loss'])
+    
+    total_raw_material_loss = Decimal('0.00')
+    for withdrawal in raw_material_qs:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                f"{material.name} ({material.unit.unit_name})",
+                withdrawal.quantity,
+                material.price_per_unit,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL RAW MATERIAL LOSS', f"₱{total_raw_material_loss:.2f}"])
+    writer.writerow([])
+
+    total_loss = total_product_loss + total_raw_material_loss
+    writer.writerow(['', '', '', '', 'TOTAL FINANCIAL LOSS', f"₱{total_loss:.2f}"])
+    
+    return response
+
+@login_required
+def setup_2fa(request):
+    """Enable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        backup_email = request.POST.get('backup_email', '').strip()
+        
+        # Create or update 2FA settings
+        settings, created = User2FASettings.objects.get_or_create(
+            user=request.user,
+            defaults={
+                'is_enabled': True,
+                'method': 'email',
+                'backup_email': backup_email if backup_email else None
+            }
+        )
+        
+        if not created:
+            settings.is_enabled = True
+            settings.backup_email = backup_email if backup_email else None
+            settings.save()
+        
+        messages.success(request, "✅ Two-Factor Authentication has been enabled!")
+        return redirect('profile')
+    
+    # GET request - show setup form
+    try:
+        twofa_settings = User2FASettings.objects.get(user=request.user)
+    except User2FASettings.DoesNotExist:
+        twofa_settings = None
+    
+    return render(request, '2fa_setup.html', {
+        'user_email': request.user.email,
+        'twofa_settings': twofa_settings
+    })
+
+
+@login_required
+def disable_2fa(request):
+    """Disable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        
+        # Verify password before disabling
+        if not request.user.check_password(password):
+            messages.error(request, "❌ Incorrect password. Cannot disable 2FA.")
+            return redirect('profile')
+        
+        try:
+            settings = User2FASettings.objects.get(user=request.user)
+            settings.is_enabled = False
+            settings.save()
+            messages.success(request, "✅ Two-Factor Authentication has been disabled.")
+        except User2FASettings.DoesNotExist:
+            messages.info(request, "2FA was not enabled.")
+        
+        return redirect('profile')
+    
+    return redirect('profile')

@@ -31,7 +31,6 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),
-    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     re_path(r'^logout/$', auth_views.LogoutView.as_view(), name='logout'),
 
     path('products/', a.ProductsList.as_view(), name='products'),
@@ -146,7 +145,6 @@ urlpatterns = [
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
-    re_path(r'^login/$', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path("login/", a.login_view, name="login"),
 
     path('password_reset/', 
@@ -201,11 +199,17 @@ urlpatterns = [
 
     path('export-sales/', a.export_sales, name='export_sales'),
     path('export-expenses/', a.export_expenses, name='export_expenses'),
+    
+    path('financial-loss/', a.financial_loss, name='financial-loss'),
+    path('financial-loss/export/', a.financial_loss_export, name='financial-loss-export'),
 
     path('user-activity/', a.UserActivityList.as_view(), name='user-activity'),
 
     path("check-expirations/", a.check_expirations, name="check-expirations"),
     
     path('database-backup/', a.database_backup, name='database-backup'),
+
+    path('2fa-setup/', a.setup_2fa, name='2fa_setup'),
+    path('2fa-disable/', a.disable_2fa, name='2fa_disable'),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

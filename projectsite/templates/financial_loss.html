@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Financial Loss Report</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <div class="card-title">Expired & Damaged Items</div>
+            </div>
+            <div>
+              <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportLossModal">
+                <i class="la la-download"></i> Export Report
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- Date Filter -->
+            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4 text-center">
+              <div class="col-md-4">
+                <div class="card bg-danger text-white">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Financial Loss</h5>
+                    <h3 id="totalLoss">₱{{ total_loss|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-warning text-white">
+                  <div class="card-body">
+                    <h5 class="card-title">Product Loss</h5>
+                    <h3 id="productLoss">₱{{ product_loss|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-info text-white">
+                  <div class="card-body">
+                    <h5 class="card-title">Raw Material Loss</h5>
+                    <h3 id="rawMaterialLoss">₱{{ raw_material_loss|floatformat:2|intcomma }}</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Products Loss Section -->
+            <h5 class="mt-4 mb-3">Products - Expired & Damaged</h5>
+            <div class="table-responsive">
+              <table class="table table-striped" id="productsLossTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Reason</th>
+                    <th>Financial Loss</th>
+                  </tr>
+                </thead>
+                <tbody id="productsLossBody">
+                  {% for item in product_withdrawals %}
+                  <tr data-date="{{ item.date|date:'Y-m' }}">
+                    <td>{{ item.date|date:"Y-m-d g:i A" }}</td>
+                    <td>{{ item.product_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>₱{{ item.unit_price|floatformat:2 }}</td>
+                    <td>
+                      <span class="badge badge-{% if item.reason == 'EXPIRED' %}warning{% else %}danger{% endif %}">
+                        {{ item.get_reason_display }}
+                      </span>
+                    </td>
+                    <td class="text-danger font-weight-bold">₱{{ item.loss_amount|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="6" class="text-center text-muted">No product losses found</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Raw Materials Loss Section -->
+            <h5 class="mt-5 mb-3">Raw Materials - Expired & Damaged</h5>
+            <div class="table-responsive">
+              <table class="table table-striped" id="rawMaterialsLossTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Raw Material</th>
+                    <th>Quantity</th>
+                    <th>Price per Unit</th>
+                    <th>Reason</th>
+                    <th>Financial Loss</th>
+                  </tr>
+                </thead>
+                <tbody id="rawMaterialsLossBody">
+                  {% for item in raw_material_withdrawals %}
+                  <tr data-date="{{ item.date|date:'Y-m' }}">
+                    <td>{{ item.date|date:"Y-m-d g:i A" }}</td>
+                    <td>{{ item.material_name }}</td>
+                    <td>{{ item.quantity }} {{ item.unit_name }}</td>
+                    <td>₱{{ item.price_per_unit|floatformat:2 }}</td>
+                    <td>
+                      <span class="badge badge-{% if item.reason == 'EXPIRED' %}warning{% else %}danger{% endif %}">
+                        {{ item.get_reason_display }}
+                      </span>
+                    </td>
+                    <td class="text-danger font-weight-bold">₱{{ item.loss_amount|floatformat:2|intcomma }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="6" class="text-center text-muted">No raw material losses found</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportLossModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <form method="get" action="{% url 'financial-loss-export' %}">
+        <div class="modal-header">
+          <h5 class="modal-title">Export Financial Loss Report</h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <label>Filter Type</label>
+          <select name="filter" class="form-control mb-3" id="lossFilterType" required>
+            <option value="date">By Date</option>
+            <option value="month">By Month</option>
+            <option value="year">By Year</option>
+            <option value="range">Custom Range</option>
+          </select>
+          <div id="lossStartInput">
+            <label>Start</label>
+            <input type="date" name="start" class="form-control mb-3" required>
+          </div>
+          <div id="lossEndInput" style="display:none;">
+            <label>End</label>
+            <input type="date" name="end" class="form-control mb-3">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Export CSV</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById("lossFilterType").addEventListener("change", function() {
+  const start = document.querySelector("#lossStartInput input");
+  const endDiv = document.getElementById("lossEndInput");
+  const end = document.querySelector("#lossEndInput input");
+
+  if (this.value === "date") {
+    start.type = "date"; 
+    endDiv.style.display = "none";
+  } 
+  else if (this.value === "month") {
+    start.type = "month"; 
+    endDiv.style.display = "none";
+  } 
+  else if (this.value === "year") {
+    start.type = "number"; 
+    start.min = "2000"; 
+    start.max = "2100"; 
+    start.placeholder = "Enter Year"; 
+    endDiv.style.display = "none";
+  } 
+  else if (this.value === "range") {
+    start.type = "month"; 
+    end.type = "month"; 
+    endDiv.style.display = "block";
+  }
+});
+
+document.getElementById("dateFilter").addEventListener("change", function() {
+  const selectedMonth = this.value; 
+  filterTablesByMonth(selectedMonth);
+  updateSummaryCards(selectedMonth);
+});
+
+document.getElementById("clearFilter").addEventListener("click", function() {
+  document.getElementById("dateFilter").value = "";
+  filterTablesByMonth("");
+  updateSummaryCards("");
+});
+
+function filterTablesByMonth(month) {
+  const productRows = document.querySelectorAll("#productsLossBody tr[data-date]");
+  productRows.forEach(row => {
+    if (!month || row.getAttribute("data-date") === month) {
+      row.style.display = "";
+    } else {
+      row.style.display = "none";
+    }
+  });
+
+  const rawMaterialRows = document.querySelectorAll("#rawMaterialsLossBody tr[data-date]");
+  rawMaterialRows.forEach(row => {
+    if (!month || row.getAttribute("data-date") === month) {
+      row.style.display = "";
+    } else {
+      row.style.display = "none";
+    }
+  });
+}
+
+function updateSummaryCards(month) {
+  let productLossTotal = 0;
+  let rawMaterialLossTotal = 0;
+
+  const productRows = document.querySelectorAll("#productsLossBody tr[data-date]");
+  productRows.forEach(row => {
+    if (row.style.display !== "none") {
+      const lossCell = row.querySelector("td:last-child");
+      if (lossCell) {
+        const lossText = lossCell.textContent.replace(/[₱,]/g, "");
+        productLossTotal += parseFloat(lossText) || 0;
+      }
+    }
+  });
+
+  const rawMaterialRows = document.querySelectorAll("#rawMaterialsLossBody tr[data-date]");
+  rawMaterialRows.forEach(row => {
+    if (row.style.display !== "none") {
+      const lossCell = row.querySelector("td:last-child");
+      if (lossCell) {
+        const lossText = lossCell.textContent.replace(/[₱,]/g, "");
+        rawMaterialLossTotal += parseFloat(lossText) || 0;
+      }
+    }
+  });
+
+  const totalLoss = productLossTotal + rawMaterialLossTotal;
+
+  document.getElementById("totalLoss").textContent = "₱" + totalLoss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById("productLoss").textContent = "₱" + productLossTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById("rawMaterialLoss").textContent = "₱" + rawMaterialLossTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+</script>
+{% endblock %}
