@@ -1016,7 +1016,9 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display
+        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
 
         return context

@@ -41,9 +41,9 @@
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
-                  {% for cat in categories %}
-                    <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>
-                      {{ cat }}
+                  {% for cat_value, cat_display in categories %}
+                    <option value="{{ cat_value }}" {% if request.GET.category == cat_value %}selected{% endif %}>
+                      {{ cat_display }}
                     </option>
                   {% endfor %}
               </select>
