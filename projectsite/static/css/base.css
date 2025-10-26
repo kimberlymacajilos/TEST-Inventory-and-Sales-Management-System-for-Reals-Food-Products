@@ -584,26 +584,26 @@ html[data-theme="dark"] .dropdown-menu a:hover {
 }
 
 html[data-theme="dark"] .dropdown-header {
-  background: rgba(119, 178, 84, 0.15);
+  background: #1a1f20;
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(119, 178, 84, 0.2);
 }
 
 html[data-theme="dark"] .dropdown-header h6 {
-  color: #c8e6c9 !important;  /* Lighter green for visibility */
+  color: #ffffff !important;  /* White for visibility */
 }
 
 html[data-theme="dark"] .dropdown-footer {
-  background: rgba(26, 31, 32, 0.8);
-  border-top: 1px solid var(--border);
+  background: #1a1f20;
+  border-top: 1px solid rgba(119, 178, 84, 0.2);
 }
 
 html[data-theme="dark"] .dropdown-footer a {
-  color: #c8e6c9 !important;  /* Lighter green for links */
+  color: #ffffff !important;  /* White for links */
 }
 
 html[data-theme="dark"] .dropdown-footer a:hover {
-  color: #f1f8f4 !important;  /* Brightest on hover */
+  color: #ffffff !important;  /* White on hover */
 }
 
 /* Dark mode - Notification box */
@@ -615,19 +615,28 @@ html[data-theme="dark"] .notif-box {
 
 html[data-theme="dark"] .notif-item {
   color: var(--text);
-  border-bottom: 1px solid rgba(119, 178, 84, 0.1);
+  background: #1a1f20 !important;  /* Dark background */
+  border-bottom: 1px solid rgba(119, 178, 84, 0.2);
 }
 
 html[data-theme="dark"] .notif-item:hover {
-  background: rgba(119, 178, 84, 0.1);
+  background: rgba(119, 178, 84, 0.3) !important;  /* Lighter green on hover */
 }
 
 html[data-theme="dark"] .notif-title {
-  color: #f1f8f4 !important;  /* Bright notification titles */
+  color: #ffffff !important;  /* White notification titles */
+}
+
+html[data-theme="dark"] .notif-item:hover .notif-title {
+  color: #ffffff !important;  /* White on hover */
 }
 
 html[data-theme="dark"] .notif-time {
-  color: var(--muted);
+  color: #ffffff !important;  /* White timestamp */
+}
+
+html[data-theme="dark"] .notif-item:hover .notif-time {
+  color: #ffffff !important;  /* White on hover */
 }
 
 /* Dark mode - Active nav item */
