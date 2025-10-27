@@ -220,9 +220,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Update or remove filters
       if (adminFilter.value) {
-        params.set("q", adminFilter.value);
+        params.set("admin", adminFilter.value);
       } else {
-        params.delete("q");
+        params.delete("admin");
       }
       
       if (itemTypeFilter.value) {
