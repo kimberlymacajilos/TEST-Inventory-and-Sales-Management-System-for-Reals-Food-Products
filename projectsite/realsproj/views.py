@@ -2100,9 +2100,16 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.filter(is_archived=False).order_by('-date')
+        # Use select_related to reduce database queries
+        queryset = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
         request = self.request
 
+        # Admin filter
+        admin = request.GET.get("admin")
+        if admin:
+            queryset = queryset.filter(created_by_admin__username=admin)
+
+        # General search
         q = request.GET.get("q")
         if q:
             filters = (
@@ -2114,13 +2121,23 @@ class WithdrawSuccessView(ListView):
                 filters |= Q(item_id=q)
             queryset = queryset.filter(filters)
 
+        # Item type filter
         item_type = request.GET.get("item_type")
         if item_type:
-            queryset = queryset.filter(item_type=item_type)
+            # Match against the display label
+            for value, label in Withdrawals.ITEM_TYPE_CHOICES:
+                if label == item_type:
+                    queryset = queryset.filter(item_type=value)
+                    break
 
+        # Reason filter
         reason = request.GET.get("reason")
         if reason:
-            queryset = queryset.filter(reason=reason)
+            # Match against the display label
+            for value, label in Withdrawals.REASON_CHOICES:
+                if label == reason:
+                    queryset = queryset.filter(reason=value)
+                    break
 
         date_val = request.GET.get("date")
         if date_val:
@@ -2139,13 +2156,21 @@ class WithdrawSuccessView(ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from django.core.cache import cache
         context = super().get_context_data(**kwargs)
-        context["admins"] = (
-            Withdrawals.objects
-            .values_list("created_by_admin__username", flat=True)
-            .distinct()
-            .order_by("created_by_admin__username")
-        )
+        
+        # Cache admin list for 5 minutes to reduce queries
+        admins = cache.get('withdrawal_admins_list')
+        if admins is None:
+            admins = list(
+                Withdrawals.objects
+                .values_list("created_by_admin__username", flat=True)
+                .distinct()
+                .order_by("created_by_admin__username")
+            )
+            cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
+        
+        context["admins"] = admins
         return context
     
 class WithdrawItemView(View):
