@@ -970,6 +970,36 @@ class SaleUnarchiveView(View):
         sale.save()
         return redirect('sales-archived-list')
 
+class SaleBulkRestoreView(View):
+    def post(self, request):
+        import json
+        try:
+            sale_ids = json.loads(request.POST.get('sale_ids', '[]'))
+            if not sale_ids:
+                return JsonResponse({'success': False, 'message': 'No sales selected'})
+            
+            # Restore selected sales
+            count = Sales.objects.filter(id__in=sale_ids, is_archived=True).update(is_archived=False)
+            
+            return JsonResponse({'success': True, 'count': count})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+class SaleBulkDeleteView(View):
+    def post(self, request):
+        import json
+        try:
+            sale_ids = json.loads(request.POST.get('sale_ids', '[]'))
+            if not sale_ids:
+                return JsonResponse({'success': False, 'message': 'No sales selected'})
+            
+            # Delete selected sales
+            count, _ = Sales.objects.filter(id__in=sale_ids, is_archived=True).delete()
+            
+            return JsonResponse({'success': True, 'count': count})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
 class SalesList(ListView):
     model = Sales
     context_object_name = 'sales'
@@ -1755,12 +1785,17 @@ class SizeDeleteView(View):
 class SizeUnitAddView(View):
     def post(self, request):
         from django.db import IntegrityError
-        unit_name = request.POST.get('unit_name')
+        unit_name = request.POST.get('unit_name', '').strip()
         if unit_name:
+            # Check if already exists (case-insensitive)
+            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exists():
+                messages.error(request, '❌ This Size Unit already exists!')
+                return redirect('product-attributes')
+            
             try:
                 auth_user = AuthUser.objects.get(id=request.user.id)
                 SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
-                messages.success(request, 'Size Unit added successfully!')
+                messages.success(request, '✅ Size Unit added successfully!')
             except IntegrityError:
                 messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
@@ -1770,12 +1805,17 @@ class SizeUnitEditView(View):
     def post(self, request, pk):
         from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
-        unit_name = request.POST.get('unit_name')
+        unit_name = request.POST.get('unit_name', '').strip()
         if unit_name:
+            # Check if another record with same name exists (excluding current)
+            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exclude(pk=pk).exists():
+                messages.error(request, '❌ This Size Unit already exists!')
+                return redirect('product-attributes')
+            
             try:
                 size_unit.unit_name = unit_name
                 size_unit.save()
-                messages.success(request, 'Size Unit updated successfully!')
+                messages.success(request, '✅ Size Unit updated successfully!')
             except IntegrityError:
                 messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
@@ -1798,14 +1838,39 @@ class SizeUnitDeleteView(View):
 class UnitPriceAddView(View):
     def post(self, request):
         from django.db import IntegrityError
-        unit_price = request.POST.get('unit_price')
-        if unit_price:
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
-                messages.success(request, 'Unit Price added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Unit Price already exists!')
+        unit_price = request.POST.get('unit_price', '').strip()
+        
+        if not unit_price:
+            messages.error(request, '❌ Please enter a price!')
+            return redirect('product-attributes')
+        
+        try:
+            # Convert to Decimal for validation
+            price_value = Decimal(unit_price)
+            
+            # Validate positive number
+            if price_value <= 0:
+                messages.error(request, '❌ Price must be greater than zero!')
+                return redirect('product-attributes')
+            
+        except (InvalidOperation, ValueError):
+            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            return redirect('product-attributes')
+        
+        # Check if already exists
+        if UnitPrices.objects.filter(unit_price=price_value).exists():
+            messages.error(request, f'❌ Unit Price ₱{price_value} already exists!')
+            return redirect('product-attributes')
+        
+        try:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            UnitPrices.objects.create(unit_price=price_value, created_by_admin=auth_user)
+            messages.success(request, f'✅ Unit Price ₱{price_value} added successfully!')
+        except IntegrityError as e:
+            messages.error(request, f'❌ Database error: This Unit Price already exists!')
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+        
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
@@ -1813,14 +1878,22 @@ class UnitPriceEditView(View):
     def post(self, request, pk):
         from django.db import IntegrityError
         unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
-        unit_price = request.POST.get('unit_price')
+        unit_price = request.POST.get('unit_price', '').strip()
         if unit_price:
             try:
-                unit_price_obj.unit_price = unit_price
+                # Convert to Decimal for comparison
+                price_value = Decimal(unit_price)
+                
+                # Check if another record with same price exists (excluding current)
+                if UnitPrices.objects.filter(unit_price=price_value).exclude(pk=pk).exists():
+                    messages.error(request, '❌ This Unit Price already exists!')
+                    return redirect('product-attributes')
+                
+                unit_price_obj.unit_price = price_value
                 unit_price_obj.save()
-                messages.success(request, 'Unit Price updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Unit Price already exists!')
+                messages.success(request, '✅ Unit Price updated successfully!')
+            except (IntegrityError, InvalidOperation, ValueError):
+                messages.error(request, '❌ Invalid price or this Unit Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
@@ -1841,14 +1914,39 @@ class UnitPriceDeleteView(View):
 class SrpPriceAddView(View):
     def post(self, request):
         from django.db import IntegrityError
-        srp_price = request.POST.get('srp_price')
-        if srp_price:
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
-                messages.success(request, 'SRP Price added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This SRP Price already exists!')
+        srp_price = request.POST.get('srp_price', '').strip()
+        
+        if not srp_price:
+            messages.error(request, '❌ Please enter a price!')
+            return redirect('product-attributes')
+        
+        try:
+            # Convert to Decimal for validation
+            price_value = Decimal(srp_price)
+            
+            # Validate positive number
+            if price_value <= 0:
+                messages.error(request, '❌ Price must be greater than zero!')
+                return redirect('product-attributes')
+            
+        except (InvalidOperation, ValueError):
+            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            return redirect('product-attributes')
+        
+        # Check if already exists
+        if SrpPrices.objects.filter(srp_price=price_value).exists():
+            messages.error(request, f'❌ SRP Price ₱{price_value} already exists!')
+            return redirect('product-attributes')
+        
+        try:
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            SrpPrices.objects.create(srp_price=price_value, created_by_admin=auth_user)
+            messages.success(request, f'✅ SRP Price ₱{price_value} added successfully!')
+        except IntegrityError:
+            messages.error(request, f'❌ This SRP Price already exists!')
+        except Exception as e:
+            messages.error(request, f'❌ Error adding SRP Price. Please try again.')
+        
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
@@ -1856,14 +1954,22 @@ class SrpPriceEditView(View):
     def post(self, request, pk):
         from django.db import IntegrityError
         srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
-        srp_price = request.POST.get('srp_price')
+        srp_price = request.POST.get('srp_price', '').strip()
         if srp_price:
             try:
-                srp_price_obj.srp_price = srp_price
+                # Convert to Decimal for comparison
+                price_value = Decimal(srp_price)
+                
+                # Check if another record with same price exists (excluding current)
+                if SrpPrices.objects.filter(srp_price=price_value).exclude(pk=pk).exists():
+                    messages.error(request, '❌ This SRP Price already exists!')
+                    return redirect('product-attributes')
+                
+                srp_price_obj.srp_price = price_value
                 srp_price_obj.save()
-                messages.success(request, 'SRP Price updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This SRP Price already exists!')
+                messages.success(request, '✅ SRP Price updated successfully!')
+            except (IntegrityError, InvalidOperation, ValueError):
+                messages.error(request, '❌ Invalid price or this SRP Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
