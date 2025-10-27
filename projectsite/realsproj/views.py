@@ -548,6 +548,7 @@ class ProductCreateView(CreateView):
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
+        context['size_units'] = SizeUnits.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         return context  
@@ -557,6 +558,41 @@ class ProductCreateView(CreateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+
+    def post(self, request, *args, **kwargs):
+        request.POST = request.POST.copy()
+        
+        size_unit_name = request.POST.get('size_unit')
+        if size_unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=size_unit_name)
+                request.POST['size_unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                pass
+
+        unit_price_val = request.POST.get('unit_price')
+        if unit_price_val:
+            try:
+                price_obj, created = UnitPrices.objects.get_or_create(
+                    unit_price=unit_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['unit_price'] = price_obj.id
+            except Exception:
+                pass
+
+        srp_price_val = request.POST.get('srp_price')
+        if srp_price_val:
+            try:
+                price_obj, created = SrpPrices.objects.get_or_create(
+                    srp_price=srp_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['srp_price'] = price_obj.id
+            except Exception:
+                pass
+        
+        return super().post(request, *args, **kwargs)
 
     @transaction.atomic
     def form_valid(self, form):
@@ -597,6 +633,7 @@ class ProductsUpdateView(UpdateView):
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
+        context['size_units'] = SizeUnits.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
@@ -627,6 +664,42 @@ class ProductsUpdateView(UpdateView):
         return url
 
     def post(self, request, *args, **kwargs):
+        # Convert field names to ForeignKey IDs
+        request.POST = request.POST.copy()
+        
+        # Handle size_unit
+        size_unit_name = request.POST.get('size_unit')
+        if size_unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=size_unit_name)
+                request.POST['size_unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                pass
+        
+        # Handle unit_price
+        unit_price_val = request.POST.get('unit_price')
+        if unit_price_val:
+            try:
+                price_obj, created = UnitPrices.objects.get_or_create(
+                    unit_price=unit_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['unit_price'] = price_obj.id
+            except Exception:
+                pass
+        
+        # Handle srp_price
+        srp_price_val = request.POST.get('srp_price')
+        if srp_price_val:
+            try:
+                price_obj, created = SrpPrices.objects.get_or_create(
+                    srp_price=srp_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['srp_price'] = price_obj.id
+            except Exception:
+                pass
+        
         # Store the current page in session
         referer = request.META.get('HTTP_REFERER', '')
         if 'page=' in referer:
@@ -828,6 +901,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['size_units'] = SizeUnits.objects.all()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        unit_name = request.POST.get('unit')
+        if unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=unit_name)
+                request.POST = request.POST.copy()
+                request.POST['unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                messages.error(request, f"Unit '{unit_name}' not found.")
+                return redirect(self.request.path)
+        return super().post(request, *args, **kwargs)
+
     @transaction.atomic
     def form_valid(self, form):
         try:
@@ -838,7 +928,7 @@ class RawMaterialsCreateView(CreateView):
             transaction.set_rollback(True)
             messages.error(self.request, f"Raw material creation failed: {e}")
             return redirect(self.request.path)  
-        messages.success(self.request, "✅ Raw material created successfully.")
+        messages.success(self.request, "Raw material created successfully.")
         return redirect(self.success_url)
 
     def form_invalid(self, form):
@@ -852,9 +942,27 @@ class RawMaterialsUpdateView(UpdateView):
     template_name = 'rawmaterial_edit.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['size_units'] = SizeUnits.objects.all()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        # Convert unit name to unit ID
+        unit_name = request.POST.get('unit')
+        if unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=unit_name)
+                request.POST = request.POST.copy()
+                request.POST['unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                messages.error(request, f"Unit '{unit_name}' not found.")
+                return redirect(reverse('rawmaterial-edit', kwargs={'pk': self.get_object().pk}))
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
         response = super().form_valid(form)
-        messages.success(self.request, "✏️ Raw Material updated successfully.")
+        messages.success(self.request, "Raw Material updated successfully.")
         return response
 
 

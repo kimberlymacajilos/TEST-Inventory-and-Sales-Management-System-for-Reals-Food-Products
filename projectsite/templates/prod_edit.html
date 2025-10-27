@@ -27,8 +27,8 @@
                   <input type="hidden" name="current_page" value="{{ current_page }}">
                 {% endif %}
 
+                <!-- Barcode Field -->
                 <div class="form-container">
-                  
                   <div class="form-item" style="width:100%;">
                     <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
                     <input type="text" id="barcode-input" name="barcode"
@@ -37,7 +37,9 @@
                            placeholder="Scan or enter barcode manually">
                     <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
                   </div>
+                </div>
 
+                <div class="form-container">
                   <!-- Product Type -->
                   <div class="form-item">
                     <label>Product Type</label>
@@ -62,45 +64,61 @@
                     </datalist>
                   </div>
 
-                  <!-- Size + Size Unit -->
-                  <div class="form-row" style="width:100%;">
-                    <div class="form-item col-md-6">
-                      <label>Size</label>
-                      <input type="text" name="size" list="size-options"
-                             class="form-control" value="{{ form.size.value|default:'' }}">
-                      <datalist id="size-options">
-                        {% for s in sizes %}
-                          <option value="{{ s.size_label }}">
-                        {% endfor %}
-                      </datalist>
-                    </div>
-                    <div class="form-item col-md-6">
-                      <label>Size Unit</label>
-                      {% render_field form.size_unit class="form-control" %}
-                    </div>
+                  <!-- Size -->
+                  <div class="form-item">
+                    <label>Size</label>
+                    <input type="text" name="size" list="size-options"
+                           class="form-control" value="{{ form.size.value|default:'' }}">
+                    <datalist id="size-options">
+                      {% for s in sizes %}
+                        <option value="{{ s.size_label }}">
+                      {% endfor %}
+                    </datalist>
                   </div>
 
-                  <!-- Unit Price + SRP Price -->
-                  <div class="form-row" style="width:100%;">
-                    <div class="form-item col-md-6">
-                      <label>Unit Price</label>
-                      <input type="number" step="0.01" name="unit_price"
-                             class="form-control" value="{{ form.unit_price.value|default:'' }}">
-                    </div>
-                    <div class="form-item col-md-6">
-                      <label>SRP Price</label>
-                      <input type="number" step="0.01" name="srp_price"
-                             class="form-control" value="{{ form.srp_price.value|default:'' }}">
-                    </div>
+                  <!-- Size Unit -->
+                  <div class="form-item">
+                    <label>Size Unit</label>
+                    <input type="text" name="size_unit" list="size_unit-options"
+                           class="form-control" value="{{ object.size_unit.unit_name|default:'' }}">
+                    <datalist id="size_unit-options">
+                      {% for su in size_units %}
+                        <option value="{{ su.unit_name }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Unit Price -->
+                  <div class="form-item">
+                    <label>Unit Price</label>
+                    <input type="text" name="unit_price" list="unit_price-options"
+                           class="form-control" value="{{ object.unit_price.unit_price|default:'' }}" step="0.01">
+                    <datalist id="unit_price-options">
+                      {% for up in unit_prices %}
+                        <option value="{{ up.unit_price }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- SRP Price -->
+                  <div class="form-item">
+                    <label>SRP Price</label>
+                    <input type="text" name="srp_price" list="srp_price-options"
+                           class="form-control" value="{{ object.srp_price.srp_price|default:'' }}" step="0.01">
+                    <datalist id="srp_price-options">
+                      {% for sp in srp_prices %}
+                        <option value="{{ sp.srp_price }}">
+                      {% endfor %}
+                    </datalist>
                   </div>
 
                   <!-- Description -->
-                  <div class="form-item" style="width:100%;">
+                  <div class="form-item">
                     {{ form.description.label_tag }}
                     {% render_field form.description class="form-control" rows="3" %}
                   </div>
                   <!-- Photo Upload -->
-                  <div class="form-item" style="width:100%;">
+                  <div class="form-item">
                     <label>Product Photo</label>
 
                     {% if object.photo %}
@@ -214,19 +232,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function updateScannerStatus(text, className) {
     if (!scannerStatus) return;
-    scannerStatus.textContent = Scanner: ${text};
-    scannerStatus.className = badge ${className} ml-2;
+    scannerStatus.textContent = `Scanner: ${text}`;
+    scannerStatus.className = `badge ${className} ml-2`;
   }
   function updateBarcodeStatus(text, color = "text-muted") {
     if (!barcodeStatus) return;
     barcodeStatus.textContent = text;
-    barcodeStatus.className = form-text ${color};
+    barcodeStatus.className = `form-text ${color}`;
   }
 
   function connectWebSocket() {
     if (socket) { try { socket.close(); } catch(e){} }
     const protocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const wsUrl = ${protocol}${location.host}/ws/scan/;
+    const wsUrl = `${protocol}${location.host}/ws/scan/`;
     updateScannerStatus("Connecting...", "badge-warning");
     socket = new WebSocket(wsUrl);
 
@@ -255,7 +273,7 @@ document.addEventListener("DOMContentLoaded", function() {
           setTimeout(() => { barcodeInput.style.border = ""; }, 700);
         }
         const now = new Date().toLocaleTimeString();
-        updateBarcodeStatus(✓ Scanned: ${barcode} at ${now}, "text-success");
+        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
       } catch {
         updateBarcodeStatus("✗ Error processing barcode", "text-danger");
       }
