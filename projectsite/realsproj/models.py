@@ -244,6 +244,18 @@ class HistoryLog(models.Model):
                 sz = Sizes.objects.get(pk=self.entity_id)
                 return sz.size_label
 
+            elif self.entity_type == "size_unit":
+                su = SizeUnits.objects.get(pk=self.entity_id)
+                return f"Size Unit: {su.unit_name}"
+
+            elif self.entity_type == "unit_price":
+                up = UnitPrices.objects.get(pk=self.entity_id)
+                return f"Unit Price: ₱{up.unit_price}"
+
+            elif self.entity_type == "srp_price":
+                sp = SrpPrices.objects.get(pk=self.entity_id)
+                return f"SRP Price: ₱{sp.srp_price}"
+
             elif self.entity_type == "user":
                 u = AuthUser.objects.get(pk=self.entity_id)
                 full_name = f"{u.first_name} {u.last_name}".strip()
