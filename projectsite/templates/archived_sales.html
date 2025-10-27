@@ -42,28 +42,6 @@
                       <a href="#" data-toggle="modal" data-target="#unarchiveSaleModal{{ object.id }}" class="text-success" title="Unarchive">
                         <i class="la la-undo la-lg"></i>
                       </a>
-
-                      <!-- Unarchive Modal -->
-                      <div class="modal fade" id="unarchiveSaleModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered" role="document">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h5 class="modal-title">Confirm Unarchive</h5>
-                              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
-                            </div>
-                            <div class="modal-body">
-                              Are you sure you want to restore this sale to the active list?
-                            </div>
-                            <div class="modal-footer">
-                              <form method="post" action="{% url 'sales-unarchive' object.id %}">
-                                {% csrf_token %}
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Yes, Restore</button>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </td>
                   </tr>
                   {% empty %}
@@ -81,4 +59,66 @@
     </div>
   </div>
 </div>
+
+<!-- Unarchive Modals -->
+{% for object in object_list %}
+<div class="modal fade" id="unarchiveSaleModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Unarchive</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to restore this sale to the active list?
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="{% url 'sales-unarchive' object.id %}" onsubmit="handleUnarchiveSubmit(event, '{{ object.category }} - ₱{{ object.amount }}')">
+          {% csrf_token %}
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Yes, Restore</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+// Handle unarchive form submission with toast
+function handleUnarchiveSubmit(event, saleName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Restoring sale...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Sale "${saleName}" restored successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to restore sale. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Unarchive error:', error);
+        showToast('An error occurred while restoring the sale.', 'error');
+    });
+}
+</script>
 {% endblock %}

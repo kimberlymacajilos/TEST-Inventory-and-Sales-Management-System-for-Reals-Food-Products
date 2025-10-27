@@ -71,53 +71,6 @@
                                             <a href="#" data-toggle="modal" data-target="#deleteRawMaterialModal{{ object.id }}" class="text-danger" title="Delete">
                                                 <i class="la la-trash la-lg"></i>
                                             </a>
-
-                                            <!-- Archive Modal -->
-                                            <div class="modal fade" id="archiveRawMaterialModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                                <div class="modal-dialog modal-dialog-centered" role="document">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title">Confirm Archive</h5>
-                                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            Are you sure you want to archive this raw material?
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <form method="post" action="{% url 'rawmaterials-archive' object.id %}">
-                                                                {% csrf_token %}
-                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                                                <button type="submit" class="btn btn-warning">Archive</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Delete Modal -->
-                                            <div class="modal fade" id="deleteRawMaterialModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                                <div class="modal-dialog modal-dialog-centered" role="document">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title">Confirm Delete</h5>
-                                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                                <span>&times;</span>
-                                                            </button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            Are you sure you want to delete raw material:
-                                                            <strong>{{ object.name }}</strong> ({{ object.size }} {{ object.unit }})?
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <form method="post" action="{% url 'rawmaterials-delete' object.id %}">
-                                                                {% csrf_token %}
-                                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                                                <button type="submit" class="btn btn-danger">Delete</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </td>
                                     </tr>
                                     {% empty %}
@@ -129,12 +82,66 @@
                             </table>
                         </div>
 
-                        {% include 'includes/pagination.html' %}
+                        <div class="pagination-container">
+                            {% include 'includes/pagination.html' %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Individual Raw Material Modals -->
+<div id="rawMaterialModalsContainer">
+{% for object in object_list %}
+<!-- Archive Modal for {{ object.name }} -->
+<div class="modal fade" id="archiveRawMaterialModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Archive</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to archive this raw material?
+            </div>
+            <div class="modal-footer">
+                <form method="post" action="{% url 'rawmaterials-archive' object.id %}" onsubmit="handleArchiveSubmit(event, '{{ object.name }} ({{ object.size }} {{ object.unit }})')">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Archive</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal for {{ object.name }} -->
+<div class="modal fade" id="deleteRawMaterialModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete raw material:
+                <strong>{{ object.name }}</strong> ({{ object.size }} {{ object.unit }})?
+            </div>
+            <div class="modal-footer">
+                <form method="post" action="{% url 'rawmaterials-delete' object.id %}" onsubmit="handleDeleteSubmit(event, '{{ object.name }} ({{ object.size }} {{ object.unit }})')">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 </div>
 
 <!-- Archive Old Raw Materials Modal -->
@@ -159,50 +166,187 @@
   </div>
 </div>
 
-<!-- Search Script -->
 <script>
-    document.getElementById("searchInput").addEventListener("keyup", function() {
-        var value = this.value.toLowerCase();
-        var rows = document.querySelectorAll("#rawMaterialsTable tr");
-        rows.forEach(function(row) {
-            row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
-        });
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const dateFilter = document.getElementById('rawDateFilter');
+  const tableBody = document.getElementById('rawMaterialsTable');
+  const pagination = document.querySelector('.pagination-container');
+  
+  let timeout;
+  
+  function fetchRawMaterials(resetPage = true) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove search query
+      if (searchInput.value) {
+        params.set("q", searchInput.value);
+      } else {
+        params.delete("q");
+      }
+      
+      // Update or remove date filter
+      if (dateFilter.value) {
+        params.set("date_filter", dateFilter.value);
+      } else {
+        params.delete("date_filter");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
+      
+      const url = "/rawmaterials/?" + params.toString();
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#rawMaterialsTable");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Replace modals
+          const newModals = doc.querySelector('#rawMaterialModalsContainer');
+          if (newModals && modalsContainer) modalsContainer.innerHTML = newModals.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Clean up any lingering modal backdrops
+          $('.modal-backdrop').remove();
+          $('body').removeClass('modal-open');
+          $('body').css('padding-right', '');
+        })
+        .catch(err => console.error("Error fetching raw materials:", err));
+    }, 300);
+  }
+  
+  // Event listeners
+  searchInput.addEventListener('keyup', () => fetchRawMaterials(true));
+  dateFilter.addEventListener('change', () => fetchRawMaterials(true));
+  
+  // Handle pagination clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.pagination a')) {
+      e.preventDefault();
+      const link = e.target.closest('a');
+      const url = link.getAttribute('href');
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#rawMaterialsTable");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Replace modals
+          const newModals = doc.querySelector('#rawMaterialModalsContainer');
+          const currentModals = document.querySelector('#rawMaterialModalsContainer');
+          if (newModals && currentModals) currentModals.innerHTML = newModals.innerHTML;
+          
+          // Clean up any lingering modal backdrops
+          $('.modal-backdrop').remove();
+          $('body').removeClass('modal-open');
+          $('body').css('padding-right', '');
+          
+          // Scroll to top of table
+          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => console.error("Error fetching raw materials:", err));
+    }
+  });
 });
 
-    document.addEventListener('DOMContentLoaded', function () {
-    const filterForm = document.getElementById('filterForm');
-    const dateFilter = document.getElementById('rawDateFilter');
-    const searchInput = document.getElementById('searchInput');
+// Handle archive form submission with toast
+function handleArchiveSubmit(event, materialName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Archiving raw material...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Raw material "${materialName}" archived successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to archive raw material. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Archive error:', error);
+        showToast('An error occurred while archiving the raw material.', 'error');
+    });
+}
 
-    if (!filterForm) {
-        console.warn('filterForm not found');
-        return;
-    }
-
-    if (dateFilter) {
-        dateFilter.addEventListener('change', function () {
-            console.log('Auto-submitting month:', this.value);
-            filterForm.submit();
-        });
-    }
-
-    let typingTimer;
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function (e) {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(function () {
-                console.log('Auto-submitting search:', searchInput.value);
-                filterForm.submit();
-            }, 500);
-        });
-
-        searchInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                filterForm.submit();
-            }
-        });
-    }
-});
+// Handle delete form submission with toast
+function handleDeleteSubmit(event, materialName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Deleting raw material...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Raw material "${materialName}" deleted successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to delete raw material. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showToast('An error occurred while deleting the raw material.', 'error');
+    });
+}
 </script>
 {% endblock %}

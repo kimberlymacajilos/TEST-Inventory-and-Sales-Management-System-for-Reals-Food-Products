@@ -204,7 +204,9 @@ class HistoryLog(models.Model):
 
             elif self.entity_type == "sale":
                 s = Sales.objects.get(pk=self.entity_id)
-                return f"{s.category}"
+                # Format category to title case (e.g., ORDER -> Order)
+                category = s.category.replace('_', ' ').title() if s.category else s.category
+                return f"{category}"
 
             elif self.entity_type == "withdrawal":
                 try:
@@ -273,7 +275,6 @@ class HistoryLog(models.Model):
                 if value is None:
                     return None
 
-                # 🔹 Choice fields for Withdrawals
                 if key == "reason":
                     return dict(Withdrawals.REASON_CHOICES).get(value, value)
                 if key == "sales_channel":
@@ -282,8 +283,8 @@ class HistoryLog(models.Model):
                     return dict(Withdrawals.PRICE_TYPE_CHOICES).get(value, value)
                 if key == "item_type":
                     return dict(Withdrawals.ITEM_TYPE_CHOICES).get(value, value)
-
-                # 🔹 Product relations
+                if key == "category" and isinstance(value, str):
+                    return value.replace('_', ' ').title()
                 if key == "product_id":
                     try:
                         product = Products.objects.select_related("product_type", "variant", "size_unit", "size").get(id=value)
@@ -315,14 +316,12 @@ class HistoryLog(models.Model):
                     except SizeUnits.DoesNotExist:
                         return f"Unit #{value}"
 
-                # 🔹 Raw material relation
                 if key == "material_id":
                     try:
                         return RawMaterials.objects.get(id=value).name
                     except RawMaterials.DoesNotExist:
                         return f"Material #{value}"
 
-                # 🔹 Price lookups
                 if key == "srp_price_id":
                     try:
                         return str(SrpPrices.objects.get(id=value))
@@ -346,13 +345,9 @@ class HistoryLog(models.Model):
                 "batch_date",
                 "received_date",
                 "description",
+                "date", 
             ]
 
-            # hide date changes for expenses & sales
-            if self.entity_type in ("expense", "sale"):
-                ignore_fields.append("date")
-            
-            # hide date_joined for user sign-ups
             if self.entity_type == "user":
                 ignore_fields.append("date_joined")
 
@@ -375,7 +370,10 @@ class HistoryLog(models.Model):
                 after = self.details["after"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in after.items() if k not in ignore_fields
+                    for k, v in after.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -383,7 +381,10 @@ class HistoryLog(models.Model):
                 before = self.details["before"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in before.items() if k not in ignore_fields
+                    for k, v in before.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -404,6 +405,7 @@ class HistoryLogTypes(models.Model):
 
     def __str__(self):
         return self.category
+
 
 class Notifications(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -441,34 +443,62 @@ class Notifications(models.Model):
 
     @property
     def formatted_message(self):
-        """Generate readable message dynamically."""
         notif_type = self.notification_type.upper()
+        from realsproj.models import ProductBatches, RawMaterialBatches
         item_name = "Unknown Item"
 
         try:
             if self.item_type.upper() == "PRODUCT":
-                from .models import ProductBatches, Products
-                batch = ProductBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    product = batch.product
-                    item_name = str(product)
-                else:
-                    product = Products.objects.filter(id=self.item_id).first()
-                    if product:
-                        item_name = str(product)
+                batch = (
+                    ProductBatches.objects.filter(id=self.item_id)
+                    .select_related(
+                        "product__product_type",
+                        "product__variant",
+                        "product__size_unit",
+                        "product__size"
+                    ).first()
+                )
+                if batch and batch.product:
+                    p = batch.product
+                    product_type = getattr(p.product_type, "name", "")
+                    variant = getattr(p.variant, "name", "")
+                    size_label = getattr(p.size, "size_label", None)
+                    size_unit = getattr(p.size_unit, "unit_name", None)
+                    size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
+
+                    if notif_type == "EXPIRATION_ALERT":
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {product_type} - {variant}{size_text}"
+                    else:
+                        item_name = f"{product_type} - {variant}{size_text}"
 
             elif self.item_type.upper() == "RAW_MATERIAL":
-                from .models import RawMaterialBatches, RawMaterials
-                batch = RawMaterialBatches.objects.filter(id=self.item_id).first()
-                if batch:
-                    material = batch.material
-                    item_name = str(material)
+                batch = (
+                    RawMaterialBatches.objects.filter(id=self.item_id)
+                    .select_related("material__unit")
+                    .first()
+                )
+                if batch and batch.material:
+                    material_name = getattr(batch.material, "name", "")
+                    unit_name = getattr(batch.material.unit, "unit_name", "")
+                    if notif_type == "EXPIRATION_ALERT":
+                        qty = int(batch.quantity or 0)
+                        item_name = f"{qty} {material_name} ({unit_name})"
+                    else:
+                        item_name = f"{material_name} ({unit_name})"
                 else:
-                    material = RawMaterials.objects.filter(id=self.item_id).first()
+                    material = (
+                        RawMaterials.objects.filter(id=self.item_id)
+                        .select_related("unit")
+                        .first()
+                    )
                     if material:
-                        item_name = str(material)
+                        material_name = getattr(material, "name", "")
+                        unit_name = getattr(material.unit, "unit_name", "")
+                        item_name = f"{material_name} ({unit_name})"
 
-        except Exception:
+        except Exception as e:
+            print(f"[Notification Error] Failed to format {self.item_type} #{self.item_id}: {e}")
             item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
         if notif_type == "EXPIRATION_ALERT":
@@ -479,12 +509,11 @@ class Notifications(models.Model):
             return f"OUT OF STOCK: {item_name}"
         elif notif_type == "STOCK_HEALTHY":
             return f"Stock back to healthy: {item_name}"
-
-        return f"{notif_type}: {item_name}"
+        else:
+            return f"{notif_type}: {item_name}"
 
     def _expiration_message(self):
-        from datetime import date
-        today = date.today()
+        today = timezone.localdate()
 
         try:
             if self.item_type.upper() == "PRODUCT":
@@ -509,7 +538,8 @@ class Notifications(models.Model):
             else:
                 return f"has expired ({batch.expiration_date})"
 
-        except Exception:
+        except Exception as e:
+            print(f"[Expiration Error] {self.item_type} #{self.item_id}: {e}")
             return "has unknown expiration date"
 
 
@@ -801,6 +831,7 @@ class UserActivity(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     last_logout = models.DateTimeField(blank=True, null=True)
     active = models.BooleanField(default=False)
+    last_activity = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -808,7 +839,23 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+    
+    @property
+    def is_truly_active(self):
+        """
+        User is truly active if:
+        - They are marked as active (logged in)
+        - AND their last activity was within the last 5 minutes
+        """
+        if not self.active:
+            return False
+        
+        if not self.last_activity:
+            return False
 
+        time_threshold = timezone.now() - timedelta(minutes=5)
+        return self.last_activity >= time_threshold
+    
 
 class Withdrawals(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -932,3 +979,65 @@ class Withdrawals(models.Model):
                 Q(item_type__icontains=query)
             )
         return qs
+
+
+class User2FASettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='twofa_settings')
+    is_enabled = models.BooleanField(default=False)
+    method = models.CharField(max_length=10, choices=[('email', 'Email'), ('sms', 'SMS')], default='email')
+    phone_number = models.CharField(max_length=15, null=True, blank=True)
+    backup_email = models.EmailField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False  
+        db_table = 'user_2fa_settings'
+
+
+class UserOTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otp_codes')
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'user_otp'
+
+
+class TrustedDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_devices')
+    device_fingerprint = models.CharField(max_length=255)
+    device_name = models.CharField(max_length=255)
+    browser = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    ip_address = models.GenericIPAddressField()
+    last_used = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False 
+        db_table = 'trusted_devices'
+        unique_together = ['user', 'device_fingerprint']
+
+
+class LoginAttempt(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_attempts', null=True, blank=True)
+    username = models.CharField(max_length=150)
+    ip_address = models.GenericIPAddressField()
+    device_fingerprint = models.CharField(max_length=255, blank=True)
+    browser = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    success = models.BooleanField(default=False)
+    required_otp = models.BooleanField(default=False)
+    is_trusted_device = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False 
+        db_table = 'login_attempts'

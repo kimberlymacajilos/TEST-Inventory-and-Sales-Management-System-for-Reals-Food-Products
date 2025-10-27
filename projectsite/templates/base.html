@@ -7,11 +7,9 @@
   <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
 
   <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-  <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"> -->
   <link rel="stylesheet" href="{% static 'css/ready.css' %}">
   <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
-  <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"> -->
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
 
   <style>
@@ -22,7 +20,30 @@
     html body a:visited {
     text-decoration: none !important;
     }
+
+    /* Dark mode logo fix */
+    html[data-theme="dark"] .logo-header .logo {
+      color: #f1f8f4 !important;
+    }
+    html[data-theme="dark"] .logo-header .logo:hover,
+    html[data-theme="dark"] .logo-header .logo:visited,
+    html[data-theme="dark"] .logo-header .logo:active {
+      color: #f1f8f4 !important;
+    }
   </style>
+
+  <!-- Theme Detection Script - MUST run BEFORE page renders to prevent flash -->
+  <script>
+    (function(){
+      var html = document.documentElement;
+      var key = 'rfp-theme';
+      var saved = localStorage.getItem(key);
+      // Apply theme IMMEDIATELY before page renders
+      if(saved === 'dark'){ 
+        html.setAttribute('data-theme','dark');
+      }
+    })();
+  </script>
 
     
     {% block page_css %}{% endblock page_css %}
@@ -121,8 +142,6 @@
                             </form>
                         </ul>
                     </li>
-
-
                 </ul>
             </div>
         </nav>
@@ -139,7 +158,7 @@
                     <a data-toggle="collapse" href="#collapseExample" aria-expanded="true">
                         <span>
                             {{ request.user.username }}
-                            <span class="user-level">{% if request.user.is_superuser %}Administrator{% else %}Staff{% endif %}</span>
+                            <span class="user-level">Administrator</span>
                             <span class="caret"></span>
                         </span>
                     </a>
@@ -158,10 +177,10 @@
 
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#productsMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products' %}true{% else %}false{% endif %}">
                         <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory' %}show{% endif %}" id="productsMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products' %}show{% endif %}" id="productsMenu">
                         <ul class="nav nav-collapse">
                             <li class="{% if request.resolver_match.url_name in 'products product-list' %}active{% endif %}">
                                 <a href="{% url 'products' %}"><span class="sub-item">Product List</span></a>
@@ -171,6 +190,9 @@
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'product-inventory' %}active{% endif %}">
                                 <a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'best-seller-products' %}active{% endif %}">
+                                <a href="{% url 'best-seller-products' %}"><span class="sub-item">Best Seller Products</span></a>
                             </li>
                         </ul>
                     </div>
@@ -198,10 +220,10 @@
 
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#financialMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}true{% else %}false{% endif %}">
                         <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses' %}show{% endif %}" id="financialMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
                             <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
                                <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
@@ -211,6 +233,9 @@
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'expenses' %}active{% endif %}">
                                 <a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'financial-loss' %}active{% endif %}">
+                                <a href="{% url 'financial-loss' %}"><span class="sub-item">Financial Loss</span></a>
                             </li>
                         </ul>
                     </div>
@@ -235,6 +260,7 @@
                 
                 <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
                 <li class="nav-item"><a href="{% url 'user-activity' %}"><i class="la la-user"></i><p>User Activity</p></a></li>
+                <li class="nav-item"><a href="#" id="backupBtn"><i class="la la-download"></i><p>Backup Database</p></a></li>
             </ul>
         </div>
     </div>
@@ -267,34 +293,19 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<div id="liveToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-  <div class="d-flex">
-    <div class="toast-body">
-      Hello, this is a test toast!
-    </div>
-    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-  </div>
-</div>
-
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    const toastEl = document.getElementById('liveToast');
-    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
-    toast.show();
-  });
-</script>
-
-
 <script>
 (function(){
   var html = document.documentElement;
   var key = 'rfp-theme';
   var toggle = document.getElementById('themeToggle');
 
-  // apply saved theme on load
+  // Set toggle button state based on current theme
   var saved = localStorage.getItem(key);
-  if(saved === 'dark'){ html.setAttribute('data-theme','dark'); if(toggle) toggle.setAttribute('aria-checked','true'); }
+  if(saved === 'dark' && toggle){ 
+    toggle.setAttribute('aria-checked','true'); 
+  }
 
+  // Handle theme toggle clicks
   if(toggle){
     toggle.addEventListener('click', function(e){
       e.preventDefault();
@@ -331,13 +342,11 @@
 
     const toastHTML = `
       <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
+        <div class="toast-body d-flex align-items-center">
           <i class="me-2 ${icon}"></i>
-          <strong class="me-auto text-capitalize">${type}</strong>
-          <small>Just now</small>
-          <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
+          <span class="flex-grow-1">${message}</span>
+          <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
-        <div class="toast-body">${message}</div>
       </div>`;
 
     const container = document.getElementById("toast-container");
@@ -352,6 +361,37 @@
       toastEl.remove();
     });
   }
+</script>
+
+<!-- Database Backup Handler -->
+<script>
+  document.getElementById('backupBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    if (confirm('Are you sure you want to backup the database? This will download a SQL file of the current database.')) {
+      showToast('Preparing database backup...', 'info');
+      
+      // Create a hidden form to trigger download
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "database-backup" %}';
+      
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
+      
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      
+      setTimeout(() => {
+        showToast('Database backup downloaded successfully!', 'success');
+      }, 1000);
+    }
+  });
 </script>
 
 {% block vendor_js %}{% endblock vendor_js %}

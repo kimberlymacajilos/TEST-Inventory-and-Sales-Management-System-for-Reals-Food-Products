@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    ListView, CreateView, UpdateView, DeleteView, TemplateView, View
+)
+from django.views.generic.edit import ModelFormMixin
 from django.contrib import messages
-from django.utils import timezone
 from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -91,6 +93,7 @@ from django.db.models import Q, F, CharField
 from django.db.models.functions import Cast
 import re
 from urllib.parse import urlparse, parse_qs
+from django.db.models import Count
 
 
 # Helper function for creating history logs
@@ -649,6 +652,11 @@ class ProductsUpdateView(UpdateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+        
+        # Check if photo should be deleted
+        if self.request.POST.get('delete_photo_flag') == '1':
+            form.instance.photo = None
+        
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
         
@@ -742,6 +750,7 @@ class ProductRecipeUpdateView(UpdateView):
     template_name = "prodrecipe_edit.html"
 
     def get_success_url(self):
+        messages.success(self.request, "✅ Recipe updated successfully.")
         return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class ProductRecipeDeleteView(DeleteView):
@@ -1013,8 +1022,32 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display
+        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
+
+        # Add withdrawal-based sales (reason='SOLD')
+        month = self.request.GET.get("month", "").strip()
+        withdrawal_sales_qs = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False
+        ).select_related("created_by_admin").order_by("-date")
+        
+        # Apply same month filter as regular sales
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context['withdrawal_sales'] = withdrawal_sales_qs
 
         return context
 
@@ -1592,30 +1625,42 @@ class ProductAttributesView(LoginRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class ProductTypeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Type added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Type added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_type.name = name
-            product_type.save()
-            messages.success(request, 'Product Type updated successfully!')
+            try:
+                product_type.name = name
+                product_type.save()
+                messages.success(request, 'Product Type updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
-        product_type.delete()
-        messages.success(request, 'Product Type deleted successfully!')
+        try:
+            product_type.delete()
+            messages.success(request, 'Product Type deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Type because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1623,30 +1668,42 @@ class ProductTypeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class ProductVariantAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Variant added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Variant added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_variant.name = name
-            product_variant.save()
-            messages.success(request, 'Product Variant updated successfully!')
+            try:
+                product_variant.name = name
+                product_variant.save()
+                messages.success(request, 'Product Variant updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
-        product_variant.delete()
-        messages.success(request, 'Product Variant deleted successfully!')
+        try:
+            product_variant.delete()
+            messages.success(request, 'Product Variant deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Variant because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1654,30 +1711,42 @@ class ProductVariantDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         size_label = request.POST.get('size_label')
         if size_label:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
-            messages.success(request, 'Size added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+                messages.success(request, 'Size added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
         size_label = request.POST.get('size_label')
         if size_label:
-            size.size_label = size_label
-            size.save()
-            messages.success(request, 'Size updated successfully!')
+            try:
+                size.size_label = size_label
+                size.save()
+                messages.success(request, 'Size updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
-        size.delete()
-        messages.success(request, 'Size deleted successfully!')
+        try:
+            size.delete()
+            messages.success(request, 'Size deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1685,30 +1754,42 @@ class SizeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeUnitAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         unit_name = request.POST.get('unit_name')
         if unit_name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
-            messages.success(request, 'Size Unit added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+                messages.success(request, 'Size Unit added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
         unit_name = request.POST.get('unit_name')
         if unit_name:
-            size_unit.unit_name = unit_name
-            size_unit.save()
-            messages.success(request, 'Size Unit updated successfully!')
+            try:
+                size_unit.unit_name = unit_name
+                size_unit.save()
+                messages.success(request, 'Size Unit updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
-        size_unit.delete()
-        messages.success(request, 'Size Unit deleted successfully!')
+        try:
+            size_unit.delete()
+            messages.success(request, 'Size Unit deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size Unit because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1716,30 +1797,42 @@ class SizeUnitDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class UnitPriceAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         unit_price = request.POST.get('unit_price')
         if unit_price:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
-            messages.success(request, 'Unit Price added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
+                messages.success(request, 'Unit Price added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Unit Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
         unit_price = request.POST.get('unit_price')
         if unit_price:
-            unit_price_obj.unit_price = unit_price
-            unit_price_obj.save()
-            messages.success(request, 'Unit Price updated successfully!')
+            try:
+                unit_price_obj.unit_price = unit_price
+                unit_price_obj.save()
+                messages.success(request, 'Unit Price updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Unit Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price = get_object_or_404(UnitPrices, pk=pk)
-        unit_price.delete()
-        messages.success(request, 'Unit Price deleted successfully!')
+        try:
+            unit_price.delete()
+            messages.success(request, 'Unit Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1747,30 +1840,42 @@ class UnitPriceDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SrpPriceAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         srp_price = request.POST.get('srp_price')
         if srp_price:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
-            messages.success(request, 'SRP Price added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
+                messages.success(request, 'SRP Price added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This SRP Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
         srp_price = request.POST.get('srp_price')
         if srp_price:
-            srp_price_obj.srp_price = srp_price
-            srp_price_obj.save()
-            messages.success(request, 'SRP Price updated successfully!')
+            try:
+                srp_price_obj.srp_price = srp_price
+                srp_price_obj.save()
+                messages.success(request, 'SRP Price updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This SRP Price already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         srp_price = get_object_or_404(SrpPrices, pk=pk)
-        srp_price.delete()
-        messages.success(request, 'SRP Price deleted successfully!')
+        try:
+            srp_price.delete()
+            messages.success(request, 'SRP Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1877,7 +1982,7 @@ class WithdrawItemView(View):
                         inv = product.productinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {product}")
+                            messages.error(request, f"⚠️ Insufficient stock for {product}. Available: {inv.total_stock}")
                             continue
 
                         discount_val = request.POST.get(f"discount_{product_id}")
@@ -1907,7 +2012,7 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing product: {e}")
+                        messages.error(request, f"❌ Error withdrawing product: {e}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
@@ -1921,7 +2026,7 @@ class WithdrawItemView(View):
                         inv = material.rawmaterialinventory
 
                         if quantity > inv.total_stock:
-                            messages.error(request, f"Not enough stock for {material}")
+                            messages.error(request, f"⚠️ Insufficient stock for {material}. Available: {inv.total_stock}")
                             continue
 
                         Withdrawals.objects.create(
@@ -1937,12 +2042,12 @@ class WithdrawItemView(View):
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"Error withdrawing raw material: {e}")
+                        messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            messages.success(request, f"{count} item(s) withdrawn successfully.")
+            messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
-            messages.warning(request, "No withdrawals were recorded.")
+            messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
 
         return redirect("withdrawals")
 
@@ -2015,6 +2120,14 @@ class WithdrawUpdateView(UpdateView):
 
     def form_valid(self, form):
         withdrawal = self.get_object()
+        
+        # Save the original date before any changes
+        original_date = withdrawal.date
+        
+        # Log the current time for debugging
+        current_time = timezone.now()
+        print(f"Current time: {current_time}")
+        print(f"Original date before save: {original_date}")
 
         before = {
             'item_type': withdrawal.item_type,
@@ -2026,11 +2139,25 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(original_date),
         }
 
-        response = super().form_valid(form)
-
+        # Get the form data but don't save yet
+        self.object = form.save(commit=False)
+        
+        # Explicitly set the date to the original date
+        self.object.date = original_date
+        
+        # Save with update_fields to only update specific fields
+        self.object.save(update_fields=[
+            'item_id', 'quantity', 'reason', 'sales_channel', 
+            'price_type', 'custom_price', 'discount_id', 'custom_discount_value'
+        ])
+        
+        # Refresh from database to ensure we have the latest data
         withdrawal.refresh_from_db()
+        
+        print(f"Date after save: {withdrawal.date}")
 
         after = {
             'item_type': withdrawal.item_type,
@@ -2042,6 +2169,7 @@ class WithdrawUpdateView(UpdateView):
             'custom_price': str(withdrawal.custom_price),
             'discount_id': withdrawal.discount_id,
             'custom_discount_value': str(withdrawal.custom_discount_value),
+            'date': str(withdrawal.date),
         }
 
         create_history_log(
@@ -2054,8 +2182,9 @@ class WithdrawUpdateView(UpdateView):
         )
 
         messages.success(self.request, "✅ Withdrawal successfully updated.")
-
-        return response
+        
+        # Return a redirect response instead of the original response
+        return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(self.request, "❌ Please correct the errors below.")
@@ -2167,7 +2296,7 @@ class BulkProductBatchCreateView(View):
                 'products': form.products
             })
 
-        batch_date = date.today()
+        batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
         auth_user = AuthUser.objects.get(id=request.user.id)
@@ -2229,7 +2358,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
     def post(self, request):
         form = BulkRawMaterialBatchForm(request.POST)
         if form.is_valid():
-            batch_date = date.today()
+            batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
             auth_user = AuthUser.objects.get(id=request.user.id)
 
@@ -2338,37 +2467,329 @@ class StockChangesArchiveOldView(View):
         archived_count = StockChanges.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
         return redirect('stock-changes')
+
+def mask_email(email):
+    """Mask email address for privacy: john@example.com -> j***@example.com"""
+    if not email or '@' not in email:
+        return email
     
+    local, domain = email.split('@', 1)
+    if len(local) <= 1:
+        masked_local = local + '*'
+    else:
+        masked_local = local[0] + '*'
+    
+    return f"{masked_local}@{domain}"
+
+def get_device_fingerprint(request):
+    """Create unique device ID from browser characteristics"""
+    import hashlib
+    
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    accept_language = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    accept_encoding = request.META.get('HTTP_ACCEPT_ENCODING', '')
+    
+    fingerprint_string = f"{user_agent}{accept_language}{accept_encoding}"
+    return hashlib.sha256(fingerprint_string.encode()).hexdigest()
+
+
+def get_device_info(request):
+    """Extract human-readable device details"""
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    # Detect browser
+    if 'Chrome' in user_agent and 'Edg' not in user_agent:
+        browser = 'Chrome'
+    elif 'Firefox' in user_agent:
+        browser = 'Firefox'
+    elif 'Safari' in user_agent and 'Chrome' not in user_agent:
+        browser = 'Safari'
+    elif 'Edg' in user_agent:
+        browser = 'Edge'
+    else:
+        browser = 'Unknown'
+    
+    # Detect OS
+    if 'Windows' in user_agent:
+        os = 'Windows'
+    elif 'Mac' in user_agent:
+        os = 'macOS'
+    elif 'Linux' in user_agent:
+        os = 'Linux'
+    elif 'Android' in user_agent:
+        os = 'Android'
+    elif 'iPhone' in user_agent or 'iPad' in user_agent:
+        os = 'iOS'
+    else:
+        os = 'Unknown'
+    
+    return {
+        'browser': browser,
+        'os': os,
+        'device_name': f"{os} - {browser}"
+    }
+
+
+def send_login_notification(user, device_info, ip_address, is_new_device=False):
+    """Send email notification about login"""
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+    
+    if is_new_device:
+        subject = '🔐 New Device Verified - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+A new device has been verified for your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This device is now trusted and will not require OTP for future logins.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    else:
+        subject = '✅ Login Notification - Real\'s Food Products'
+        message = f'''Hello {user.username},
+
+You recently logged in to your account.
+
+Device: {device_info['device_name']}
+IP Address: {ip_address}
+Time: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+
+This login was from a trusted device.
+
+If this wasn't you, please secure your account immediately.
+
+Real's Food Products Security Team'''
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+        print(f"[EMAIL] Notification sent to {user.email}")
+    except Exception as e:
+        print(f"[EMAIL ERROR] Failed to send notification: {e}")
+
+
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        if 'otp_code' in request.POST:
+            user_id = request.session.get('2fa_user_id')
+            if not user_id:
+                messages.error(request, "Session expired. Please login again.")
+                return redirect('login')
+            
+            from realsproj.models import UserOTP, User2FASettings, TrustedDevice, LoginAttempt
+            from django.utils import timezone
+            
+            try:
+                user = User.objects.get(id=user_id)
+                otp_code = request.POST.get('otp_code', '').strip()
+                
+                otp = UserOTP.objects.filter(
+                    user=user,
+                    otp_code=otp_code,
+                    is_used=False,
+                    expires_at__gt=timezone.now()
+                ).first()
+                
+                if otp:
+                    otp.is_used = True
+                    otp.save()
+                    
+                    device_fingerprint = get_device_fingerprint(request)
+                    device_info = get_device_info(request)
+                    ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                    
+                    TrustedDevice.objects.get_or_create(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        defaults={
+                            'device_name': device_info['device_name'],
+                            'browser': device_info['browser'],
+                            'os': device_info['os'],
+                            'ip_address': ip_address,
+                        }
+                    )
+                    
+                    LoginAttempt.objects.create(
+                        user=user,
+                        username=user.username,
+                        ip_address=ip_address,
+                        device_fingerprint=device_fingerprint,
+                        browser=device_info['browser'],
+                        os=device_info['os'],
+                        success=True,
+                        required_otp=True,
+                        is_trusted_device=True
+                    )
+                    
+                    send_login_notification(user, device_info, ip_address, is_new_device=True)
+                    
+                    del request.session['2fa_user_id']
+                    
+                    login(request, user)
+                    messages.success(request, "✅ Successfully logged in! This device is now trusted.")
+                    return redirect('home')
+                else:
+                    messages.error(request, "❌ Invalid or expired OTP code.")
+                    return render(request, '2fa_verify.html', {'user_email': user.email})
+            except Exception as e:
+                messages.error(request, f"An error occurred: {str(e)}")
+                return render(request, '2fa_verify.html')
+        
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             if user.is_active:
-                login(request, user)
-                return redirect('home')  # Redirect to home after successful login
+                from realsproj.models import User2FASettings, UserOTP, TrustedDevice, LoginAttempt
+                import random
+                from datetime import timedelta
+                from django.utils import timezone
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                device_fingerprint = get_device_fingerprint(request)
+                device_info = get_device_info(request)
+                ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+                
+                print(f"\n{'='*60}")
+                print(f"[2FA DEBUG] Login attempt for user: {user.username}")
+                print(f"[2FA DEBUG] Device fingerprint: {device_fingerprint[:20]}...")
+                print(f"[2FA DEBUG] Device info: {device_info}")
+                print(f"[2FA DEBUG] IP Address: {ip_address}")
+                
+                try:
+                    twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
+                    print(f"[2FA DEBUG] ✅ 2FA is ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Backup email: {twofa_settings.backup_email or 'None (using primary)'}")
+                    
+                    trusted_device = TrustedDevice.objects.filter(
+                        user=user,
+                        device_fingerprint=device_fingerprint,
+                        is_active=True
+                    ).first()
+                    
+                    if trusted_device:
+                        print(f"[2FA DEBUG] ✅ TRUSTED DEVICE FOUND: {trusted_device.device_name}")
+                        print(f"[2FA DEBUG] Last used: {trusted_device.last_used}")
+                    else:
+                        print(f"[2FA DEBUG] ⚠️ NEW DEVICE - OTP Required")
+                        all_devices = TrustedDevice.objects.filter(user=user)
+                        print(f"[2FA DEBUG] Total trusted devices for user: {all_devices.count()}")
+                        for dev in all_devices:
+                            print(f"  - {dev.device_name} (fingerprint: {dev.device_fingerprint[:20]}...)")
+
+                    if trusted_device:
+                        print(f"[2FA DEBUG] 🔓 Allowing login from trusted device")
+                        trusted_device.last_used = timezone.now()
+                        trusted_device.save()
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=True,
+                            required_otp=False,
+                            is_trusted_device=True
+                        )
+                        
+                        send_login_notification(user, device_info, ip_address, is_new_device=False)
+                        
+                        login(request, user)
+                        messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
+                        print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
+                        print(f"{'='*60}\n")
+                        return redirect('home')
+                    else:
+                        print(f"[2FA DEBUG] 📧 Generating OTP for new device...")
+                        otp_code = str(random.randint(100000, 999999))
+                        print(f"[2FA DEBUG] OTP Code: {otp_code}")
+                        
+                        UserOTP.objects.create(
+                            user=user,
+                            otp_code=otp_code,
+                            expires_at=timezone.now() + timedelta(minutes=5),
+                            ip_address=ip_address
+                        )
+                        
+                        email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
+                        print(f"[2FA DEBUG] Sending OTP to: {email_to}")
+                        
+                        try:
+                            send_mail(
+                                subject='🔐 New Device Login - OTP Required',
+                                message=f'Hello {user.username},\n\nA login attempt was made from a new device:\n\nDevice: {device_info["device_name"]}\nIP Address: {ip_address}\n\nYour OTP code is: {otp_code}\n\nThis code will expire in 5 minutes.\n\nIf this wasn\'t you, please secure your account immediately.\n\nReals Food Products Security Team',
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[email_to],
+                                fail_silently=False,
+                            )
+                            print(f"[2FA DEBUG] ✅ OTP email sent successfully!")
+                        except Exception as email_error:
+                            print(f"[2FA DEBUG] ❌ EMAIL ERROR: {email_error}")
+                        
+                        LoginAttempt.objects.create(
+                            user=user,
+                            username=user.username,
+                            ip_address=ip_address,
+                            device_fingerprint=device_fingerprint,
+                            browser=device_info['browser'],
+                            os=device_info['os'],
+                            success=False,
+                            required_otp=True,
+                            is_trusted_device=False
+                        )
+                        
+                        request.session['2fa_user_id'] = user.id
+                        masked_email = mask_email(email_to)
+                        messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
+                        print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
+                        print(f"{'='*60}\n")
+                        return render(request, '2fa_verify.html', {'user_email': masked_email})
+                        
+                except User2FASettings.DoesNotExist:
+                    print(f"[2FA DEBUG] ❌ 2FA is NOT ENABLED for user: {user.username}")
+                    print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
+                    print(f"{'='*60}\n")
+                    login(request, user)
+                    return redirect('home')
+                except Exception as e:
+                    print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
+                    print(f"{'='*60}\n")
+                    messages.error(request, f"Failed to process login: {str(e)}")
+                    return render(request, 'login.html')
             else:
                 messages.error(request, "Your account is not active.")
         else:
             messages.error(request, "Invalid username or password.")
-    return render(request, 'login.html')
-
+    return render(request, 'login.html')    
 
 def register(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()  # Save the new user to the database
+            user = form.save()  
             login(request, user)
             messages.success(request, 'Your account has been created successfully! You can now log in.')
-            return redirect('login')  # Redirect to login page after successful registration
+            return redirect('login')  
         else:
-            # If the form is not valid, the errors will automatically be shown in the template
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = CustomUserCreationForm()  # Instantiate a blank form
+        form = CustomUserCreationForm() 
 
     return render(request, 'registration/register.html', {'form': form})
 
@@ -2469,11 +2890,15 @@ def export_sales(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Sales.objects.all()
+    qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2491,7 +2916,7 @@ def export_sales(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_sales = sum(s.amount for s in qs)
 
@@ -2513,11 +2938,15 @@ def export_expenses(request):
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
 
-    qs = Expenses.objects.all()
+    qs = Expenses.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        qs = qs.filter(date__date=start.date())
+        # Parse the date string and filter by exact date
+        try:
+            year, month, day = start_date.split('-')
+            qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
 
     elif filter_type == "month" and start_date:
         start = datetime.strptime(start_date, "%Y-%m")
@@ -2535,7 +2964,7 @@ def export_expenses(request):
         start = start.replace(day=1)
         last_day = monthrange(end.year, end.month)[1]
         end = end.replace(day=last_day)
-        qs = qs.filter(date__date__range=(start, end))
+        qs = qs.filter(date__range=(start.date(), end.date()))
 
     total_expenses = sum(e.amount for e in qs)
 
@@ -2570,6 +2999,7 @@ class UserActivityList(ListView):
 def set_user_active(sender, user, request, **kwargs):
     activity, created = UserActivity.objects.get_or_create(user=user)
     activity.active = True
+    activity.last_activity = timezone.now()
     activity.save()
 
 @receiver(user_logged_out)
@@ -2581,3 +3011,566 @@ def set_user_inactive(sender, user, request, **kwargs):
         activity.save()
     except UserActivity.DoesNotExist:
         pass
+
+
+def check_expirations(request):
+    today = timezone.localdate()
+    next_week = today + timedelta(days=7)
+    next_month = today + timedelta(days=30)
+    messages = []
+
+    product_batches = (
+        ProductBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values(
+            "product__product_type__name",
+            "product__variant__name",
+            "product__size__size_label",
+            "product__size_unit__unit_name",
+            "expiration_date"
+        )
+        .annotate(count=Count("id"))
+    )
+
+    for pb in product_batches:
+        days = (pb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
+        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
+        messages.append(message)
+
+    raw_batches = (
+        RawMaterialBatches.objects
+        .filter(expiration_date__lte=next_month, is_archived=False)
+        .values("material__name", "expiration_date")
+        .annotate(count=Count("id"))
+    )
+
+    for rb in raw_batches:
+        days = (rb["expiration_date"] - today).days
+        if days < 0:
+            status = "has expired"
+        elif days == 0:
+            status = "expires today"
+        elif days <= 7:
+            status = "will expire in a week"
+        elif days <= 30:
+            status = "will expire in a month"
+        else:
+            continue
+
+        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
+        messages.append(message)
+
+    if messages:
+        Notifications.objects.create(
+            item_type="SYSTEM",
+            item_id=0,
+            notification_type="EXPIRATION_ALERT",
+            notification_timestamp=timezone.now(),
+            is_read=False,
+        )
+        print("\n".join(messages))
+
+    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+
+
+@method_decorator(login_required, name='dispatch')
+class BestSellerProductsView(LoginRequiredMixin, TemplateView):
+    template_name = "bestseller_products.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        now = timezone.now()
+
+        filter_date = self.request.GET.get('month')  
+        filter_year_only = self.request.GET.get('year')  
+        
+        filter_type = None 
+        
+        if filter_date:
+            try:
+                year, month = filter_date.split('-')
+                current_year = int(year)
+                current_month = int(month)
+                filter_month = current_month
+                filter_year = current_year
+                filter_type = 'month'
+            except (ValueError, AttributeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+
+        elif filter_year_only:
+            try:
+                current_year = int(filter_year_only)
+                current_month = None
+                filter_month = None
+                filter_year = current_year
+                filter_type = 'year'
+            except (ValueError, TypeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+
+        else:
+            current_month = now.month
+            current_year = now.year
+            filter_month = None
+            filter_year = None
+
+        filters = {
+            'item_type': 'PRODUCT',
+            'reason': 'SOLD',
+            'is_archived': False,
+            'date__year': current_year
+        }
+        
+        if filter_type != 'year':
+            filters['date__month'] = current_month
+
+        withdrawals = Withdrawals.objects.filter(**filters).values('item_id', 'quantity', 'custom_price')
+
+        product_sales = {}
+        for w in withdrawals:
+            product_id = w['item_id']
+            quantity = w['quantity'] or 0
+            price = w['custom_price'] or 0
+            
+            if product_id not in product_sales:
+                product_sales[product_id] = {
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                }
+            
+            product_sales[product_id]['total_quantity'] += quantity
+            product_sales[product_id]['total_revenue'] += quantity * price
+
+        sold_products_list = []
+        for product_id, sales_data in product_sales.items():
+            try:
+                product = Products.objects.select_related(
+                    'product_type', 'variant', 'size', 'size_unit'
+                ).get(id=product_id)
+                
+                sold_products_list.append({
+                    'item_id': product_id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': sales_data['total_quantity'],
+                    'total_revenue': sales_data['total_revenue']
+                })
+            except Products.DoesNotExist:
+                continue
+
+        sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
+        
+        best_sellers = sold_products_list[:10]
+        
+        sold_product_ids = [p['item_id'] for p in sold_products_list]
+        no_sales_products = Products.objects.filter(
+            is_archived=False
+        ).exclude(id__in=sold_product_ids).select_related(
+            'product_type', 'variant', 'size', 'size_unit'
+        )
+        
+        low_sellers_list = []
+        
+        if len(sold_products_list) > 10:
+            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            low_sellers_list.extend(low_sellers_from_sold)
+        else:
+            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+
+        remaining_slots = 10 - len(low_sellers_list)
+        if remaining_slots > 0:
+            for product in no_sales_products[:remaining_slots]:
+                low_sellers_list.append({
+                    'item_id': product.id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                })
+        
+        low_sellers = low_sellers_list[:10]
+        total_quantity = sum(p['total_quantity'] for p in sold_products_list)
+        total_revenue = sum(p['total_revenue'] for p in sold_products_list)
+        total_products = len(sold_products_list)
+        average_revenue = total_revenue / total_products if total_products > 0 else 0
+        available_years = Withdrawals.objects.filter(
+            item_type='PRODUCT',
+            reason='SOLD',
+            is_archived=False
+        ).dates('date', 'year', order='DESC')
+        
+        context['best_sellers'] = best_sellers
+        context['low_sellers'] = low_sellers
+        context['total_products'] = total_products
+        context['total_quantity'] = total_quantity
+        context['total_revenue'] = total_revenue
+        context['average_revenue'] = average_revenue
+        context['no_sales_products'] = no_sales_products
+        context['current_month'] = current_month
+        context['current_year'] = current_year
+        context['filter_month'] = filter_month
+        context['filter_year'] = filter_year
+        context['filter_type'] = filter_type
+        
+        if filter_type == 'year':
+            context['current_month_name'] = None
+            context['filter_month_name'] = None
+            context['filter_month_value'] = ''
+        else:
+            context['current_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_value'] = f"{current_year}-{current_month:02d}"
+        
+        context['available_years'] = [d.year for d in available_years]
+        context['months'] = [
+            (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+            (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+            (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
+        ]
+        
+        return context
+
+@login_required
+def database_backup(request):
+    """
+    Generate and download a Django JSON fixture backup
+    """
+    from django.http import HttpResponse
+    from django.core import serializers
+    from django.apps import apps
+    from datetime import datetime
+    import json
+    
+    if request.method == 'POST':
+        try:
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'reals_backup_{timestamp}.json'
+            
+            # Get all models from realsproj app (including managed=False)
+            app_models = apps.get_app_config('realsproj').get_models()
+            
+            # Serialize all data
+            all_data = []
+            for model in app_models:
+                try:
+                    # Get all objects from this model
+                    queryset = model.objects.all()
+                    if queryset.exists():
+                        model_data = serializers.serialize('json', queryset)
+                        all_data.extend(json.loads(model_data))
+                except Exception as e:
+                    # Skip models that can't be serialized
+                    print(f"Skipping {model.__name__}: {str(e)}")
+                    continue
+            
+            # Convert to JSON string with pretty formatting
+            json_content = json.dumps(all_data, indent=2, ensure_ascii=False)
+            
+            # Create JSON response
+            response = HttpResponse(
+                json_content,
+                content_type='application/json'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Log the backup action
+            auth_user = AuthUser.objects.get(id=request.user.id)
+            
+            # Get or create HistoryLogTypes for backup
+            log_type, created = HistoryLogTypes.objects.get_or_create(
+                category='Database Backup',
+                defaults={'created_by_admin': auth_user}
+            )
+            
+            HistoryLog.objects.create(
+                admin_id=auth_user.id,
+                log_type_id=log_type.id,
+                log_date=timezone.now(),
+                entity_type='system',
+                entity_id=0
+            )
+            
+            messages.success(request, '✅ Database backup created successfully!')
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'❌ Backup error: {str(e)}')
+            return redirect(request.META.get('HTTP_REFERER', 'home'))
+    
+    return redirect('home')
+
+
+@login_required
+def financial_loss(request):
+    """View for displaying financial losses from expired and damaged items"""
+
+    product_withdrawals = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    raw_material_withdrawals = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    product_loss_data = []
+    total_product_loss = Decimal('0.00')
+    
+    for withdrawal in product_withdrawals:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            product_loss_data.append({
+                'date': withdrawal.date,
+                'product_name': str(product),
+                'quantity': withdrawal.quantity,
+                'unit_price': product.unit_price.unit_price,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except Products.DoesNotExist:
+            continue
+
+    raw_material_loss_data = []
+    total_raw_material_loss = Decimal('0.00')
+    
+    for withdrawal in raw_material_withdrawals:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            raw_material_loss_data.append({
+                'date': withdrawal.date,
+                'material_name': material.name,
+                'quantity': withdrawal.quantity,
+                'unit_name': material.unit.unit_name,
+                'price_per_unit': material.price_per_unit,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    total_loss = total_product_loss + total_raw_material_loss
+    
+    context = {
+        'product_withdrawals': product_loss_data,
+        'raw_material_withdrawals': raw_material_loss_data,
+        'product_loss': total_product_loss,
+        'raw_material_loss': total_raw_material_loss,
+        'total_loss': total_loss,
+    }
+    
+    return render(request, 'financial_loss.html', context)
+
+
+@login_required
+def financial_loss_export(request):
+    """Export financial loss data to CSV"""
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    product_qs = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    raw_material_qs = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    if filter_type == "date" and start_date:
+        try:
+            year, month, day = start_date.split('-')
+            product_qs = product_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+            raw_material_qs = raw_material_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
+    
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        product_qs = product_qs.filter(date__year=start.year, date__month=start.month)
+        raw_material_qs = raw_material_qs.filter(date__year=start.year, date__month=start.month)
+    
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        product_qs = product_qs.filter(date__year=year)
+        raw_material_qs = raw_material_qs.filter(date__year=year)
+    
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        product_qs = product_qs.filter(date__range=(start.date(), end.date()))
+        raw_material_qs = raw_material_qs.filter(date__range=(start.date(), end.date()))
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="financial_loss_{filter_type}.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    
+    writer = csv.writer(response)
+
+    writer.writerow(['PRODUCTS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Product', 'Quantity', 'Unit Price', 'Reason', 'Financial Loss'])
+    
+    total_product_loss = Decimal('0.00')
+    for withdrawal in product_qs:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                str(product),
+                withdrawal.quantity,
+                product.unit_price.unit_price,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except Products.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL PRODUCT LOSS', f"₱{total_product_loss:.2f}"])
+    writer.writerow([])
+
+    writer.writerow(['RAW MATERIALS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Raw Material', 'Quantity', 'Price per Unit', 'Reason', 'Financial Loss'])
+    
+    total_raw_material_loss = Decimal('0.00')
+    for withdrawal in raw_material_qs:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                f"{material.name} ({material.unit.unit_name})",
+                withdrawal.quantity,
+                material.price_per_unit,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL RAW MATERIAL LOSS', f"₱{total_raw_material_loss:.2f}"])
+    writer.writerow([])
+
+    total_loss = total_product_loss + total_raw_material_loss
+    writer.writerow(['', '', '', '', 'TOTAL FINANCIAL LOSS', f"₱{total_loss:.2f}"])
+    
+    return response
+
+@login_required
+def setup_2fa(request):
+    """Enable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        backup_email = request.POST.get('backup_email', '').strip()
+        
+        # Create or update 2FA settings
+        settings, created = User2FASettings.objects.get_or_create(
+            user=request.user,
+            defaults={
+                'is_enabled': True,
+                'method': 'email',
+                'backup_email': backup_email if backup_email else None
+            }
+        )
+        
+        if not created:
+            settings.is_enabled = True
+            settings.backup_email = backup_email if backup_email else None
+            settings.save()
+        
+        messages.success(request, "✅ Two-Factor Authentication has been enabled!")
+        return redirect('profile')
+    
+    # GET request - show setup form
+    try:
+        twofa_settings = User2FASettings.objects.get(user=request.user)
+    except User2FASettings.DoesNotExist:
+        twofa_settings = None
+    
+    return render(request, '2fa_setup.html', {
+        'user_email': request.user.email,
+        'twofa_settings': twofa_settings
+    })
+
+
+@login_required
+def disable_2fa(request):
+    """Disable 2FA for the current user"""
+    from realsproj.models import User2FASettings
+    
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        
+        # Verify password before disabling
+        if not request.user.check_password(password):
+            messages.error(request, "❌ Incorrect password. Cannot disable 2FA.")
+            return redirect('profile')
+        
+        try:
+            settings = User2FASettings.objects.get(user=request.user)
+            settings.is_enabled = False
+            settings.save()
+            messages.success(request, "✅ Two-Factor Authentication has been disabled.")
+        except User2FASettings.DoesNotExist:
+            messages.info(request, "2FA was not enabled.")
+        
+        return redirect('profile')
+    
+    return redirect('profile')
