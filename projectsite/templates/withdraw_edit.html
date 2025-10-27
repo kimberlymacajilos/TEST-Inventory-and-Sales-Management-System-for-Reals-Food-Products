@@ -6,7 +6,13 @@
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">Edit Withdraw Item</div>
+                        <div class="card-title">Edit Withdraw Item
+                            {% if is_raw_material %}
+                                <span class="badge badge-info ml-2">Raw Material</span>
+                            {% else %}
+                                <span class="badge badge-success ml-2">Product</span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="col-md-6">
@@ -36,24 +42,60 @@
 document.addEventListener("DOMContentLoaded", function () {
     const salesChannelField = document.querySelector('[name="sales_channel"]');
     const priceField = document.querySelector('[name="price_type_or_custom"]');
+    const discountField = document.querySelector('[name="discount"]');
+    const customDiscountField = document.querySelector('[name="custom_discount_value"]');
+    const reasonField = document.querySelector('[name="reason"]');
     const form = priceField.closest("form");
+    
+    // Check if this is a raw material withdrawal
+    const isRawMaterial = {{ is_raw_material|yesno:"true,false" }};
+
+    // Hide price, discount, and sales channel fields for raw materials
+    if (isRawMaterial) {
+        // Function to hide a field's parent container
+        function hideFieldContainer(field) {
+            if (!field) return;
+            // Try multiple selector strategies
+            let container = field.closest('.field.item') || 
+                          field.closest('.field') || 
+                          field.closest('.form-group');
+            if (container) {
+                container.style.display = 'none';
+            }
+        }
+        
+        hideFieldContainer(priceField);
+        hideFieldContainer(salesChannelField);
+        hideFieldContainer(discountField);
+        hideFieldContainer(customDiscountField);
+    }
 
     function isNumeric(value) {
         return !isNaN(value) && value.trim() !== "";
     }
 
     form.addEventListener("submit", function (e) {
-        const selectedChannel = salesChannelField.value.trim().toUpperCase();
-        const priceValue = priceField.value.trim().toUpperCase();
+        // Skip validation for raw materials
+        if (isRawMaterial) {
+            return true;
+        }
         
-        if (
-            priceValue === "" ||
-            (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")
-        ) {
-            e.preventDefault();
-            alert("Please enter a valid price or select UNIT/SRP.");
-            priceField.focus();
-            return false;
+        const reasonValue = reasonField ? reasonField.value : "";
+        
+        // Only validate price if reason is SOLD
+        if (reasonValue === "SOLD") {
+            const selectedChannel = salesChannelField.value.trim().toUpperCase();
+            const priceValue = priceField.value.trim().toUpperCase();
+            
+            if (
+                priceValue === "" ||
+                (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")
+            ) {
+                e.preventDefault();
+                alert("Please enter a valid price or select UNIT/SRP.");
+                priceField.focus();
+                return false;
+            }
         }
     });
 });

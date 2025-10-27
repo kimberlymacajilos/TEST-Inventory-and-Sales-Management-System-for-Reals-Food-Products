@@ -2118,6 +2118,11 @@ class WithdrawUpdateView(UpdateView):
     template_name = "withdraw_edit.html"
     success_url = reverse_lazy("withdrawals")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_raw_material'] = self.object.item_type == 'RAW_MATERIAL'
+        return context
+
     def form_valid(self, form):
         withdrawal = self.get_object()
         
