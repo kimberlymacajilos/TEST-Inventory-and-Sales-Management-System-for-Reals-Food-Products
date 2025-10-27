@@ -2927,6 +2927,7 @@ class UserActivityList(ListView):
 def set_user_active(sender, user, request, **kwargs):
     activity, created = UserActivity.objects.get_or_create(user=user)
     activity.active = True
+    activity.last_activity = timezone.now()
     activity.save()
 
 @receiver(user_logged_out)

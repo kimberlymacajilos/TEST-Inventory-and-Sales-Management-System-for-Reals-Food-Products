@@ -144,7 +144,6 @@
                     <th>Custom Price</th>
                     <th>Discount</th>
                     <th>Date</th>
-                    <th>Created By</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,7 +170,6 @@
                       {% endif %}
                     </td>
                     <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
-                    <td>{{ withdrawal.created_by_admin.username }}</td>
                   </tr>
                   {% empty %}
                   <tr>
