@@ -307,7 +307,7 @@ function showSection(sectionId) {
     });
     
     // Remove active class from all buttons
-    document.querySelectorAll('.btn-group button').forEach(btn => {
+    document.querySelectorAll('.btn-group button[type="button"]').forEach(btn => {
         btn.classList.remove('active');
     });
     
@@ -316,17 +316,75 @@ function showSection(sectionId) {
     
     // Add active class to clicked button
     event.target.closest('button').classList.add('active');
+    
+    // Save current section to localStorage
+    localStorage.setItem('activeAttributeSection', sectionId);
 }
+
+// On page load, restore the last active section
+document.addEventListener('DOMContentLoaded', function() {
+    const savedSection = localStorage.getItem('activeAttributeSection');
+    if (savedSection) {
+        // Hide all sections first
+        document.querySelectorAll('.attribute-section').forEach(section => {
+            section.style.display = 'none';
+        });
+        
+        // Remove active from all buttons
+        document.querySelectorAll('.btn-group button[type="button"]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show saved section
+        const sectionElement = document.getElementById(savedSection);
+        if (sectionElement) {
+            sectionElement.style.display = 'block';
+            
+            // Find and activate corresponding button
+            const buttons = document.querySelectorAll('.btn-group button[type="button"]');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(savedSection)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    }
+});
 </script>
 
 <style>
 .btn-group .btn {
     margin-right: 5px;
     border-radius: 4px !important;
+    position: relative;
+    transition: all 0.3s ease;
 }
 .btn-group .btn.active {
+    background-color: #1572e8 !important;
+    border-color: #1572e8 !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(21, 114, 232, 0.4);
+    transform: translateY(-2px);
+}
+.btn-group .btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 3px;
     background-color: #1572e8;
-    border-color: #1572e8;
+    border-radius: 2px 2px 0 0;
+}
+.btn-group .btn:not(.active) {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+.btn-group .btn:not(.active):hover {
+    background-color: #e9ecef;
+    color: #495057;
+    transform: translateY(-1px);
 }
 </style>
 {% endblock %}
