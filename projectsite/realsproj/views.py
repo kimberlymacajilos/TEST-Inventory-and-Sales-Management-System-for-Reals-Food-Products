@@ -2546,9 +2546,20 @@ def login_view(request):
                     
                     send_login_notification(user, device_info, ip_address, is_new_device=True)
                     
+                    # Get remember me setting from session
+                    remember_me = request.session.get('remember_me', False)
                     del request.session['2fa_user_id']
+                    if 'remember_me' in request.session:
+                        del request.session['remember_me']
                     
                     login(request, user)
+                    
+                    # Set session expiry based on remember me
+                    if remember_me:
+                        request.session.set_expiry(2592000)  # 30 days in seconds
+                    else:
+                        request.session.set_expiry(0)  # Expire on browser close
+                    
                     messages.success(request, "✅ Successfully logged in! This device is now trusted.")
                     return redirect('home')
                 else:
@@ -2622,6 +2633,13 @@ def login_view(request):
                         send_login_notification(user, device_info, ip_address, is_new_device=False)
                         
                         login(request, user)
+                        
+                        remember_me = request.POST.get('remember', False)
+                        if remember_me:
+                            request.session.set_expiry(2592000)  
+                        else:
+                            request.session.set_expiry(0)  
+                        
                         messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
                         print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
                         print(f"{'='*60}\n")
@@ -2666,6 +2684,9 @@ def login_view(request):
                         )
                         
                         request.session['2fa_user_id'] = user.id
+                        remember_me = request.POST.get('remember', False)
+                        request.session['remember_me'] = bool(remember_me)
+                        
                         masked_email = mask_email(email_to)
                         messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
                         print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
@@ -2677,6 +2698,13 @@ def login_view(request):
                     print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
                     print(f"{'='*60}\n")
                     login(request, user)
+                    
+                    remember_me = request.POST.get('remember', False)
+                    if remember_me:
+                        request.session.set_expiry(2592000)  
+                    else:
+                        request.session.set_expiry(0)  
+                    
                     return redirect('home')
                 except Exception as e:
                     print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
@@ -2795,7 +2823,6 @@ def export_sales(request):
     qs = Sales.objects.filter(is_archived=False)
 
     if filter_type == "date" and start_date:
-        # Parse the date string and filter by exact date
         try:
             year, month, day = start_date.split('-')
             qs = qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
