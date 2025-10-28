@@ -1884,6 +1884,11 @@ class UnitPriceEditView(View):
                 # Convert to Decimal for comparison
                 price_value = Decimal(unit_price)
                 
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
                 # Check if another record with same price exists (excluding current)
                 if UnitPrices.objects.filter(unit_price=price_value).exclude(pk=pk).exists():
                     messages.error(request, '❌ This Unit Price already exists!')
@@ -1892,8 +1897,14 @@ class UnitPriceEditView(View):
                 unit_price_obj.unit_price = price_value
                 unit_price_obj.save()
                 messages.success(request, '✅ Unit Price updated successfully!')
-            except (IntegrityError, InvalidOperation, ValueError):
-                messages.error(request, '❌ Invalid price or this Unit Price already exists!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
@@ -1901,11 +1912,21 @@ class UnitPriceDeleteView(View):
     def post(self, request, pk):
         from django.db import IntegrityError
         unit_price = get_object_or_404(UnitPrices, pk=pk)
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(unit_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this Unit Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
         try:
             unit_price.delete()
-            messages.success(request, 'Unit Price deleted successfully!')
+            messages.success(request, '✅ Unit Price deleted successfully!')
         except IntegrityError:
             messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 
@@ -1960,6 +1981,11 @@ class SrpPriceEditView(View):
                 # Convert to Decimal for comparison
                 price_value = Decimal(srp_price)
                 
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
                 # Check if another record with same price exists (excluding current)
                 if SrpPrices.objects.filter(srp_price=price_value).exclude(pk=pk).exists():
                     messages.error(request, '❌ This SRP Price already exists!')
@@ -1968,20 +1994,36 @@ class SrpPriceEditView(View):
                 srp_price_obj.srp_price = price_value
                 srp_price_obj.save()
                 messages.success(request, '✅ SRP Price updated successfully!')
-            except (IntegrityError, InvalidOperation, ValueError):
-                messages.error(request, '❌ Invalid price or this SRP Price already exists!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceDeleteView(View):
     def post(self, request, pk):
-        from django.db import IntegrityError
+        from django.db import IntegrityError, connection
         srp_price = get_object_or_404(SrpPrices, pk=pk)
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(srp_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this SRP Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
         try:
             srp_price.delete()
-            messages.success(request, 'SRP Price deleted successfully!')
+            messages.success(request, '✅ SRP Price deleted successfully!')
         except IntegrityError:
             messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 
