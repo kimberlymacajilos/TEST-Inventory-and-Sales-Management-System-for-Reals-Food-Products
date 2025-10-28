@@ -7,9 +7,12 @@
 <link rel="stylesheet" href="{% static 'css/profile.css' %}">
 
 <div class="container container-p-y profile-page">
-    <h2 class="font-weight-bold py-3 mb-4">
-        General
-    </h2>
+    <div class="d-flex justify-content-between align-items-center py-3 mb-4">
+        <h2 class="font-weight-bold mb-0">
+            General
+        </h2>
+        <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary btn-lg">Edit Profile</a>
+    </div>
 
     <div class="card overflow-hidden">
         <div class="row no-gutters row-bordered row-border-light">
@@ -36,45 +39,180 @@
                             <label class="form-label">E-mail</label>
                             <input type="text" class="form-control" value="{{ user.email }}" readonly>
                         </div>
-                </form>
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h4>🔐 Two-Factor Authentication</h4>
-                        </div>
-                        <div class="card-body">
-                            {% if user.twofa_settings.is_enabled %}
-                            <p class="text-success">
-                                <i class="bi bi-shield-check"></i> 2FA is currently <strong>ENABLED</strong>
-                            </p>
-                            <p>Method: <strong>Email OTP</strong></p>
-                            <p>Primary Email: <strong>{{ user.email }}</strong></p>
-                            {% if user.twofa_settings.backup_email %}
-                                <p>Backup Email: <strong>{{ user.twofa_settings.backup_email }}</strong></p>
-                            {% endif %}
-                            
-                            <form method="post" action="{% url '2fa_disable' %}" onsubmit="return confirm('Are you sure you want to disable 2FA?');">
-                                {% csrf_token %}
-                                <input type="password" name="password" placeholder="Enter your password to disable" required class="form-control mb-2" style="max-width: 300px;">
-                                <button type="submit" class="btn btn-danger">Disable 2FA</button>
-                            </form>
-                            {% else %}
-                            <p class="text-warning">
-                                <i class="bi bi-shield-exclamation"></i> 2FA is currently <strong>DISABLED</strong>
-                            </p>
-                            <p>Protect your account with email-based OTP verification.</p>
-                            <a href="{% url '2fa_setup' %}" class="btn btn-primary">Enable 2FA</a>
-                            {% endif %}
-                        </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Edit Profile Button -->
-    <div class="text-right mt-3">
-        <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary">Edit Profile</a>
+    <!-- Two-Factor Authentication Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>🔐 Two-Factor Authentication</h4>
+        </div>
+        <div class="card-body">
+            {% if user.twofa_settings.is_enabled %}
+            <p class="text-success">
+                <i class="bi bi-shield-check"></i> 2FA is currently <strong>ENABLED</strong>
+            </p>
+            <p>Method: <strong>Email OTP</strong></p>
+            <p>Primary Email: <strong>{{ user.email }}</strong></p>
+            {% if user.twofa_settings.backup_email %}
+                <p>Backup Email: <strong>{{ user.twofa_settings.backup_email }}</strong></p>
+            {% endif %}
+            
+            <form method="post" action="{% url '2fa_disable' %}" onsubmit="return confirm('Are you sure you want to disable 2FA?');">
+                {% csrf_token %}
+                <input type="password" name="password" placeholder="Enter your password to disable" required class="form-control mb-2" style="max-width: 300px;">
+                <button type="submit" class="btn btn-danger">Disable 2FA</button>
+            </form>
+            {% else %}
+            <p class="text-warning">
+                <i class="bi bi-shield-exclamation"></i> 2FA is currently <strong>DISABLED</strong>
+            </p>
+            <p>Protect your account with email-based OTP verification.</p>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#setup2FAModal">
+                <i class="bi bi-shield-lock"></i> Enable 2FA
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="card mt-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h4>⚠️ Danger Zone</h4>
+        </div>
+        <div class="card-body">
+            <h5>Delete Account</h5>
+            <p class="text-muted">Once you delete your account, there is no going back. Your account will be deactivated and your username/email will be anonymized. All records you created will be preserved for business purposes.</p>
+            <a href="{% url 'delete_account' %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete My Account
+            </a>
+        </div>
     </div>
 </div>
+
+<div class="modal fade" id="setup2FAModal" tabindex="-1" role="dialog" aria-labelledby="setup2FAModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #77B254 0%, #8fc76f 100%); color: white; border-radius: 0;">
+                <h5 class="modal-title" id="setup2FAModalLabel">
+                    <i class="bi bi-shield-lock"></i> Enable Two-Factor Authentication
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="post" action="{% url '2fa_setup' %}" id="setup2FAForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong><i class="bi bi-info-circle"></i> What is 2FA?</strong>
+                        <p class="mb-0 mt-2">Two-Factor Authentication adds an extra layer of security. You'll receive a one-time code via email when logging in from a new device.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="primary_email"><strong>Primary Email</strong></label>
+                        <input type="email" class="form-control" id="primary_email" value="{{ user.email }}" readonly>
+                        <small class="form-text text-muted">OTP codes will be sent to this email by default.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="backup_email"><strong>Backup Email (Optional)</strong></label>
+                        <input type="email" class="form-control" id="backup_email" name="backup_email" placeholder="backup@example.com">
+                        <small class="form-text text-muted">Optional: Receive OTP codes at this email instead.</small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <strong><i class="bi bi-exclamation-triangle"></i> Important:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Keep your email accessible</li>
+                            <li>OTP codes expire after 5 minutes</li>
+                            <li>You can disable 2FA anytime</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="background: #77B254; border-color: #77B254;">
+                        <i class="bi bi-shield-check"></i> Enable 2FA
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Verification Code Modal -->
+<div class="modal fade" id="verifyCodeModal" tabindex="-1" role="dialog" aria-labelledby="verifyCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #77B254 0%, #8fc76f 100%); color: white; border-radius: 0;">
+                <h5 class="modal-title" id="verifyCodeModalLabel">
+                    <i class="bi bi-envelope-check"></i> Enter Verification Code
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="post" action="{% url '2fa_setup' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> We've sent a 6-digit verification code to your email. Please enter it below to complete 2FA setup.
+                    </div>
+
+                    <div class="form-group">
+                        <label for="verification_code"><strong>Verification Code</strong></label>
+                        <input type="text" 
+                               class="form-control form-control-lg text-center" 
+                               id="verification_code" 
+                               name="verification_code" 
+                               placeholder="000000"
+                               maxlength="6"
+                               pattern="[0-9]{6}"
+                               required
+                               style="font-size: 24px; letter-spacing: 10px; font-weight: bold;">
+                        <small class="form-text text-muted">Code expires in 5 minutes</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="background: #77B254; border-color: #77B254;">
+                        <i class="bi bi-check-circle"></i> Verify & Enable 2FA
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof jQuery === 'undefined') return;
+    
+    jQuery(document).ready(function($) {
+        {% if messages %}
+            {% for message in messages %}
+                {% if 'Verification code sent' in message.message or 'verification code sent' in message.message or 'code sent' in message.message %}
+                    $('#setup2FAModal').modal('hide');
+                    setTimeout(function() {
+                        $('#verifyCodeModal').modal('show');
+                    }, 500);
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        
+        $('#setup2FAForm').on('submit', function() {
+            $('#setup2FAModal').modal('hide');
+        });
+    });
+});
+</script>
 
 {% endblock %}

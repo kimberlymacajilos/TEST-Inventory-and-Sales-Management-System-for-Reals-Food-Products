@@ -48,10 +48,8 @@ body, .main-panel{
   background-attachment: fixed;
 }
 
-/* Remove bullets (just in case) */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
 
-/* Sticky Glass Header */
 .main-header, .navbar.navbar-header{
   position: sticky; top: 0; z-index: 1040;
   background: var(--glass-navbar) !important;
@@ -60,7 +58,6 @@ body, .main-panel{
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
 }
 
-/* 2) Reset any offsets na binibigay ng theme sa main panel/content */
 .main-panel{
   margin-top: 0 !important;
   padding-top: 0 !important;
@@ -68,21 +65,18 @@ body, .main-panel{
 .main-panel > .content,
 .main-panel > .container,
 .main-panel > .container-fluid{
-  padding-top: 12px !important;   /* dati 16/30 — gawin nating tight */
+  padding-top: 12px !important;   
   margin-top: 0 !important;
 }
 
-/* 3) Huwag magdagdag ng bottom gap ang outer header */
 .main-header{ margin-bottom: 0 !important; }
 
-/* 4) Compact spacing ng first elements (e.g., breadcrumb/page title) */
 .content > .page-title,
 .content > .page-header,
 .content > .breadcrumb{
   margin-top: 6px !important;
 }
 
-/* 5) Small screens: keep things snug */
 @media (max-width: 991.98px){
   .navbar.navbar-header{ padding-top: 8px; padding-bottom: 8px; }
   .main-panel > .content,
@@ -590,7 +584,7 @@ html[data-theme="dark"] .dropdown-header {
 }
 
 html[data-theme="dark"] .dropdown-header h6 {
-  color: #ffffff !important;  /* White for visibility */
+  color: #ffffff !important; 
 }
 
 html[data-theme="dark"] .dropdown-footer {
@@ -599,14 +593,30 @@ html[data-theme="dark"] .dropdown-footer {
 }
 
 html[data-theme="dark"] .dropdown-footer a {
-  color: #ffffff !important;  /* White for links */
+  color: #ffffff !important;  
 }
 
 html[data-theme="dark"] .dropdown-footer a:hover {
-  color: #ffffff !important;  /* White on hover */
+  color: #ffffff !important;  
 }
 
-/* Dark mode - Notification box */
+html[data-theme="dark"] .dropdown-item {
+  color: #f1f8f4 !important;  
+}
+
+html[data-theme="dark"] .dropdown-item:hover {
+  background: rgba(119, 178, 84, 0.2) !important;
+  color: #ffffff !important;  
+}
+
+html[data-theme="dark"] .dropdown-item i {
+  color: #f1f8f4 !important;  
+}
+
+html[data-theme="dark"] .dropdown-item:hover i {
+  color: #ffffff !important;  
+}
+
 html[data-theme="dark"] .notif-box {
   background: rgba(26, 31, 32, 0.95);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -615,86 +625,80 @@ html[data-theme="dark"] .notif-box {
 
 html[data-theme="dark"] .notif-item {
   color: var(--text);
-  background: #1a1f20 !important;  /* Dark background */
+  background: #1a1f20 !important; 
   border-bottom: 1px solid rgba(119, 178, 84, 0.2);
 }
 
 html[data-theme="dark"] .notif-item:hover {
-  background: rgba(119, 178, 84, 0.3) !important;  /* Lighter green on hover */
+  background: rgba(119, 178, 84, 0.3) !important; 
 }
 
 html[data-theme="dark"] .notif-title {
-  color: #ffffff !important;  /* White notification titles */
+  color: #ffffff !important;    
 }
 
 html[data-theme="dark"] .notif-item:hover .notif-title {
-  color: #ffffff !important;  /* White on hover */
+  color: #ffffff !important;  
 }
 
 html[data-theme="dark"] .notif-time {
-  color: #ffffff !important;  /* White timestamp */
+  color: #ffffff !important;    
 }
 
 html[data-theme="dark"] .notif-item:hover .notif-time {
-  color: #ffffff !important;  /* White on hover */
+  color: #ffffff !important;  
 }
 
-/* Dark mode - Active nav item */
 html[data-theme="dark"] .sidebar .nav-item.active > a {
   background: var(--primary-500) !important;
-  color: #0a0e0f !important;  /* Dark text on bright green */
+  color: #0a0e0f !important;  
   font-weight: 700;
   box-shadow: 0 4px 12px rgba(119, 178, 84, 0.4);
 }
-
-/* Dark mode - Additional text elements */
 html[data-theme="dark"] h1,
 html[data-theme="dark"] h2,
 html[data-theme="dark"] h3,
 html[data-theme="dark"] h4,
 html[data-theme="dark"] h5,
 html[data-theme="dark"] h6 {
-  color: #f1f8f4 !important;  /* Bright headings */
+  color: #f1f8f4 !important;    
 }
 
 html[data-theme="dark"] p,
 html[data-theme="dark"] span,
 html[data-theme="dark"] div {
-  color: #e8f5e9;  /* Light text for general content */
+  color: #e8f5e9;  
 }
 
 html[data-theme="dark"] .card-body {
-  color: #e8f5e9 !important;  /* Card content text */
+  color: #e8f5e9 !important;    
 }
 
 html[data-theme="dark"] .sidebar .user .info span {
-  color: #f1f8f4 !important;  /* User info text */
+  color: #f1f8f4 !important;    
 }
 
 html[data-theme="dark"] .navbar .nav-link,
 html[data-theme="dark"] .navbar-nav .nav-link {
-  color: #f1f8f4 !important;  /* Navbar links */
+  color: #f1f8f4 !important;    
 }
 
 html[data-theme="dark"] label {
-  color: #f1f8f4 !important;  /* All labels */
+  color: #f1f8f4 !important;    
 }
 
-/* Dark mode - Sidebar logo/title */
 html[data-theme="dark"] .sidebar .logo,
 html[data-theme="dark"] .sidebar .logo-header,
 html[data-theme="dark"] .sidebar .logo a,
 html[data-theme="dark"] .sidebar .logo-header a {
-  color: #f1f8f4 !important;  /* Bright logo text */
+  color: #f1f8f4 !important;    
 }
 
-/* Dark mode - Main header logo */
 html[data-theme="dark"] .main-header .logo-header .logo,
 html[data-theme="dark"] .logo-header a.logo {
-  color: #f1f8f4 !important;  /* Bright logo text in header */
+  color: #f1f8f4 !important;    
 }
 
-/* Dark mode - Page titles and headings */
 html[data-theme="dark"] .page-title,
 html[data-theme="dark"] .page-header,
 html[data-theme="dark"] .content h1,
@@ -703,10 +707,9 @@ html[data-theme="dark"] .content h3,
 html[data-theme="dark"] .content h4,
 html[data-theme="dark"] .content h5,
 html[data-theme="dark"] .content h6 {
-  color: #f1f8f4 !important;  /* Bright page titles */
+  color: #f1f8f4 !important;    
 }
 
-/* Dark mode - Card titles */
 html[data-theme="dark"] .card-title,
 html[data-theme="dark"] .card-header h1,
 html[data-theme="dark"] .card-header h2,
@@ -714,34 +717,28 @@ html[data-theme="dark"] .card-header h3,
 html[data-theme="dark"] .card-header h4,
 html[data-theme="dark"] .card-header h5,
 html[data-theme="dark"] .card-header h6 {
-  color: #f1f8f4 !important;  /* Bright card titles */
+  color: #f1f8f4 !important;    
 }
 
-/* Dark mode - Chart and canvas text */
 html[data-theme="dark"] canvas {
-  filter: brightness(1.2);  /* Brighten charts slightly */
+  filter: brightness(1.2);  
 }
 
-/* Dark mode - Chart.js specific overrides */
 html[data-theme="dark"] .chart-container,
 html[data-theme="dark"] .chartjs-render-monitor {
   color: #f1f8f4 !important;
 }
 
-/* Chart title and labels - force light colors */
 html[data-theme="dark"] .card canvas,
 html[data-theme="dark"] .card .chart-container {
   color-scheme: dark;
 }
 
-/* Override Chart.js default text colors in dark mode */
 html[data-theme="dark"] {
-  /* This will be picked up by Chart.js if configured properly */
   --chart-text-color: #f1f8f4;
   --chart-grid-color: rgba(119, 178, 84, 0.2);
 }
 
-/* ===== Animated Theme Toggle (slider + glow) ===== */
 .theme-toggle{
   position: relative; display: inline-flex; align-items: center;
   width: 56px; height: 30px; padding: 0; border: 0; background: transparent;
@@ -799,9 +796,9 @@ html[data-theme="dark"] .theme-toggle .track{
 }
 html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
 html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
-html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #a8d99b; }
+html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; }
+html[data-theme="dark"] .theme-toggle .icon.moon svg{ fill: #ffffff !important; }
 
-/* ===== Animated Theme Toggle (slider + glow) ===== */
 .theme-toggle{
   position: relative;
   display: inline-flex; align-items: center;
@@ -833,7 +830,6 @@ html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #a8d99b; }
 .theme-toggle .icon.moon{ opacity: 0; }
 .theme-toggle .icon.sun{ opacity: 1; }
 
-/* subtle stars when dark */
 .theme-toggle::after{
   content:""; position:absolute; inset:0; border-radius:999px; pointer-events:none;
   background:
@@ -843,12 +839,10 @@ html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #a8d99b; }
   opacity: 0; transition: opacity .35s;
 }
 
-/* Light-mode "glow" */
 html:not([data-theme="dark"]) .theme-toggle .knob{
   box-shadow: 0 8px 18px rgba(119,178,84,.38), 0 0 0 2px rgba(255,255,255,.95), 0 0 14px rgba(119,178,84,.45);
 }
 
-/* Dark state: slide right + dim glow, darker track */
 html[data-theme="dark"] .theme-toggle .knob{
   transform: translateX(29px);
   background: #1f2720;
@@ -860,20 +854,16 @@ html[data-theme="dark"] .theme-toggle .track{
 }
 html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
 
-/* swap icons (fade) */
 html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
-html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #eaf6e7; }
+html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; }
+html[data-theme="dark"] .theme-toggle .icon.moon svg{ fill: #ffffff !important; }
 
-/* Remove list dot just in case */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
-
-/* Smoothen global theme transition (colors/borders/shadows) */
 :root{ --t: .35s; --e: cubic-bezier(.2,.8,.2,1); }
 body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-control, .btn, .badge {
   transition: background-color var(--t) var(--e), color var(--t) var(--e), border-color var(--t) var(--e), box-shadow var(--t) var(--e);
 }
 
-/* respect user's reduced-motion */
 @media (prefers-reduced-motion: reduce){
   .theme-toggle .knob, .theme-toggle .track, .theme-toggle::after, 
   body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-control, .btn, .badge {
@@ -938,7 +928,6 @@ body, .main-panel, .card, .navbar, .sidebar, .dropdown-menu, .table, .form-contr
    z-index: 1051 !important;
 }
 
-/* Dark mode - Modals */
 html[data-theme="dark"] .modal-content {
   background: rgba(26, 31, 32, 0.95) !important;
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -988,7 +977,6 @@ html[data-theme="dark"] .close:hover {
   opacity: 1;
 }
 
-/* Dark mode - Toast notifications */
 html[data-theme="dark"] #toast-container .toast {
   background-color: rgba(26, 31, 32, 0.95) !important;
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -1010,7 +998,6 @@ html[data-theme="dark"] #toast-container .toast-body {
   color: #e8f5e9 !important;
 }
 
-/* Fix dropdown z-index to appear above all elements */
 .dropdown-menu {
   z-index: 9999 !important;
 }
@@ -1020,7 +1007,6 @@ html[data-theme="dark"] #toast-container .toast-body {
   position: relative !important;
 }
 
-/* Pagination Dark Mode Styles */
 html[data-theme="dark"] .pagination .page-link {
   background-color: rgba(255, 255, 255, 0.1) !important;
   border-color: rgba(119, 178, 84, 0.3) !important;
@@ -1045,7 +1031,6 @@ html[data-theme="dark"] .pagination .page-item.disabled .page-link {
   color: rgba(232, 245, 233, 0.4) !important;
 }
 
-/* Recent Sales Dark Mode Styles */
 html[data-theme="dark"] .list-group-item {
   background-color: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(119, 178, 84, 0.2) !important;
