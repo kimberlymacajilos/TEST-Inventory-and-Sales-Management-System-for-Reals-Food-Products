@@ -47,6 +47,12 @@ body, .main-panel{
   background-attachment: fixed;
 }
 
+/* Ensure wrapper allows sticky positioning */
+.wrapper {
+  position: relative;
+  overflow: visible !important;
+}
+
 /* Remove bullets (just in case) */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
 
@@ -67,13 +73,13 @@ body, .main-panel{
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,.3) !important;
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  width: 100%;
 }
 
 .main-panel{
   position: relative;
   z-index: 1;
   margin-top: o !important;
-  /* padding-top: 50px !important; */
 }
 .main-panel > .content,
 .main-panel > .container,
@@ -526,7 +532,17 @@ html[data-theme="dark"] .form-item textarea {
   background: rgba(26, 31, 32, 0.6) !important;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border) !important;
-  color: var(--text) !important;
+  color: #f1f8f4 !important;
+}
+
+/* Dark mode - Form placeholders */
+html[data-theme="dark"] .form-control::placeholder,
+html[data-theme="dark"] .form-select::placeholder,
+html[data-theme="dark"] .form-item input::placeholder,
+html[data-theme="dark"] .form-item select::placeholder,
+html[data-theme="dark"] .form-item textarea::placeholder {
+  color: #a5d6a7 !important;
+  opacity: 0.7;
 }
 
 html[data-theme="dark"] .form-control:focus,
@@ -537,6 +553,14 @@ html[data-theme="dark"] .form-item textarea:focus {
   background: rgba(26, 31, 32, 0.8) !important;
   border-color: var(--primary-500) !important;
   box-shadow: 0 0 0 4px rgba(119, 178, 84, 0.25) !important;
+  color: #f1f8f4 !important;
+}
+
+/* Dark mode - Select dropdown options */
+html[data-theme="dark"] .form-select option,
+html[data-theme="dark"] .form-item select option {
+  background: #1a1f20 !important;
+  color: #f1f8f4 !important;
 }
 
 html[data-theme="dark"] .form-item label {

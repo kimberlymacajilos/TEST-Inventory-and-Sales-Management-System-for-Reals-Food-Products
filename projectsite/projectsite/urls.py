@@ -24,10 +24,6 @@ from realsproj.views import profile_view, edit_profile
 from django.conf import settings
 from django.conf.urls.static import static
 
-
-
-
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('', a.HomePageView.as_view(), name='home'),

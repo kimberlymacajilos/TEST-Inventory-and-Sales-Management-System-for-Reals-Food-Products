@@ -585,7 +585,7 @@ class ProductCreateView(CreateView):
             return redirect(self.request.path)  
 
         messages.success(self.request, "✅ Product added successfully.")
-        return redirect('recipe-list', product_id=self.object.id)
+        return redirect('products')
 
     def form_invalid(self, form):
         """Handle validation errors (e.g., duplicate barcode)"""
