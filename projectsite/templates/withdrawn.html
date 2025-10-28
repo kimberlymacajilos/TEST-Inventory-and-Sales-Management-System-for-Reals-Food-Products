@@ -134,7 +134,7 @@
         <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
       </div>
       <div class="modal-footer">
-        <form method="post" action="{% url 'withdrawals-archive' object.id %}">
+        <form method="post" action="{% url 'withdrawals-archive' object.id %}" onsubmit="handleArchiveSubmit(event, '{{ object.get_item_display }} (Qty: {{ object.quantity }})')">
           {% csrf_token %}
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-warning">Archive</button>
@@ -163,7 +163,7 @@
         <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
       </div>
       <div class="modal-footer">
-        <form method="post" action="{% url 'withdraw-delete' object.id %}">
+        <form method="post" action="{% url 'withdraw-delete' object.id %}" onsubmit="handleDeleteSubmit(event, '{{ object.get_item_display }} (Qty: {{ object.quantity }})')">
           {% csrf_token %}
           <input type="hidden" name="page" value="{{ request.GET.page }}">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -220,9 +220,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Update or remove filters
       if (adminFilter.value) {
-        params.set("q", adminFilter.value);
+        params.set("admin", adminFilter.value);
       } else {
-        params.delete("q");
+        params.delete("admin");
       }
       
       if (itemTypeFilter.value) {
@@ -328,5 +328,77 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// Handle archive form submission with toast
+function handleArchiveSubmit(event, withdrawalName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Archiving withdrawal...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Withdrawal "${withdrawalName}" archived successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to archive withdrawal. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Archive error:', error);
+        showToast('An error occurred while archiving the withdrawal.', 'error');
+    });
+}
+
+// Handle delete form submission with toast
+function handleDeleteSubmit(event, withdrawalName) {
+    event.preventDefault();
+    const form = event.target;
+    
+    // Close the modal
+    $(form).closest('.modal').modal('hide');
+    
+    // Show loading toast
+    showToast('Deleting withdrawal...', 'info');
+    
+    // Submit form via fetch
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`Withdrawal "${withdrawalName}" deleted successfully!`, 'success');
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast('Failed to delete withdrawal. Please try again.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        showToast('An error occurred while deleting the withdrawal.', 'error');
+    });
+}
 </script>
 {% endblock %}

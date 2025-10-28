@@ -664,6 +664,11 @@ class ProductsUpdateView(UpdateView):
     def form_valid(self, form):
         auth_user = AuthUser.objects.get(username=self.request.user.username)
         form.instance.created_by_admin = auth_user
+        
+        # Check if photo should be deleted
+        if self.request.POST.get('delete_photo_flag') == '1':
+            form.instance.photo = None
+        
         product = form.save()
         messages.success(self.request, "✅ Product updated successfully.")
         
@@ -757,6 +762,7 @@ class ProductRecipeUpdateView(UpdateView):
     template_name = "prodrecipe_edit.html"
 
     def get_success_url(self):
+        messages.success(self.request, "✅ Recipe updated successfully.")
         return reverse_lazy("recipe-list", kwargs={"product_id": self.object.product_id})
 
 class ProductRecipeDeleteView(DeleteView):
@@ -976,6 +982,36 @@ class SaleUnarchiveView(View):
         sale.save()
         return redirect('sales-archived-list')
 
+class SaleBulkRestoreView(View):
+    def post(self, request):
+        import json
+        try:
+            sale_ids = json.loads(request.POST.get('sale_ids', '[]'))
+            if not sale_ids:
+                return JsonResponse({'success': False, 'message': 'No sales selected'})
+            
+            # Restore selected sales
+            count = Sales.objects.filter(id__in=sale_ids, is_archived=True).update(is_archived=False)
+            
+            return JsonResponse({'success': True, 'count': count})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+class SaleBulkDeleteView(View):
+    def post(self, request):
+        import json
+        try:
+            sale_ids = json.loads(request.POST.get('sale_ids', '[]'))
+            if not sale_ids:
+                return JsonResponse({'success': False, 'message': 'No sales selected'})
+            
+            # Delete selected sales
+            count, _ = Sales.objects.filter(id__in=sale_ids, is_archived=True).delete()
+            
+            return JsonResponse({'success': True, 'count': count})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
 class SalesList(ListView):
     model = Sales
     context_object_name = 'sales'
@@ -1028,8 +1064,32 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display
+        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
+
+        # Add withdrawal-based sales (reason='SOLD')
+        month = self.request.GET.get("month", "").strip()
+        withdrawal_sales_qs = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False
+        ).select_related("created_by_admin").order_by("-date")
+        
+        # Apply same month filter as regular sales
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context['withdrawal_sales'] = withdrawal_sales_qs
 
         return context
 
@@ -1607,30 +1667,42 @@ class ProductAttributesView(LoginRequiredMixin, TemplateView):
 @method_decorator(login_required, name='dispatch')
 class ProductTypeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductTypes.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Type added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductTypes.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Type added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_type.name = name
-            product_type.save()
-            messages.success(request, 'Product Type updated successfully!')
+            try:
+                product_type.name = name
+                product_type.save()
+                messages.success(request, 'Product Type updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Type name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductTypeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_type = get_object_or_404(ProductTypes, pk=pk)
-        product_type.delete()
-        messages.success(request, 'Product Type deleted successfully!')
+        try:
+            product_type.delete()
+            messages.success(request, 'Product Type deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Type because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1638,30 +1710,42 @@ class ProductTypeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class ProductVariantAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         name = request.POST.get('name')
         if name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            ProductVariants.objects.create(name=name, created_by_admin=auth_user)
-            messages.success(request, 'Product Variant added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                ProductVariants.objects.create(name=name, created_by_admin=auth_user)
+                messages.success(request, 'Product Variant added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
         name = request.POST.get('name')
         if name:
-            product_variant.name = name
-            product_variant.save()
-            messages.success(request, 'Product Variant updated successfully!')
+            try:
+                product_variant.name = name
+                product_variant.save()
+                messages.success(request, 'Product Variant updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Product Variant name already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class ProductVariantDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         product_variant = get_object_or_404(ProductVariants, pk=pk)
-        product_variant.delete()
-        messages.success(request, 'Product Variant deleted successfully!')
+        try:
+            product_variant.delete()
+            messages.success(request, 'Product Variant deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Product Variant because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1669,30 +1753,42 @@ class ProductVariantDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeAddView(View):
     def post(self, request):
+        from django.db import IntegrityError
         size_label = request.POST.get('size_label')
         if size_label:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
-            messages.success(request, 'Size added successfully!')
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
+                messages.success(request, 'Size added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
         size_label = request.POST.get('size_label')
         if size_label:
-            size.size_label = size_label
-            size.save()
-            messages.success(request, 'Size updated successfully!')
+            try:
+                size.size_label = size_label
+                size.save()
+                messages.success(request, 'Size updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size = get_object_or_404(Sizes, pk=pk)
-        size.delete()
-        messages.success(request, 'Size deleted successfully!')
+        try:
+            size.delete()
+            messages.success(request, 'Size deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1700,30 +1796,52 @@ class SizeDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SizeUnitAddView(View):
     def post(self, request):
-        unit_name = request.POST.get('unit_name')
+        from django.db import IntegrityError
+        unit_name = request.POST.get('unit_name', '').strip()
         if unit_name:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
-            messages.success(request, 'Size Unit added successfully!')
+            # Check if already exists (case-insensitive)
+            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exists():
+                messages.error(request, '❌ This Size Unit already exists!')
+                return redirect('product-attributes')
+            
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
+                messages.success(request, '✅ Size Unit added successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
-        unit_name = request.POST.get('unit_name')
+        unit_name = request.POST.get('unit_name', '').strip()
         if unit_name:
-            size_unit.unit_name = unit_name
-            size_unit.save()
-            messages.success(request, 'Size Unit updated successfully!')
+            # Check if another record with same name exists (excluding current)
+            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exclude(pk=pk).exists():
+                messages.error(request, '❌ This Size Unit already exists!')
+                return redirect('product-attributes')
+            
+            try:
+                size_unit.unit_name = unit_name
+                size_unit.save()
+                messages.success(request, '✅ Size Unit updated successfully!')
+            except IntegrityError:
+                messages.error(request, '❌ This Size Unit already exists!')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SizeUnitDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         size_unit = get_object_or_404(SizeUnits, pk=pk)
-        size_unit.delete()
-        messages.success(request, 'Size Unit deleted successfully!')
+        try:
+            size_unit.delete()
+            messages.success(request, 'Size Unit deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Size Unit because it is being used by existing products.')
         return redirect('product-attributes')
 
 
@@ -1731,30 +1849,96 @@ class SizeUnitDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class UnitPriceAddView(View):
     def post(self, request):
-        unit_price = request.POST.get('unit_price')
-        if unit_price:
+        from django.db import IntegrityError
+        unit_price = request.POST.get('unit_price', '').strip()
+        
+        if not unit_price:
+            messages.error(request, '❌ Please enter a price!')
+            return redirect('product-attributes')
+        
+        try:
+            # Convert to Decimal for validation
+            price_value = Decimal(unit_price)
+            
+            # Validate positive number
+            if price_value <= 0:
+                messages.error(request, '❌ Price must be greater than zero!')
+                return redirect('product-attributes')
+            
+        except (InvalidOperation, ValueError):
+            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            return redirect('product-attributes')
+        
+        # Check if already exists
+        if UnitPrices.objects.filter(unit_price=price_value).exists():
+            messages.error(request, f'❌ Unit Price ₱{price_value} already exists!')
+            return redirect('product-attributes')
+        
+        try:
             auth_user = AuthUser.objects.get(id=request.user.id)
-            UnitPrices.objects.create(unit_price=unit_price, created_by_admin=auth_user)
-            messages.success(request, 'Unit Price added successfully!')
+            UnitPrices.objects.create(unit_price=price_value, created_by_admin=auth_user)
+            messages.success(request, f'✅ Unit Price ₱{price_value} added successfully!')
+        except IntegrityError as e:
+            messages.error(request, f'❌ Database error: This Unit Price already exists!')
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+        
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
-        unit_price = request.POST.get('unit_price')
+        unit_price = request.POST.get('unit_price', '').strip()
         if unit_price:
-            unit_price_obj.unit_price = unit_price
-            unit_price_obj.save()
-            messages.success(request, 'Unit Price updated successfully!')
+            try:
+                # Convert to Decimal for comparison
+                price_value = Decimal(unit_price)
+                
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
+                # Check if another record with same price exists (excluding current)
+                if UnitPrices.objects.filter(unit_price=price_value).exclude(pk=pk).exists():
+                    messages.error(request, '❌ This Unit Price already exists!')
+                    return redirect('product-attributes')
+                
+                unit_price_obj.unit_price = price_value
+                unit_price_obj.save()
+                messages.success(request, '✅ Unit Price updated successfully!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class UnitPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         unit_price = get_object_or_404(UnitPrices, pk=pk)
-        unit_price.delete()
-        messages.success(request, 'Unit Price deleted successfully!')
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(unit_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this Unit Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
+        try:
+            unit_price.delete()
+            messages.success(request, '✅ Unit Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 
@@ -1762,30 +1946,96 @@ class UnitPriceDeleteView(View):
 @method_decorator(login_required, name='dispatch')
 class SrpPriceAddView(View):
     def post(self, request):
-        srp_price = request.POST.get('srp_price')
-        if srp_price:
+        from django.db import IntegrityError
+        srp_price = request.POST.get('srp_price', '').strip()
+        
+        if not srp_price:
+            messages.error(request, '❌ Please enter a price!')
+            return redirect('product-attributes')
+        
+        try:
+            # Convert to Decimal for validation
+            price_value = Decimal(srp_price)
+            
+            # Validate positive number
+            if price_value <= 0:
+                messages.error(request, '❌ Price must be greater than zero!')
+                return redirect('product-attributes')
+            
+        except (InvalidOperation, ValueError):
+            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            return redirect('product-attributes')
+        
+        # Check if already exists
+        if SrpPrices.objects.filter(srp_price=price_value).exists():
+            messages.error(request, f'❌ SRP Price ₱{price_value} already exists!')
+            return redirect('product-attributes')
+        
+        try:
             auth_user = AuthUser.objects.get(id=request.user.id)
-            SrpPrices.objects.create(srp_price=srp_price, created_by_admin=auth_user)
-            messages.success(request, 'SRP Price added successfully!')
+            SrpPrices.objects.create(srp_price=price_value, created_by_admin=auth_user)
+            messages.success(request, f'✅ SRP Price ₱{price_value} added successfully!')
+        except IntegrityError:
+            messages.error(request, f'❌ This SRP Price already exists!')
+        except Exception as e:
+            messages.error(request, f'❌ Error adding SRP Price. Please try again.')
+        
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceEditView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError
         srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
-        srp_price = request.POST.get('srp_price')
+        srp_price = request.POST.get('srp_price', '').strip()
         if srp_price:
-            srp_price_obj.srp_price = srp_price
-            srp_price_obj.save()
-            messages.success(request, 'SRP Price updated successfully!')
+            try:
+                # Convert to Decimal for comparison
+                price_value = Decimal(srp_price)
+                
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
+                # Check if another record with same price exists (excluding current)
+                if SrpPrices.objects.filter(srp_price=price_value).exclude(pk=pk).exists():
+                    messages.error(request, '❌ This SRP Price already exists!')
+                    return redirect('product-attributes')
+                
+                srp_price_obj.srp_price = price_value
+                srp_price_obj.save()
+                messages.success(request, '✅ SRP Price updated successfully!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceDeleteView(View):
     def post(self, request, pk):
+        from django.db import IntegrityError, connection
         srp_price = get_object_or_404(SrpPrices, pk=pk)
-        srp_price.delete()
-        messages.success(request, 'SRP Price deleted successfully!')
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(srp_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this SRP Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
+        try:
+            srp_price.delete()
+            messages.success(request, '✅ SRP Price deleted successfully!')
+        except IntegrityError:
+            messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 
@@ -1796,9 +2046,16 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.filter(is_archived=False).order_by('-date')
+        # Use select_related to reduce database queries
+        queryset = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
         request = self.request
 
+        # Admin filter
+        admin = request.GET.get("admin")
+        if admin:
+            queryset = queryset.filter(created_by_admin__username=admin)
+
+        # General search
         q = request.GET.get("q")
         if q:
             filters = (
@@ -1810,13 +2067,23 @@ class WithdrawSuccessView(ListView):
                 filters |= Q(item_id=q)
             queryset = queryset.filter(filters)
 
+        # Item type filter
         item_type = request.GET.get("item_type")
         if item_type:
-            queryset = queryset.filter(item_type=item_type)
+            # Match against the display label
+            for value, label in Withdrawals.ITEM_TYPE_CHOICES:
+                if label == item_type:
+                    queryset = queryset.filter(item_type=value)
+                    break
 
+        # Reason filter
         reason = request.GET.get("reason")
         if reason:
-            queryset = queryset.filter(reason=reason)
+            # Match against the display label
+            for value, label in Withdrawals.REASON_CHOICES:
+                if label == reason:
+                    queryset = queryset.filter(reason=value)
+                    break
 
         date_val = request.GET.get("date")
         if date_val:
@@ -1835,13 +2102,21 @@ class WithdrawSuccessView(ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from django.core.cache import cache
         context = super().get_context_data(**kwargs)
-        context["admins"] = (
-            Withdrawals.objects
-            .values_list("created_by_admin__username", flat=True)
-            .distinct()
-            .order_by("created_by_admin__username")
-        )
+        
+        # Cache admin list for 5 minutes to reduce queries
+        admins = cache.get('withdrawal_admins_list')
+        if admins is None:
+            admins = list(
+                Withdrawals.objects
+                .values_list("created_by_admin__username", flat=True)
+                .distinct()
+                .order_by("created_by_admin__username")
+            )
+            cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
+        
+        context["admins"] = admins
         return context
     
 class WithdrawItemView(View):
@@ -3012,93 +3287,220 @@ def check_expirations(request):
 
     return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
 
+
+@method_decorator(login_required, name='dispatch')
+class BestSellerProductsView(LoginRequiredMixin, TemplateView):
+    template_name = "bestseller_products.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        now = timezone.now()
+        
+        # Get filter parameters
+        filter_date = self.request.GET.get('month')  # YYYY-MM format
+        filter_year_only = self.request.GET.get('year')  # Year only
+        
+        filter_type = None  # 'month', 'year', or None (current month)
+        
+        # Check if filtering by specific month
+        if filter_date:
+            try:
+                year, month = filter_date.split('-')
+                current_year = int(year)
+                current_month = int(month)
+                filter_month = current_month
+                filter_year = current_year
+                filter_type = 'month'
+            except (ValueError, AttributeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+        # Check if filtering by year only
+        elif filter_year_only:
+            try:
+                current_year = int(filter_year_only)
+                current_month = None
+                filter_month = None
+                filter_year = current_year
+                filter_type = 'year'
+            except (ValueError, TypeError):
+                current_month = now.month
+                current_year = now.year
+                filter_month = None
+                filter_year = None
+        # Default to current month
+        else:
+            current_month = now.month
+            current_year = now.year
+            filter_month = None
+            filter_year = None
+
+        # Build query filters
+        filters = {
+            'item_type': 'PRODUCT',
+            'reason': 'SOLD',
+            'is_archived': False,
+            'date__year': current_year
+        }
+        
+        # Add month filter only if not filtering by year only
+        if filter_type != 'year':
+            filters['date__month'] = current_month
+
+        withdrawals = Withdrawals.objects.filter(**filters).values('item_id', 'quantity', 'custom_price')
+
+        product_sales = {}
+        for w in withdrawals:
+            product_id = w['item_id']
+            quantity = w['quantity'] or 0
+            price = w['custom_price'] or 0
+            
+            if product_id not in product_sales:
+                product_sales[product_id] = {
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                }
+            
+            product_sales[product_id]['total_quantity'] += quantity
+            product_sales[product_id]['total_revenue'] += quantity * price
+
+        sold_products_list = []
+        for product_id, sales_data in product_sales.items():
+            try:
+                product = Products.objects.select_related(
+                    'product_type', 'variant', 'size', 'size_unit'
+                ).get(id=product_id)
+                
+                sold_products_list.append({
+                    'item_id': product_id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': sales_data['total_quantity'],
+                    'total_revenue': sales_data['total_revenue']
+                })
+            except Products.DoesNotExist:
+                continue
+
+        sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
+        
+        best_sellers = sold_products_list[:10]
+        
+        sold_product_ids = [p['item_id'] for p in sold_products_list]
+        no_sales_products = Products.objects.filter(
+            is_archived=False
+        ).exclude(id__in=sold_product_ids).select_related(
+            'product_type', 'variant', 'size', 'size_unit'
+        )
+        
+        low_sellers_list = []
+        
+        if len(sold_products_list) > 10:
+            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            low_sellers_list.extend(low_sellers_from_sold)
+        else:
+            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+
+        remaining_slots = 10 - len(low_sellers_list)
+        if remaining_slots > 0:
+            for product in no_sales_products[:remaining_slots]:
+                low_sellers_list.append({
+                    'item_id': product.id,
+                    'product__product_type__name': product.product_type.name,
+                    'product__variant__name': product.variant.name,
+                    'product__size__size_label': product.size.size_label if product.size else '',
+                    'product__size_unit__unit_name': product.size_unit.unit_name,
+                    'total_quantity': 0,
+                    'total_revenue': 0
+                })
+        
+        low_sellers = low_sellers_list[:10]
+        total_quantity = sum(p['total_quantity'] for p in sold_products_list)
+        total_revenue = sum(p['total_revenue'] for p in sold_products_list)
+        total_products = len(sold_products_list)
+        average_revenue = total_revenue / total_products if total_products > 0 else 0
+        available_years = Withdrawals.objects.filter(
+            item_type='PRODUCT',
+            reason='SOLD',
+            is_archived=False
+        ).dates('date', 'year', order='DESC')
+        
+        context['best_sellers'] = best_sellers
+        context['low_sellers'] = low_sellers
+        context['total_products'] = total_products
+        context['total_quantity'] = total_quantity
+        context['total_revenue'] = total_revenue
+        context['average_revenue'] = average_revenue
+        context['no_sales_products'] = no_sales_products
+        context['current_month'] = current_month
+        context['current_year'] = current_year
+        context['filter_month'] = filter_month
+        context['filter_year'] = filter_year
+        context['filter_type'] = filter_type
+        
+        # Set display values based on filter type
+        if filter_type == 'year':
+            context['current_month_name'] = None
+            context['filter_month_name'] = None
+            context['filter_month_value'] = ''
+        else:
+            context['current_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
+            context['filter_month_value'] = f"{current_year}-{current_month:02d}"
+        
+        context['available_years'] = [d.year for d in available_years]
+        context['months'] = [
+            (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+            (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+            (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
+        ]
+        
+        return context
+
 @login_required
 def database_backup(request):
     """
-    Generate and download a PostgreSQL database backup in SQL format
+    Generate and download a Django JSON fixture backup
     """
     from django.http import HttpResponse
-    from django.db import connection
+    from django.core import serializers
+    from django.apps import apps
     from datetime import datetime
+    import json
     
     if request.method == 'POST':
         try:
             # Create filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f'reals_backup_{timestamp}.sql'
+            filename = f'reals_backup_{timestamp}.json'
             
-            # Generate SQL dump using Django's connection
-            sql_statements = []
+            # Get all models from realsproj app (including managed=False)
+            app_models = apps.get_app_config('realsproj').get_models()
             
-            # Add header comment
-            sql_statements.append('-- Real\'s Food Products Database Backup')
-            sql_statements.append(f'-- Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-            sql_statements.append('-- \n')
+            # Serialize all data
+            all_data = []
+            for model in app_models:
+                try:
+                    # Get all objects from this model
+                    queryset = model.objects.all()
+                    if queryset.exists():
+                        model_data = serializers.serialize('json', queryset)
+                        all_data.extend(json.loads(model_data))
+                except Exception as e:
+                    # Skip models that can't be serialized
+                    print(f"Skipping {model.__name__}: {str(e)}")
+                    continue
             
-            # Get all table names from realsproj app
-            with connection.cursor() as cursor:
-                # Get list of tables
-                cursor.execute("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_type = 'BASE TABLE'
-                    ORDER BY table_name;
-                """)
-                tables = [row[0] for row in cursor.fetchall()]
-                
-                # For each table, generate INSERT statements
-                for table in tables:
-                    sql_statements.append(f'\n-- Table: {table}')
-                    
-                    # Get column names
-                    cursor.execute(f"""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = '{table}'
-                        ORDER BY ordinal_position;
-                    """)
-                    columns = [row[0] for row in cursor.fetchall()]
-                    
-                    if not columns:
-                        continue
-                    
-                    # Get all data from table
-                    cursor.execute(f'SELECT * FROM {table};')
-                    rows = cursor.fetchall()
-                    
-                    if rows:
-                        # Generate INSERT statements
-                        for row in rows:
-                            values = []
-                            for val in row:
-                                if val is None:
-                                    values.append('NULL')
-                                elif isinstance(val, str):
-                                    # Escape single quotes
-                                    escaped = val.replace("'", "''")
-                                    values.append(f"'{escaped}'")
-                                elif isinstance(val, (int, float)):
-                                    values.append(str(val))
-                                elif isinstance(val, bool):
-                                    values.append('TRUE' if val else 'FALSE')
-                                else:
-                                    # For dates, timestamps, etc.
-                                    values.append(f"'{str(val)}'")
-                            
-                            column_list = ', '.join(columns)
-                            value_list = ', '.join(values)
-                            sql_statements.append(
-                                f"INSERT INTO {table} ({column_list}) VALUES ({value_list});"
-                            )
+            # Convert to JSON string with pretty formatting
+            json_content = json.dumps(all_data, indent=2, ensure_ascii=False)
             
-            # Join all SQL statements
-            sql_content = '\n'.join(sql_statements)
-            
-            # Create SQL response
+            # Create JSON response
             response = HttpResponse(
-                sql_content,
-                content_type='application/sql'
+                json_content,
+                content_type='application/json'
             )
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             
