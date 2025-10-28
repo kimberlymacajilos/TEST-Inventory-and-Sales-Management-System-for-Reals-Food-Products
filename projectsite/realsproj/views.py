@@ -3395,7 +3395,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
         
         best_sellers = sold_products_list[:10]
-        
+        best_seller_ids = [p['item_id'] for p in best_sellers]       
         sold_product_ids = [p['item_id'] for p in sold_products_list]
         no_sales_products = Products.objects.filter(
             is_archived=False
@@ -3404,12 +3404,14 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         )
         
         low_sellers_list = []
-        
+
         if len(sold_products_list) > 10:
-            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_from_sold = sorted(non_best_sellers, key=lambda x: x['total_quantity'])[:10]
             low_sellers_list.extend(low_sellers_from_sold)
         else:
-            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_list.extend(sorted(non_best_sellers, key=lambda x: x['total_quantity']))
 
         remaining_slots = 10 - len(low_sellers_list)
         if remaining_slots > 0:

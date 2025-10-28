@@ -37,7 +37,7 @@
           <div class="card-body">
 
             <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
@@ -48,8 +48,11 @@
                   {% endfor %}
               </select>
               <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-
             </div>
+
+            <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
+              Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
+            </small>
 
             <!-- Expenses Summary -->
             <div class="row mb-1 text-center" id="expensesSummary">
