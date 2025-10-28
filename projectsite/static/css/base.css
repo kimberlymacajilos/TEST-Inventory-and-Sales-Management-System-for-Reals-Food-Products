@@ -198,7 +198,6 @@ body, .main-panel{
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   box-shadow: var(--shadow-xs) inset;
   width: 100%;
-  margin-bottom: 16px;
   color: var(--text);
 }
 .form-control:focus, .form-select:focus{
