@@ -9,7 +9,7 @@
                         <div class="card-title">Edit Withdraw Item</div>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-10">
                     <div class="card-body">
                         <form action="" method="post" novalidate>
                             {% csrf_token %} {% include 'includes/form.html' %}
@@ -18,10 +18,9 @@
                                 <option value="UNIT">Unit Price</option>
                                 <option value="SRP">Suggested Retail Price</option>
                             </datalist>
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
+                            <div class="form-actions btn-row mt-3">
+                                <button type="submit" class="btn btn-primary btn-rounded">Update</button>
+                                <a href="{% url 'withdrawals' %}" class="btn btn-soft">Cancel</a>
                             </div>
                         </form>
                     </div>

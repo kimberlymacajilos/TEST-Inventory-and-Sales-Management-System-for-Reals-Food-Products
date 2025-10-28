@@ -100,7 +100,7 @@
                     <td>{{ object.category|lower|capfirst|slugify|title }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
-                    <td>{{ object.description }}</td>
+                    <td class="description-cell">{{ object.description }}</td>
                     <td>
                       <a href="{% url 'sales-edit' object.id %}" class="text-primary" title="Edit">
                         <i class="la la-edit la-lg"></i>
@@ -414,6 +414,22 @@ function handleDeleteSubmit(event, saleName) {
         showToast('An error occurred while deleting the sale.', 'error');
     });
 }
+
+// Clean up description cells to remove Withdrawal ID and Channel
+document.addEventListener("DOMContentLoaded", function() {
+  const descriptionCells = document.querySelectorAll('.description-cell');
+  descriptionCells.forEach(cell => {
+    let text = cell.textContent.trim();
+    if (text.includes('Withdrawal ID:') || text.includes('Channel:')) {
+      // Remove Withdrawal ID and Channel parts
+      text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
+      text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
+      // Clean up extra commas and spaces
+      text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
+      cell.textContent = text;
+    }
+  });
+});
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

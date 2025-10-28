@@ -9,15 +9,14 @@
                         <div class="card-title">Add New Sales</div>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-10">
                     <div class="card-body">
                         <form action="" method="post" novalidate>
                             {% csrf_token %} {% include 'includes/form.html' %}
 
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
+                            <div class="form-actions btn-row mt-3">
+                                <button type="submit" class="btn btn-primary btn-rounded">Save Sale</button>
+                                <a href="{% url 'sales' %}" class="btn btn-soft">Cancel</a>
                             </div>
                         </form>
                     </div>
