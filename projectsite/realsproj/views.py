@@ -2861,16 +2861,8 @@ def login_view(request):
                 device_info = get_device_info(request)
                 ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
                 
-                print(f"\n{'='*60}")
-                print(f"[2FA DEBUG] Login attempt for user: {user.username}")
-                print(f"[2FA DEBUG] Device fingerprint: {device_fingerprint[:20]}...")
-                print(f"[2FA DEBUG] Device info: {device_info}")
-                print(f"[2FA DEBUG] IP Address: {ip_address}")
-                
                 try:
                     twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
-                    print(f"[2FA DEBUG] ✅ 2FA is ENABLED for user: {user.username}")
-                    print(f"[2FA DEBUG] Backup email: {twofa_settings.backup_email or 'None (using primary)'}")
                     
                     trusted_device = TrustedDevice.objects.filter(
                         user=user,
@@ -2879,17 +2871,6 @@ def login_view(request):
                     ).first()
                     
                     if trusted_device:
-                        print(f"[2FA DEBUG] ✅ TRUSTED DEVICE FOUND: {trusted_device.device_name}")
-                        print(f"[2FA DEBUG] Last used: {trusted_device.last_used}")
-                    else:
-                        print(f"[2FA DEBUG] ⚠️ NEW DEVICE - OTP Required")
-                        all_devices = TrustedDevice.objects.filter(user=user)
-                        print(f"[2FA DEBUG] Total trusted devices for user: {all_devices.count()}")
-                        for dev in all_devices:
-                            print(f"  - {dev.device_name} (fingerprint: {dev.device_fingerprint[:20]}...)")
-
-                    if trusted_device:
-                        print(f"[2FA DEBUG] 🔓 Allowing login from trusted device")
                         trusted_device.last_used = timezone.now()
                         trusted_device.save()
                         
@@ -2916,13 +2897,9 @@ def login_view(request):
                             request.session.set_expiry(0)  
                         
                         messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
-                        print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
-                        print(f"{'='*60}\n")
                         return redirect('home')
                     else:
-                        print(f"[2FA DEBUG] 📧 Generating OTP for new device...")
                         otp_code = str(random.randint(100000, 999999))
-                        print(f"[2FA DEBUG] OTP Code: {otp_code}")
                         
                         UserOTP.objects.create(
                             user=user,
@@ -2932,7 +2909,6 @@ def login_view(request):
                         )
                         
                         email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
-                        print(f"[2FA DEBUG] Sending OTP to: {email_to}")
                         
                         try:
                             send_mail(
@@ -2942,9 +2918,8 @@ def login_view(request):
                                 recipient_list=[email_to],
                                 fail_silently=False,
                             )
-                            print(f"[2FA DEBUG] ✅ OTP email sent successfully!")
                         except Exception as email_error:
-                            print(f"[2FA DEBUG] ❌ EMAIL ERROR: {email_error}")
+                            pass
                         
                         LoginAttempt.objects.create(
                             user=user,
@@ -2964,14 +2939,9 @@ def login_view(request):
                         
                         masked_email = mask_email(email_to)
                         messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
-                        print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
-                        print(f"{'='*60}\n")
                         return render(request, '2fa_verify.html', {'user_email': masked_email})
                         
                 except User2FASettings.DoesNotExist:
-                    print(f"[2FA DEBUG] ❌ 2FA is NOT ENABLED for user: {user.username}")
-                    print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
-                    print(f"{'='*60}\n")
                     login(request, user)
                     
                     remember_me = request.POST.get('remember', False)
@@ -2982,8 +2952,6 @@ def login_view(request):
                     
                     return redirect('home')
                 except Exception as e:
-                    print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
-                    print(f"{'='*60}\n")
                     messages.error(request, f"Failed to process login: {str(e)}")
                     return render(request, 'login.html')
             else:
@@ -3532,28 +3500,127 @@ def database_backup(request):
 
 @login_required
 def setup_2fa(request):
-    """Enable 2FA for the current user"""
-    from realsproj.models import User2FASettings
+    """Enable 2FA for the current user - with email verification"""
+    from realsproj.models import User2FASettings, UserOTP
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+    import random
+    from datetime import timedelta
     
     if request.method == 'POST':
-        backup_email = request.POST.get('backup_email', '').strip()
+        # Check if this is verification step
+        if 'verification_code' in request.POST:
+            verification_code = request.POST.get('verification_code', '').strip()
+            backup_email = request.session.get('2fa_setup_backup_email', '')
+            
+            # Verify the code
+            otp = UserOTP.objects.filter(
+                user=request.user,
+                otp_code=verification_code,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            ).first()
+            
+            if otp:
+                # Mark OTP as used
+                otp.is_used = True
+                otp.save()
+                
+                # Now enable 2FA
+                settings, created = User2FASettings.objects.get_or_create(
+                    user=request.user,
+                    defaults={
+                        'is_enabled': True,
+                        'method': 'email',
+                        'backup_email': backup_email if backup_email else None
+                    }
+                )
+                
+                if not created:
+                    settings.is_enabled = True
+                    settings.backup_email = backup_email if backup_email else None
+                    settings.save()
+                
+                # Send confirmation email
+                try:
+                    email_to = backup_email if backup_email else request.user.email
+                    send_mail(
+                        subject='🔐 Two-Factor Authentication Enabled - Real\'s Food Products',
+                        message=f'''Hello {request.user.username},
+
+Two-Factor Authentication has been successfully enabled for your account.
+
+Primary Email: {request.user.email}
+{'Backup Email: ' + backup_email if backup_email else ''}
+
+From now on, you will receive a one-time password (OTP) when logging in from a new device.
+
+If you did not enable this feature, please contact support immediately.
+
+Thank you for keeping your account secure!
+
+Real's Food Products Security Team''',
+                        from_email=django_settings.EMAIL_HOST_USER,
+                        recipient_list=[email_to],
+                        fail_silently=True,
+                    )
+                    print(f"[2FA SETUP] Confirmation email sent to {email_to}")
+                except Exception as e:
+                    print(f"[2FA SETUP ERROR] Failed to send confirmation email: {e}")
+                
+                # Clean up session
+                if '2fa_setup_backup_email' in request.session:
+                    del request.session['2fa_setup_backup_email']
+                
+                messages.success(request, "✅ Two-Factor Authentication has been enabled! A confirmation email has been sent.")
+                return redirect('profile')
+            else:
+                messages.error(request, "❌ Invalid or expired verification code. Please try again.")
+                return redirect('profile')
         
-        # Create or update 2FA settings
-        settings, created = User2FASettings.objects.get_or_create(
+        # Initial setup - send verification code
+        backup_email = request.POST.get('backup_email', '').strip()
+        email_to = backup_email if backup_email else request.user.email
+        
+        # Generate verification code
+        verification_code = str(random.randint(100000, 999999))
+        
+        # Store in UserOTP table
+        UserOTP.objects.create(
             user=request.user,
-            defaults={
-                'is_enabled': True,
-                'method': 'email',
-                'backup_email': backup_email if backup_email else None
-            }
+            otp_code=verification_code,
+            expires_at=timezone.now() + timedelta(minutes=5),
+            ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0')
         )
         
-        if not created:
-            settings.is_enabled = True
-            settings.backup_email = backup_email if backup_email else None
-            settings.save()
+        # Store backup email in session
+        request.session['2fa_setup_backup_email'] = backup_email
         
-        messages.success(request, "✅ Two-Factor Authentication has been enabled!")
+        # Send verification email
+        try:
+            send_mail(
+                subject='🔐 Verify Your Email - Enable 2FA',
+                message=f'''Hello {request.user.username},
+
+You are enabling Two-Factor Authentication for your account.
+
+Your verification code is: {verification_code}
+
+This code will expire in 5 minutes.
+
+If you did not request this, please ignore this email.
+
+Real's Food Products Security Team''',
+                from_email=django_settings.EMAIL_HOST_USER,
+                recipient_list=[email_to],
+                fail_silently=False,
+            )
+            print(f"[2FA SETUP] Verification code sent to {email_to}")
+            messages.success(request, f"📧 Verification code sent to {mask_email(email_to)}. Please check your email.")
+        except Exception as e:
+            print(f"[2FA SETUP ERROR] Failed to send verification email: {e}")
+            messages.error(request, "❌ Failed to send verification email. Please try again.")
+        
         return redirect('profile')
     
     # GET request - show setup form
@@ -3592,3 +3659,58 @@ def disable_2fa(request):
         return redirect('profile')
     
     return redirect('profile')
+
+
+@login_required
+def delete_account(request):
+    """Soft delete user account - deactivates instead of deleting to preserve database integrity"""
+    from django.contrib.auth import logout
+    from realsproj.models import User2FASettings, UserOTP, TrustedDevice
+    
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        confirm_text = request.POST.get('confirm_text', '')
+        
+        # Verify password
+        if not request.user.check_password(password):
+            messages.error(request, "❌ Incorrect password. Account deletion cancelled.")
+            return redirect('delete_account')
+        
+        # Verify confirmation text
+        if confirm_text != 'DELETE':
+            messages.error(request, "❌ Please type 'DELETE' to confirm account deletion.")
+            return redirect('delete_account')
+
+        try:
+            user = request.user
+            
+            # Generate unique timestamp-based identifier
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            
+            # Soft delete: Deactivate account and anonymize email/username to prevent conflicts
+            user.is_active = False
+            user.email = f"deleted_{user.id}_{timestamp}@deleted.invalid"
+            user.username = f"deleted_user_{user.id}_{timestamp}"
+            user.first_name = "Deleted"
+            user.last_name = "User"
+            user.set_unusable_password()
+            user.save()
+            
+            # Clean up 2FA and security data
+            User2FASettings.objects.filter(user=user).delete()
+            UserOTP.objects.filter(user=user).delete()
+            TrustedDevice.objects.filter(user=user).delete()
+            
+            # Log the user out
+            logout(request)
+            
+            messages.success(request, "✅ Your account has been successfully deactivated. All your data has been preserved for record-keeping purposes.")
+            return redirect('home')
+            
+        except Exception as e:
+            messages.error(request, f"❌ An error occurred while deleting your account: {str(e)}")
+            return redirect('delete_account')
+    
+    # GET request - show confirmation page
+    return render(request, 'delete_account_confirm.html')

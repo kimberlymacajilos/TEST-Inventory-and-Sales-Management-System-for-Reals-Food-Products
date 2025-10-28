@@ -117,7 +117,6 @@
   outline: 0;
 }
 
-/* -------- Dark mode variants (scoped) -------- */
 html[data-theme="dark"] .profile-page .account-settings-links .list-group-item{
   border-color: rgba(255,255,255,.06) !important;
   color: var(--text);

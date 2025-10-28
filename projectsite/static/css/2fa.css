@@ -1,0 +1,28 @@
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, #77B254 0%, #8fc76f 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .setup-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h2 {
+      color: black;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .btn-primary {
+      background: #77B254;
+      border: none;
+      padding: 12px 40px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+    }
