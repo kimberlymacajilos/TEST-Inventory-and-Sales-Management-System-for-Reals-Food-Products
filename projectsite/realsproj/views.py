@@ -1992,6 +1992,11 @@ class UnitPriceEditView(View):
                 # Convert to Decimal for comparison
                 price_value = Decimal(unit_price)
                 
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
                 # Check if another record with same price exists (excluding current)
                 if UnitPrices.objects.filter(unit_price=price_value).exclude(pk=pk).exists():
                     messages.error(request, '❌ This Unit Price already exists!')
@@ -2000,8 +2005,14 @@ class UnitPriceEditView(View):
                 unit_price_obj.unit_price = price_value
                 unit_price_obj.save()
                 messages.success(request, '✅ Unit Price updated successfully!')
-            except (IntegrityError, InvalidOperation, ValueError):
-                messages.error(request, '❌ Invalid price or this Unit Price already exists!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
@@ -2009,11 +2020,21 @@ class UnitPriceDeleteView(View):
     def post(self, request, pk):
         from django.db import IntegrityError
         unit_price = get_object_or_404(UnitPrices, pk=pk)
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(unit_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this Unit Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
         try:
             unit_price.delete()
-            messages.success(request, 'Unit Price deleted successfully!')
+            messages.success(request, '✅ Unit Price deleted successfully!')
         except IntegrityError:
             messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting Unit Price: {str(e)}')
         return redirect('product-attributes')
 
 
@@ -2068,6 +2089,11 @@ class SrpPriceEditView(View):
                 # Convert to Decimal for comparison
                 price_value = Decimal(srp_price)
                 
+                # Validate positive number
+                if price_value <= 0:
+                    messages.error(request, '❌ Price must be greater than zero!')
+                    return redirect('product-attributes')
+                
                 # Check if another record with same price exists (excluding current)
                 if SrpPrices.objects.filter(srp_price=price_value).exclude(pk=pk).exists():
                     messages.error(request, '❌ This SRP Price already exists!')
@@ -2076,20 +2102,36 @@ class SrpPriceEditView(View):
                 srp_price_obj.srp_price = price_value
                 srp_price_obj.save()
                 messages.success(request, '✅ SRP Price updated successfully!')
-            except (IntegrityError, InvalidOperation, ValueError):
-                messages.error(request, '❌ Invalid price or this SRP Price already exists!')
+            except InvalidOperation:
+                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
+            except ValueError:
+                messages.error(request, '❌ Invalid price value!')
+            except IntegrityError as e:
+                messages.error(request, f'❌ Database error: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'❌ Error updating SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 @method_decorator(login_required, name='dispatch')
 class SrpPriceDeleteView(View):
     def post(self, request, pk):
-        from django.db import IntegrityError
+        from django.db import IntegrityError, connection
         srp_price = get_object_or_404(SrpPrices, pk=pk)
+        
+        # Check if being used by products
+        products_using = Products.objects.filter(srp_price_id=pk)
+        if products_using.exists():
+            count = products_using.count()
+            messages.error(request, f'❌ Cannot delete this SRP Price because it is being used by {count} product(s).')
+            return redirect('product-attributes')
+        
         try:
             srp_price.delete()
-            messages.success(request, 'SRP Price deleted successfully!')
+            messages.success(request, '✅ SRP Price deleted successfully!')
         except IntegrityError:
             messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
+        except Exception as e:
+            messages.error(request, f'❌ Error deleting SRP Price: {str(e)}')
         return redirect('product-attributes')
 
 
@@ -2100,9 +2142,16 @@ class WithdrawSuccessView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Withdrawals.objects.filter(is_archived=False).order_by('-date')
+        # Use select_related to reduce database queries
+        queryset = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
         request = self.request
 
+        # Admin filter
+        admin = request.GET.get("admin")
+        if admin:
+            queryset = queryset.filter(created_by_admin__username=admin)
+
+        # General search
         q = request.GET.get("q")
         if q:
             filters = (
@@ -2114,13 +2163,23 @@ class WithdrawSuccessView(ListView):
                 filters |= Q(item_id=q)
             queryset = queryset.filter(filters)
 
+        # Item type filter
         item_type = request.GET.get("item_type")
         if item_type:
-            queryset = queryset.filter(item_type=item_type)
+            # Match against the display label
+            for value, label in Withdrawals.ITEM_TYPE_CHOICES:
+                if label == item_type:
+                    queryset = queryset.filter(item_type=value)
+                    break
 
+        # Reason filter
         reason = request.GET.get("reason")
         if reason:
-            queryset = queryset.filter(reason=reason)
+            # Match against the display label
+            for value, label in Withdrawals.REASON_CHOICES:
+                if label == reason:
+                    queryset = queryset.filter(reason=value)
+                    break
 
         date_val = request.GET.get("date")
         if date_val:
@@ -2139,13 +2198,21 @@ class WithdrawSuccessView(ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from django.core.cache import cache
         context = super().get_context_data(**kwargs)
-        context["admins"] = (
-            Withdrawals.objects
-            .values_list("created_by_admin__username", flat=True)
-            .distinct()
-            .order_by("created_by_admin__username")
-        )
+        
+        # Cache admin list for 5 minutes to reduce queries
+        admins = cache.get('withdrawal_admins_list')
+        if admins is None:
+            admins = list(
+                Withdrawals.objects
+                .values_list("created_by_admin__username", flat=True)
+                .distinct()
+                .order_by("created_by_admin__username")
+            )
+            cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
+        
+        context["admins"] = admins
         return context
     
 class WithdrawItemView(View):
