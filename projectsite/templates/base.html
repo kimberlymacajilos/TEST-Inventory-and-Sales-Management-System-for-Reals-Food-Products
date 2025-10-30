@@ -51,9 +51,8 @@
   {% block vendor_css %}{% endblock vendor_css %}
 </head>
 <body>
-<div class="wrapper">
-    <!-- Main Header -->
-    <div class="main-header">
+<!-- Main Header - OUTSIDE wrapper for true sticky behavior -->
+<div class="main-header">
         <div class="logo-header">
             <a href="{% url 'home' %}" class="logo">Real's Food Products</a>
             <button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse" data-target="collapse" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">
@@ -145,8 +144,10 @@
                 </ul>
             </div>
         </nav>
-    </div>
+</div>
 
+<!-- Wrapper starts here -->
+<div class="wrapper">
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="scrollbar-inner sidebar-wrapper">
