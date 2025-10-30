@@ -80,7 +80,7 @@
                     <td>{{ object.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
                     <td>{{ object.get_item_display }}</td>
-                    <td>{{ object.quantity }}</td>
+                    <td>{{ object.quantity|floatformat:0 }}</td>
                     <td>{{ object.get_reason_display }}</td>
                     <td>{{ object.created_by_admin.username }}</td>
                     <td>
@@ -129,7 +129,7 @@
         Are you sure you want to archive this withdrawal?
         <br><br>
         <strong>Item:</strong> {{ object.get_item_display }}<br>
-        <strong>Quantity:</strong> {{ object.quantity }}<br>
+        <strong>Quantity:</strong> {{ object.quantity|floatformat:0 }}<br>
         <strong>Reason:</strong> {{ object.get_reason_display }}<br>
         <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
       </div>
@@ -158,7 +158,7 @@
         Are you sure you want to delete this withdrawal?
         <br><br>
         <strong>Item:</strong> {{ object.get_item_display }}<br>
-        <strong>Quantity:</strong> {{ object.quantity }}<br>
+        <strong>Quantity:</strong> {{ object.quantity|floatformat:0 }}<br>
         <strong>Reason:</strong> {{ object.get_reason_display }}<br>
         <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
       </div>

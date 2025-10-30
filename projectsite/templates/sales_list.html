@@ -158,7 +158,7 @@
                   {% for withdrawal in withdrawal_sales %}
                   <tr>
                     <td>{{ withdrawal.get_item_display }}</td>
-                    <td>{{ withdrawal.quantity|floatformat:2 }}</td>
+                    <td>{{ withdrawal.quantity|floatformat:0 }}</td>
                     <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
                     <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
                     <td>
@@ -170,9 +170,9 @@
                     </td>
                     <td>
                       {% if withdrawal.custom_discount_value %}
-                        {{ withdrawal.custom_discount_value }}%
+                        {{ withdrawal.custom_discount_value|floatformat:2 }}%
                       {% elif withdrawal.discount %}
-                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value }}%)
+                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value|floatformat:2 }}%)
                       {% else %}
                         -
                       {% endif %}
@@ -410,19 +410,45 @@ function handleDeleteSubmit(event, saleName) {
     });
 }
 
-// Clean up description cells to remove Withdrawal ID and Channel
 document.addEventListener("DOMContentLoaded", function() {
   const descriptionCells = document.querySelectorAll('.description-cell');
   descriptionCells.forEach(cell => {
     let text = cell.textContent.trim();
-    if (text.includes('Withdrawal ID:') || text.includes('Channel:')) {
-      // Remove Withdrawal ID and Channel parts
-      text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
-      text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
-      // Clean up extra commas and spaces
-      text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
-      cell.textContent = text;
-    }
+    
+    // Remove Withdrawal ID and Channel parts
+    text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
+    text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
+    text = text.replace(/PriceType:\s*([A-Z_]+)/gi, function(match, priceType) {
+      let formatted = priceType.toLowerCase().replace(/_/g, ' ');
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      return 'Price Type: ' + formatted;
+    });
+
+    text = text.replace(/,?\s*Discount:\s*0(\.0+)?%,?\s*/gi, '');
+    text = text.replace(/Discount:\s*([\d.]+)%/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Discount: ' + num.toFixed(2) + '%';
+    });
+
+    text = text.replace(/BasePrice:\s*([\d.]+)/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Base Price: ₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/₱\s*([\d,]+\.\d{3,})/g, function(match, value) {
+      let num = parseFloat(value.replace(/,/g, ''));
+      return '₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/(\bQuantity:\s*)([\d,]+)\.0+\b/gi, function(match, label, value) {
+      return label + value;
+    });
+    
+    // Clean up extra commas and spaces
+    text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    cell.textContent = text;
   });
 });
 </script>
