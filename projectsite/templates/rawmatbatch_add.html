@@ -17,9 +17,14 @@
                 {% csrf_token %}
 
                 <!-- Batch Details -->
-                <div class="form-group">
-                  <label for="{{ form.received_date.id_for_label }}">Received Date</label>
-                  {{ form.received_date }}
+                <div class="form-group mb-4">
+                  <label for="{{ form.received_date.id_for_label }}" class="font-weight-bold">Received Date</label>
+                  <input type="date" 
+                         id="{{ form.received_date.id_for_label }}" 
+                         name="{{ form.received_date.name }}" 
+                         class="form-control" 
+                         style="max-width: 300px;"
+                         value="{{ form.received_date.value|default:'' }}">
                 </div>
 
                 <!-- Raw Materials Table -->
@@ -58,4 +63,14 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const receivedDateInput = document.getElementById('{{ form.received_date.id_for_label }}');
+  if (receivedDateInput && !receivedDateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    receivedDateInput.value = today;
+  }
+});
+</script>
 {% endblock %}

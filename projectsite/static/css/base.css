@@ -247,6 +247,12 @@ body {
   color: var(--text);
 }
 
+.form-item select {
+  min-height: 45px;
+  line-height: 1.5;
+  padding: 12px 10px;
+}
+
 .form-item input:focus, .form-item select:focus, .form-item textarea:focus {
   border-color: var(--primary-500);
   box-shadow: 0 0 0 4px rgba(119, 178, 84, .18);

@@ -33,9 +33,14 @@
           </div>
 
           <!-- Batch Details -->
-          <div class="form-group">
-            <label for="{{ form.manufactured_date.id_for_label }}">Manufactured Date</label>
-            {{ form.manufactured_date }}
+          <div class="form-group mb-4">
+            <label for="{{ form.manufactured_date.id_for_label }}" class="font-weight-bold">Manufactured Date</label>
+            <input type="date" 
+                   id="{{ form.manufactured_date.id_for_label }}" 
+                   name="{{ form.manufactured_date.name }}" 
+                   class="form-control" 
+                   style="max-width: 300px;"
+                   value="{{ form.manufactured_date.value|default:'' }}">
           </div>
             <table class="table table-bordered">
               <thead>
@@ -74,6 +79,12 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  const manufacturedDateInput = document.getElementById('{{ form.manufactured_date.id_for_label }}');
+  if (manufacturedDateInput && !manufacturedDateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    manufacturedDateInput.value = today;
+  }
+
   const statusBadge = document.getElementById("scanner-status");
   const beepSound = document.getElementById("beep-sound");
   
