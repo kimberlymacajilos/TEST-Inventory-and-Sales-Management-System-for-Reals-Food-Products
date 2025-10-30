@@ -3597,14 +3597,10 @@ def database_backup(request):
             
         except Exception as e:
             messages.error(request, f'❌ Backup error: {str(e)}')
-            return redirect(request.META.get('HTTP_REFERER', 'home'))
-    
-    return redirect('home')
-
-
 @login_required
 def financial_loss(request):
     """View for displaying financial losses from expired and damaged items"""
+    from django.core.paginator import Paginator
 
     product_withdrawals = Withdrawals.objects.filter(
         item_type='PRODUCT',
@@ -3667,9 +3663,23 @@ def financial_loss(request):
     
     total_loss = total_product_loss + total_raw_material_loss
     
+    product_page = request.GET.get('product_page', 1)
+    product_paginator = Paginator(product_loss_data, 10)
+    product_page_obj = product_paginator.get_page(product_page)
+    
+    raw_material_page = request.GET.get('raw_material_page', 1)
+    raw_material_paginator = Paginator(raw_material_loss_data, 10)
+    raw_material_page_obj = raw_material_paginator.get_page(raw_material_page)
+    
     context = {
-        'product_withdrawals': product_loss_data,
-        'raw_material_withdrawals': raw_material_loss_data,
+        'product_withdrawals': product_page_obj,
+        'product_paginator': product_paginator,
+        'product_page_obj': product_page_obj,
+        'product_is_paginated': product_paginator.num_pages > 1,
+        'raw_material_withdrawals': raw_material_page_obj,
+        'raw_material_paginator': raw_material_paginator,
+        'raw_material_page_obj': raw_material_page_obj,
+        'raw_material_is_paginated': raw_material_paginator.num_pages > 1,
         'product_loss': total_product_loss,
         'raw_material_loss': total_raw_material_loss,
         'total_loss': total_loss,

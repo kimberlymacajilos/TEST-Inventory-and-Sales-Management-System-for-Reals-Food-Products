@@ -105,12 +105,19 @@ body {
 }
 
 /* Sidebar */
-.sidebar{
-  background: rgba(255, 255, 255, 0.65) !important;
-  backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+.sidebar {
+  background: linear-gradient(
+    to bottom,
+    #FFF9E8 10%,  
+    #DDF1D4 50%, 
+    #BCE4A0 100%  
+  ) !important;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   color: var(--text);
-  border-right: 1px solid rgba(255,255,255,.3);
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
+
 .sidebar .user .info span{ color:var(--text) !important; }
 .sidebar .nav-item a{
   color: var(--text) !important;
