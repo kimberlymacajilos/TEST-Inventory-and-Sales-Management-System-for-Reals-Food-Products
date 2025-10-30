@@ -51,13 +51,31 @@ body, .main-panel{
 /* Remove bullets (just in case) */
 .navbar-nav, .navbar-nav > li { list-style: none !important; }
 
-/* Sticky Glass Header */
-.main-header, .navbar.navbar-header{
-  position: sticky; top: 0; z-index: 1040;
+/* Fixed Glass Header - ALWAYS stays at top */
+.main-header{
+  position: fixed; 
+  top: 0; 
+  left: 0;
+  right: 0;
+  z-index: 10000;
   background: var(--glass-navbar) !important;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,.3) !important;
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  width: 100%;
+}
+.navbar.navbar-header{
+  background: transparent !important;
+}
+
+/* Add padding to body to prevent content from hiding under fixed header */
+body {
+  padding-top: 0 !important; /* Remove padding - wrapper will handle spacing */
+}
+
+/* Add margin to wrapper instead to account for fixed header */
+.wrapper {
+  margin-top: 60px; /* Adjust based on actual header height */
 }
 
 /* 2) Reset any offsets na binibigay ng theme sa main panel/content */
@@ -799,72 +817,6 @@ html[data-theme="dark"] .theme-toggle .track{
 html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
 html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
 html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #a8d99b; }
-
-/* ===== Animated Theme Toggle (slider + glow) ===== */
-.theme-toggle{
-  position: relative;
-  display: inline-flex; align-items: center;
-  width: 56px; height: 30px;
-  padding: 0; border: 0; background: transparent;
-  cursor: pointer; outline: none;
-  border-radius: 999px;
-}
-.theme-toggle .track{
-  position: absolute; inset: 0; border-radius: 999px;
-  background: linear-gradient(180deg, #dff8d2, #c9efb5);
-  border: 1px solid var(--border, #DDEFCC);
-  box-shadow: inset 0 2px 6px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.05);
-  transition: background .35s cubic-bezier(.2,.8,.2,1), border-color .35s;
-}
-.theme-toggle .knob{
-  position: relative; z-index: 1;
-  width: 24px; height: 24px; border-radius: 50%;
-  transform: translateX(3px);
-  background: #fff;
-  box-shadow: 0 6px 14px rgba(0,137,123,.35), 0 0 0 2px rgba(255,255,255,.9);
-  transition: transform .32s cubic-bezier(.2,.8,.2,1), box-shadow .28s, background-color .28s;
-  display: grid; place-items: center;
-}
-.theme-toggle .icon svg{
-  width: 14px; height: 14px; fill: #2a2a2a;
-  transition: opacity .22s ease;
-}
-.theme-toggle .icon.moon{ opacity: 0; }
-.theme-toggle .icon.sun{ opacity: 1; }
-
-/* subtle stars when dark */
-.theme-toggle::after{
-  content:""; position:absolute; inset:0; border-radius:999px; pointer-events:none;
-  background:
-    radial-gradient(1px 1px at 22% 65%, rgba(255,255,255,.35) 50%, transparent 51%),
-    radial-gradient(1px 1px at 68% 35%, rgba(255,255,255,.28) 50%, transparent 51%),
-    radial-gradient(1px 1px at 42% 20%, rgba(255,255,255,.22) 50%, transparent 51%);
-  opacity: 0; transition: opacity .35s;
-}
-
-/* Light-mode "glow" */
-html:not([data-theme="dark"]) .theme-toggle .knob{
-  box-shadow: 0 8px 18px rgba(119,178,84,.38), 0 0 0 2px rgba(255,255,255,.95), 0 0 14px rgba(119,178,84,.45);
-}
-
-/* Dark state: slide right + dim glow, darker track */
-html[data-theme="dark"] .theme-toggle .knob{
-  transform: translateX(29px);
-  background: #1f2720;
-  box-shadow: 0 2px 8px rgba(0,0,0,.45), 0 0 0 2px #2a3a2a;
-}
-html[data-theme="dark"] .theme-toggle .track{
-  background: linear-gradient(180deg, #273427, #1a241c);
-  border-color: #2a3a2a;
-}
-html[data-theme="dark"] .theme-toggle::after{ opacity: .8; }
-
-/* swap icons (fade) */
-html[data-theme="dark"] .theme-toggle .icon.sun{ opacity: 0; }
-html[data-theme="dark"] .theme-toggle .icon.moon{ opacity: 1; fill: #eaf6e7; }
-
-/* Remove list dot just in case */
-.navbar-nav, .navbar-nav > li { list-style: none !important; }
 
 /* Smoothen global theme transition (colors/borders/shadows) */
 :root{ --t: .35s; --e: cubic-bezier(.2,.8,.2,1); }
