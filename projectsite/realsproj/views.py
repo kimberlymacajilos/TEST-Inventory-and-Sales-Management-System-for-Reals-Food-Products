@@ -2595,11 +2595,51 @@ class StockChangesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return (
-            StockChanges.objects
-            .filter(is_archived=False)
-            .order_by('-date')
-        )
+        from django.db.models import Q
+        
+        queryset = StockChanges.objects.filter(is_archived=False)
+        
+        # Search by item name
+        item_search = self.request.GET.get('item', '').strip()
+        if item_search:
+            # Get product IDs that match search
+            # Products structure: product_type.name, variant.name, size.size_label
+            product_ids = Products.objects.filter(
+                Q(product_type__name__icontains=item_search) |
+                Q(variant__name__icontains=item_search) |
+                Q(size__size_label__icontains=item_search)
+            ).values_list('id', flat=True)
+            
+            # Get raw material IDs that match search
+            rawmat_ids = RawMaterials.objects.filter(
+                name__icontains=item_search
+            ).values_list('id', flat=True)
+            
+            # Filter stock changes by matching items
+            queryset = queryset.filter(
+                Q(item_type__icontains='product', item_id__in=product_ids) |
+                Q(item_type__icontains='raw', item_id__in=rawmat_ids)
+            )
+        
+        # Filter by category
+        category = self.request.GET.get('category', '').strip()
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+        
+        # Filter by date (month-year)
+        date_filter = self.request.GET.get('date', '').strip()
+        if date_filter:
+            try:
+                from datetime import datetime
+                parsed_date = datetime.strptime(date_filter, '%Y-%m')
+                queryset = queryset.filter(
+                    date__year=parsed_date.year,
+                    date__month=parsed_date.month
+                )
+            except ValueError:
+                pass
+        
+        return queryset.order_by('-date')
 
 
 class StockChangesArchiveView(View):
