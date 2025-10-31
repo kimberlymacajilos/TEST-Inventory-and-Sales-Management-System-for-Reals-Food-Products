@@ -1115,8 +1115,13 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        # Pagsamahin ang filter dito. Magsimula sa pagkuha lang ng HINDI naka-archive.
-        qs = Sales.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
+        # Exclude withdrawal-based sales (they have their own table below)
+        # Withdrawal sales have "Order #" or "order #" in description
+        qs = Sales.objects.filter(
+            is_archived=False
+        ).exclude(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
@@ -1160,8 +1165,12 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        # Format categories for display
-        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display (exclude withdrawal-based sales)
+        raw_categories = Sales.objects.filter(
+            is_archived=False
+        ).exclude(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).values_list('category', flat=True).distinct()
         categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
 
