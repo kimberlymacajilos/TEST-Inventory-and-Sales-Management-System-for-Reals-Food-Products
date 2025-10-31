@@ -1158,9 +1158,46 @@ class SalesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Sales.objects.all())
+        # Get the filtered queryset for display (excludes withdrawal sales)
+        display_qs = getattr(self, "_full_queryset", Sales.objects.all())
 
-        context["sales_summary"] = full_qs.aggregate(
+        # For total sales computation, include ALL sales (manual + withdrawal)
+        # Apply same filters (month, category, search) but don't exclude withdrawal sales
+        month = self.request.GET.get("month", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        query = self.request.GET.get("q", "").strip()
+        
+        total_qs = Sales.objects.filter(is_archived=False).order_by("-date")
+        
+        # Apply month filter
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                total_qs = total_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            total_qs = total_qs.filter(date__year=today.year, date__month=today.month)
+        
+        # Apply category filter (only affects manual sales display, not total)
+        if category:
+            total_qs = total_qs.filter(category__iexact=category)
+        
+        # Apply search filter
+        if query:
+            total_qs = total_qs.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        # Calculate summary from ALL sales (including withdrawals)
+        context["sales_summary"] = total_qs.aggregate(
             total_sales=Sum("amount"),
             average_sales=Avg("amount"),
             sales_count=Count("id"),
