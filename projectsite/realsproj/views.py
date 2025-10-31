@@ -410,27 +410,21 @@ class ProductsList(ListView):
             .order_by("-id")
         )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
             queryset = queryset.filter(
-                Q(description__icontains=query) |
-                Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)
+                Q(product_type__name__icontains=search) |
+                Q(variant__name__icontains=search) |
+                Q(size__size_label__icontains=search) |
+                Q(description__icontains=search)
             )
-        product_type = self.request.GET.get("product_type")
-        variant = self.request.GET.get("variant")
-        size = self.request.GET.get("size")
+        
         date_created = self.request.GET.get("date_created")
         barcode = self.request.GET.get("barcode")
 
         if barcode:
             queryset = queryset.filter(barcode__icontains=barcode)
-        if product_type:
-            queryset = queryset.filter(product_type__name__icontains=product_type)
-        if variant:
-            queryset = queryset.filter(variant__name__icontains=variant)
-        if size:
-            queryset = queryset.filter(size__size_label__icontains=size)
         if date_created:
             date_created = date_created.replace("/", "-").strip()
             parts = date_created.split("-")
@@ -1382,26 +1376,21 @@ class ProductBatchList(ListView):
             .order_by('-id')
         )
 
-        query = self.request.GET.get("q", "").strip()
-        date_filter = self.request.GET.get("date_filter", "").strip()
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        date_created = self.request.GET.get("date_created", "").strip()
 
-        if query:
+        if search:
             queryset = queryset.filter(
-                Q(product__product_type__name__icontains=query) |
-                Q(product__variant__name__icontains=query) |
-                Q(batch_date__icontains=query) |
-                Q(manufactured_date__icontains=query) |
-                Q(expiration_date__icontains=query)
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
-        if date_filter:
+        if date_created:
             try:
-                parsed_date = datetime.strptime(date_filter, "%Y-%m")
-                queryset = queryset.filter(
-                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
-                    Q(manufactured_date__year=parsed_date.year, manufactured_date__month=parsed_date.month) |
-                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
-                )
+                parsed_date = datetime.strptime(date_created, "%Y-%m-%d")
+                queryset = queryset.filter(batch_date=parsed_date)
             except ValueError:
                 pass
 
@@ -1494,16 +1483,13 @@ class ProductInventoryList(ListView):
             "product__size_unit",
         )
 
-        q = self.request.GET.get("q", "").strip()
-        if q:
-            queryset = queryset.annotate(
-                total_stock_str=Cast("total_stock", CharField()),
-                restock_threshold_str=Cast("restock_threshold", CharField()),
-            ).filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
         status = self.request.GET.get("status", "")

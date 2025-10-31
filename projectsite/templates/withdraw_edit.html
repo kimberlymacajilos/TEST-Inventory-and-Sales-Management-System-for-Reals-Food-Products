@@ -1,7 +1,12 @@
 {% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Withdrawals</h4>
+        <h4 class="page-title">
+            <a href="{% url 'withdrawals' %}" class="btn btn-link p-0 mr-2" title="Back to Withdrawals">
+                <i class="la la-arrow-left" style="font-size: 24px;"></i>
+            </a>
+            Withdrawals
+        </h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -19,7 +24,6 @@
                             </datalist>
                             <div class="form-actions btn-row mt-3">
                                 <button type="submit" class="btn btn-primary btn-rounded">Update</button>
-                                <a href="{% url 'withdrawals' %}" class="btn btn-soft">Cancel</a>
                             </div>
                         </form>
                     </div>

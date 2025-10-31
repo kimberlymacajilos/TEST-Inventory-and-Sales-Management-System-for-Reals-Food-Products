@@ -45,33 +45,26 @@
 
                             <!-- Other Filters Row -->
                             <div class="row">
-                                <div class="col-md-2">
-                                    <input type="text" name="product_type" class="form-control"
-                                        placeholder="Product Type" value="{{ request.GET.product_type }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" name="variant" class="form-control"
-                                        placeholder="Variant" value="{{ request.GET.variant }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" name="size" class="form-control"
-                                        placeholder="Size" value="{{ request.GET.size }}">
+                                <div class="col-md-6">
+                                    <input type="text" name="search" class="form-control"
+                                        placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                                 </div>
                                 <div class="col-md-2">
                                     <input type="date" name="date_created" class="form-control"
+                                           placeholder="Filter by Date"
                                            value="{{ request.GET.date_created }}">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="input-group">
                                         <input type="text" name="barcode" id="barcode-search" class="form-control"
                                             placeholder="🔍 Scan or enter barcode..." value="{{ request.GET.barcode }}">
-                                        <div class="input-group-append">
-                                            <button type="button" id="clear-barcode" class="btn btn-outline-secondary" title="Clear barcode">
-                                                <i class="la la-times"></i>
-                                            </button>
-                                        </div>
                                     </div>
                                     <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                                        <i class="la la-times"></i>
+                                    </button>
                                 </div>
                             </div>
                         </form>

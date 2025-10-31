@@ -469,7 +469,7 @@ class BulkProductBatchForm(forms.Form):
                 required=False,
                 min_value=0,
                 label=str(product),
-                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
+                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Enter Quantity'})
             )
             self.products.append({
                 "product": product,
@@ -490,12 +490,12 @@ class BulkRawMaterialBatchForm(forms.Form):
                 required=False,
                 min_value=0,
                 label=str(rawmaterial),
-                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
+                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Enter Quantity'})
             )
 
             self.fields[exp_field_name] = forms.DateField(
                 required=False,
-                widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+                widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control', 'placeholder': 'Select Expiration Date'})
             )
 
             self.rawmaterials.append({

@@ -17,7 +17,7 @@
                     <!-- Search -->
                     <div class="card-body">
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <form method="get" action="" class="mt-2" id="searchForm">
                                     <div class="input-group">
                                         <input type="text" id="searchInput" name="q"
@@ -26,6 +26,11 @@
                                             value="{{ request.GET.q }}">
                                     </div>
                                 </form>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary mt-2" title="Reset filters">
+                                    <i class="la la-times"></i>
+                                </button>
                             </div>
                         </div>
 

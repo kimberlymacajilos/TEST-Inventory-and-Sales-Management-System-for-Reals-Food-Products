@@ -3,7 +3,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Bulk Add Product Batches</h4>
+    <h4 class="page-title">
+      <a href="{% url 'product-batch-list' %}" class="btn btn-link p-0 mr-2" title="Back to Product Batches">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Bulk Add Product Batches
+    </h4>
 
     <div class="card">
       <div class="card-header">
@@ -40,6 +45,7 @@
                    name="{{ form.manufactured_date.name }}" 
                    class="form-control" 
                    style="max-width: 300px;"
+                   placeholder="Select Manufactured Date"
                    value="{{ form.manufactured_date.value|default:'' }}">
           </div>
             <table class="table table-bordered">

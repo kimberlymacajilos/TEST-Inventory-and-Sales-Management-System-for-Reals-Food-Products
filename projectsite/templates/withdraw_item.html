@@ -4,7 +4,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Bulk Withdraw</h4>
+    <h4 class="page-title">
+      <a href="{% url 'withdrawals' %}" class="btn btn-link p-0 mr-2" title="Back to Withdrawals">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Bulk Withdraw
+    </h4>
 
     <div class="card">
       <div class="card-body"> 
@@ -52,7 +57,7 @@
               <label for="price_input">Price</label>
               <input list="priceOptions" name="price_input" id="price_input" 
                      class="form-control" 
-                     placeholder="Select or Type Price">
+                     placeholder="Select or Enter Price">
               <datalist id="priceOptions">
                 <option value="UNIT">
                 <option value="SRP">
@@ -70,7 +75,7 @@
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>Stock</th>
+                  <th>Current Stock</th>
                   <th>Withdraw Quantity</th>
                   <th class="discount-col" style="display:none;">Discount (%)</th>
                 </tr>
@@ -91,6 +96,7 @@
                            data-item-id="{{ product.id }}"
                            data-item-type="PRODUCT"
                            data-max-stock="{{ product.productinventory.total_stock }}"
+                           placeholder="Enter Quantity"
                            min="0">
                     <small class="form-text validation-msg"></small>
                   </td>
@@ -99,7 +105,7 @@
                            name="discount_{{ product.id }}" 
                            class="form-control" 
                            list="discountOptions" 
-                           placeholder="Type or select %">
+                           placeholder="Select or Enter Discount %">
                     <datalist id="discountOptions">
                       {% for d in discounts %}
                         <option value="{{ d.value }}">{{ d.name }} ({{ d.value }}%)</option>
@@ -119,7 +125,7 @@
               <thead>
                 <tr>
                   <th>Raw Material</th>
-                  <th>Stock</th>
+                  <th>Current Stock</th>
                   <th>Withdraw Quantity</th>
                 </tr>
               </thead>
@@ -136,6 +142,7 @@
                            data-item-id="{{ material.id }}"
                            data-item-type="RAW_MATERIAL"
                            data-max-stock="{{ material.rawmaterialinventory.total_stock }}"
+                           placeholder="Enter Quantity"
                            min="0">
                     <small class="form-text validation-msg"></small>
                   </td>
@@ -147,7 +154,7 @@
 
           <!-- Submit -->
           <div class="form-group mt-3">
-            <button type="submit" id="submit-btn" class="btn btn-warning btn-rounded">Withdraw Selected</button>
+            <button type="submit" id="submit-btn"class="btn btn-primary btn-rounded">Withdraw Items</button>
           </div>
         </form>
       </div>

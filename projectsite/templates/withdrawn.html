@@ -35,21 +35,21 @@
           <div class="card-body">
             <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
-              <select id="adminFilter" class="form-control" style="width:160px;">
+              <select id="adminFilter" class="form-control" style="width:180px;">
                 <option value="">All Admins</option>
                 {% for admin in admins %}
                   <option value="{{ admin }}">{{ admin }}</option>
                 {% endfor %}
               </select>
               <!-- Item Type Filter -->
-              <select id="itemTypeFilter" class="form-control" style="width:160px;">
+              <select id="itemTypeFilter" class="form-control" style="width:180px;">
                 <option value="">All Types</option>
                 {% for value, label in withdrawals.model.ITEM_TYPE_CHOICES %}
                   <option value="{{ label }}">{{ label }}</option>
                 {% endfor %}
               </select>
               <!-- Reason Filter -->
-              <select id="reasonFilter" class="form-control" style="width:160px;">
+              <select id="reasonFilter" class="form-control" style="width:180px;">
                 <option value="">All Reasons</option>
                 {% for value, label in withdrawals.model.REASON_CHOICES %}
                   <option value="{{ label }}">{{ label }}</option>
@@ -57,6 +57,9 @@
               </select>
               <!-- Month-Year Filter -->
               <input id="dateFilter" type="month" class="form-control" style="width:180px;" />
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </form>
           </div>
 
@@ -70,19 +73,17 @@
                     <th scope="col">Item ID</th>
                     <th scope="col">Quantity</th>
                     <th scope="col">Reason</th>
-                    <th scope="col">Withdrawn By</th>
                     <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="withdrawalTableBody">
                   {% for object in withdrawals %}
                   <tr>
-                    <td>{{ object.date|localtime|date:"Y-m-d g:i A" }}</td>
+                    <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td>{{ object.get_item_type_display }}</td>
                     <td>{{ object.get_item_display }}</td>
                     <td>{{ object.quantity|floatformat:0 }}</td>
                     <td>{{ object.get_reason_display }}</td>
-                    <td>{{ object.created_by_admin.username }}</td>
                     <td>
                       <a href="{% url 'withdraw-edit' object.id %}" title="Edit" class="text-primary">
                         <i class="la la-edit la-lg"></i>

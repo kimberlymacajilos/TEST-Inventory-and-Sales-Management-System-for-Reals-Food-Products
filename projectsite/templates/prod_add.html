@@ -5,7 +5,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Products</h4>
+    <h4 class="page-title">
+      <a href="{% url 'products' %}" class="btn btn-link p-0 mr-2" title="Back to Products">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Products
+    </h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
@@ -42,7 +47,7 @@
                   <!-- Product Type -->
                   <div class="form-item">
                     <label>Product Type</label>
-                    <input type="text" name="product_type" list="product_type-options" class="form-control" value="{{ form.product_type.value|default:'' }}">
+                    <input type="text" name="product_type" list="product_type-options" class="form-control" value="{{ form.product_type.value|default:'' }}" placeholder="Select or enter to Product Type">
                     <datalist id="product_type-options">
                       {% for pt in product_types %}
                         <option value="{{ pt.name }}">
@@ -53,7 +58,7 @@
                   <!-- Variant -->
                   <div class="form-item">
                     <label>Variant</label>
-                    <input type="text" name="variant" list="variant-options" class="form-control" value="{{ form.variant.value|default:'' }}">
+                    <input type="text" name="variant" list="variant-options" class="form-control" value="{{ form.variant.value|default:'' }}" placeholder="Select or enter to Variant">
                     <datalist id="variant-options">
                       {% for v in variants %}
                         <option value="{{ v.name }}">
@@ -64,7 +69,7 @@
                   <!-- Size -->
                   <div class="form-item">
                     <label>Size</label>
-                    <input type="text" name="size" list="size-options" class="form-control" value="{{ form.size.value|default:'' }}">
+                    <input type="text" name="size" list="size-options" class="form-control" value="{{ form.size.value|default:'' }}" placeholder="Select or enter to Size">
                     <datalist id="size-options">
                       {% for s in sizes %}
                         <option value="{{ s.size_label }}">
@@ -75,7 +80,7 @@
                   <!-- Size Unit -->
                   <div class="form-item">
                     <label>Size Unit</label>
-                    <input type="text" name="size_unit" list="size_unit-options" class="form-control" value="{{ form.size_unit.value|default:'' }}">
+                    <input type="text" name="size_unit" list="size_unit-options" class="form-control" value="{{ form.size_unit.value|default:'' }}" placeholder="Select or enter to Size Unit">
                     <datalist id="size_unit-options">
                       {% for su in size_units %}
                         <option value="{{ su.unit_name }}">
@@ -86,7 +91,7 @@
                   <!-- Unit Price -->
                   <div class="form-item">
                     <label>Unit Price</label>
-                    <input type="text" name="unit_price" list="unit_price-options" class="form-control" value="{{ form.unit_price.value|default:'' }}" step="0.01">
+                    <input type="text" name="unit_price" list="unit_price-options" class="form-control" value="{{ form.unit_price.value|default:'' }}" step="0.01" placeholder="Select or enter to Unit Price">
                     <datalist id="unit_price-options">
                       {% for up in unit_prices %}
                         <option value="{{ up.unit_price }}">
@@ -97,7 +102,7 @@
                   <!-- SRP Price -->
                   <div class="form-item">
                     <label>SRP Price</label>
-                    <input type="text" name="srp_price" list="srp_price-options" class="form-control" value="{{ form.srp_price.value|default:'' }}" step="0.01">
+                    <input type="text" name="srp_price" list="srp_price-options" class="form-control" value="{{ form.srp_price.value|default:'' }}" step="0.01" placeholder="Select or enter to SRP Price">
                     <datalist id="srp_price-options">
                       {% for sp in srp_prices %}
                         <option value="{{ sp.srp_price }}">
@@ -108,7 +113,7 @@
                   <!-- Description -->
                   <div class="form-item">
                     <label>Description</label>
-                    <textarea name="description" rows="3" class="form-control">{{ form.description.value|default:'' }}</textarea>
+                    <textarea name="description" rows="3" class="form-control" placeholder="Enter Description">{{ form.description.value|default:'' }}</textarea>
                   </div>
 
                   <!-- Photo Upload -->
