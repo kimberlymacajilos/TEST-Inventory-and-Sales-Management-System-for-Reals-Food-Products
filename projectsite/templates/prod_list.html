@@ -240,7 +240,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const barcodeInput = document.getElementById("barcode-search");
     const barcodeStatus = document.getElementById("barcode-status");
     const scannerStatus = document.getElementById("scanner-status");
-    const clearBarcodeBtn = document.getElementById("clear-barcode");
 
     let typingTimer;
     const debounceTime = 600;
@@ -324,7 +323,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 
                 // Auto-submit form to search
                 setTimeout(() => {
-                    form.submit();
+                    fetchProducts(true);
                 }, 300);
 
             } catch (err) {
@@ -356,14 +355,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Start WebSocket connection
     connectWebSocket();
-
-    // Clear barcode button
-    clearBarcodeBtn.addEventListener("click", function() {
-        barcodeInput.value = "";
-        barcodeInput.focus();
-        updateBarcodeStatus("Ready to scan...", "text-muted");
-        fetchProducts(true);
-    });
 
     // Manual input handling
     barcodeInput.addEventListener("input", function() {
