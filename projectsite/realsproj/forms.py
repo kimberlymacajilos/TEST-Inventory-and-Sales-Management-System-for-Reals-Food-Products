@@ -264,11 +264,34 @@ class WithdrawEditForm(forms.ModelForm):
         ('RETURNED', 'Returned'),
         ('OTHERS', 'Others'),
     ]
+    PAYMENT_STATUS_CHOICES = [
+        ('PAID', 'Paid'),
+        ('UNPAID', 'Unpaid'),
+        ('PARTIAL', 'Partial'),
+    ]
 
     item_id = forms.ChoiceField(choices=[], required=True, label="Item")
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+    customer_name = forms.CharField(
+        required=False,
+        label="Customer/Store Name",
+        widget=forms.TextInput(attrs={"placeholder": "Enter customer or store name"})
+    )
+    payment_status = forms.ChoiceField(
+        choices=PAYMENT_STATUS_CHOICES,
+        required=False,
+        initial='PAID',
+        label="Payment Status"
+    )
+    paid_amount = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label="Paid Amount",
+        widget=forms.NumberInput(attrs={"placeholder": "Enter amount paid"})
+    )
 
     price_type_or_custom = forms.CharField(
         required=False,
@@ -297,8 +320,9 @@ class WithdrawEditForm(forms.ModelForm):
     class Meta:
         model = Withdrawals
         fields = [
-            'item_id', 'quantity', 'reason', 'sales_channel',
-            'price_type_or_custom', 'discount', 'custom_discount_value',
+            'item_id', 'quantity', 'reason', 'sales_channel', 'customer_name',
+            'payment_status', 'paid_amount', 'price_type_or_custom', 
+            'discount', 'custom_discount_value',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -329,10 +353,19 @@ class WithdrawEditForm(forms.ModelForm):
             self.fields['item_id'].choices = products + materials
 
         if self.instance.pk:
+            # Set initial values for price
             if self.instance.price_type:
                 self.fields['price_type_or_custom'].initial = self.instance.price_type
             elif self.instance.custom_price:
                 self.fields['price_type_or_custom'].initial = str(self.instance.custom_price)
+            
+            # Set initial values for new fields
+            if self.instance.customer_name:
+                self.fields['customer_name'].initial = self.instance.customer_name
+            if self.instance.payment_status:
+                self.fields['payment_status'].initial = self.instance.payment_status
+            if self.instance.paid_amount:
+                self.fields['paid_amount'].initial = self.instance.paid_amount
 
     def clean(self):
         cleaned_data = super().clean()
