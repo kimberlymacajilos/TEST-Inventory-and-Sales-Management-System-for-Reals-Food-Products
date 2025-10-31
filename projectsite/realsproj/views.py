@@ -2852,7 +2852,68 @@ class WithdrawUpdateView(UpdateView):
             after=after
         )
 
-        messages.success(self.request, "✅ Withdrawal successfully updated.")
+        # Update sales entry if this is a PAID order with Unit/SRP price
+        if (withdrawal.reason == 'SOLD' and 
+            withdrawal.sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+            withdrawal.payment_status == 'PAID' and
+            withdrawal.price_type in ['UNIT', 'SRP'] and
+            withdrawal.order_group_id):
+            
+            # Check if quantity or discount changed
+            quantity_changed = before['quantity'] != after['quantity']
+            discount_changed = (before['discount_id'] != after['discount_id'] or 
+                              before['custom_discount_value'] != after['custom_discount_value'])
+            
+            if quantity_changed or discount_changed:
+                print(f"🔄 Updating sales entry for order #{withdrawal.order_group_id}")
+                
+                # Get all withdrawals in this order
+                order_withdrawals = Withdrawals.objects.filter(order_group_id=withdrawal.order_group_id)
+                
+                # Recalculate total
+                new_total = Decimal(0)
+                for w in order_withdrawals:
+                    if w.price_type:
+                        product = Products.objects.get(id=w.item_id)
+                        base_price = Decimal(0)
+                        
+                        if w.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif w.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        # Apply discount
+                        discount_percent = Decimal(0)
+                        if w.discount_id:
+                            discount = Discounts.objects.get(id=w.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif w.custom_discount_value:
+                            discount_percent = Decimal(w.custom_discount_value)
+                        
+                        discounted_price = base_price * (1 - (discount_percent / 100))
+                        item_total = Decimal(w.quantity) * discounted_price
+                        new_total += item_total
+                
+                # Update the sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{withdrawal.order_group_id}") &
+                    Q(description__icontains="Status: PAID"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    old_amount = sales_entry.amount
+                    sales_entry.amount = new_total
+                    sales_entry.save()
+                    print(f"   ✅ Sales updated: ₱{old_amount} → ₱{new_total}")
+                    messages.success(self.request, f"✅ Withdrawal and sales entry updated. New total: ₱{new_total:,.2f}")
+                else:
+                    print(f"   ⚠️ No sales entry found for order #{withdrawal.order_group_id}")
+                    messages.success(self.request, "✅ Withdrawal successfully updated.")
+            else:
+                messages.success(self.request, "✅ Withdrawal successfully updated.")
+        else:
+            messages.success(self.request, "✅ Withdrawal successfully updated.")
         
         # Return a redirect response instead of the original response
         return redirect(self.get_success_url())
