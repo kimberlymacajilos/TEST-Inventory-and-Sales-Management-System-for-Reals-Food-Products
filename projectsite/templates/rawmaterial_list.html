@@ -55,7 +55,7 @@
                                     {% for object in object_list %}
                                     <tr>
                                         <td>{{ object.name }}</td>
-                                        <td>{{ object.size }}</td>
+                                        <td>{{ object.size|floatformat:0 }}</td>
                                         <td>{{ object.unit }}</td>
                                         <td>{{ object.price_per_unit }}</td>
                                         <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
@@ -168,6 +168,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Check for success message after page reload
+  const materialSuccess = sessionStorage.getItem('materialSuccess');
+  if (materialSuccess) {
+    showToast(materialSuccess, 'success');
+    sessionStorage.removeItem('materialSuccess');
+  }
+  
   const searchInput = document.getElementById('searchInput');
   const dateFilter = document.getElementById('rawDateFilter');
   const tableBody = document.getElementById('rawMaterialsTable');
@@ -285,9 +292,6 @@ function handleArchiveSubmit(event, materialName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Archiving raw material...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -298,11 +302,10 @@ function handleArchiveSubmit(event, materialName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Raw material "${materialName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('materialSuccess', `Raw material "${materialName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive raw material. Please try again.', 'error');
         }
@@ -321,9 +324,6 @@ function handleDeleteSubmit(event, materialName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Deleting raw material...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -334,11 +334,10 @@ function handleDeleteSubmit(event, materialName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Raw material "${materialName}" deleted successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('materialSuccess', `Raw material "${materialName}" deleted successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to delete raw material. Please try again.', 'error');
         }

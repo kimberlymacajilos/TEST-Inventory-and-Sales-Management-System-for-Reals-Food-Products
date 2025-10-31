@@ -35,39 +35,32 @@
           </div>
 
           <div id="sales-price-section" style="display:none; margin-top:10px;">
-            <div class="form-row">
-              <div class="form-group col-md-6">
-                <label for="sales_channel">Sales Channel</label>
-                <select name="sales_channel" id="sales_channel" class="form-control">
-                  <option value="">-- Select --</option>
-                  <option value="ORDER">Order</option>
-                  <option value="CONSIGNMENT">Consignment</option>
-                  <option value="RESELLER">Reseller</option>
-                  <option value="PHYSICAL_STORE">Physical Store</option>
-                </select>
-              </div>
+            <!-- Sales Channel -->
+            <div class="form-group">
+              <label for="sales_channel">Sales Channel</label>
+              <select name="sales_channel" id="sales_channel" class="form-control">
+                <option value="">Select Sales Channel</option>
+                <option value="ORDER">Order</option>
+                <option value="CONSIGNMENT">Consignment</option>
+                <option value="RESELLER">Reseller</option>
+                <option value="PHYSICAL_STORE">Physical Store</option>
+              </select>
+            </div>
 
-              <!-- Single field for price -->
-              <div class="form-group col-md-6" id="price_input_wrapper">
-                <label for="price_input">Price</label>
-                <input list="priceOptions" name="price_input" id="price_input" 
-                       class="form-control" 
-                       placeholder="Enter custom price or select UNIT/SRP">
-                <datalist id="priceOptions">
-                  <option value="UNIT">
-                  <option value="SRP">
-                </datalist>
-                <small class="form-text text-muted">
-                  ⚠️ Entering a number will be treated as a custom price. Selecting UNIT or SRP will use that price type.
-                </small>
-              </div>
-
-            <label for="price_type">Price Type</label>
-            <select name="price_type" id="price_type">
-              <option value="">-- Select --</option>
-              <option value="UNIT">Unit Price</option>
-              <option value="SRP">SRP</option>
-            </select>
+            <!-- Price -->
+            <div class="form-group" id="price_input_wrapper">
+              <label for="price_input">Price</label>
+              <input list="priceOptions" name="price_input" id="price_input" 
+                     class="form-control" 
+                     placeholder="Select or Type Price">
+              <datalist id="priceOptions">
+                <option value="UNIT">
+                <option value="SRP">
+              </datalist>
+              <small class="form-text text-muted">
+                ⚠️ Entering a number will be treated as a custom price. Selecting UNIT or SRP will use that price type.
+              </small>
+            </div>
           </div>
 
           <!-- Products table -->

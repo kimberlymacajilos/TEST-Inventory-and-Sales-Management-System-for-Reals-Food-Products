@@ -555,6 +555,7 @@ class ProductCreateView(CreateView):
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
+        context['size_units'] = SizeUnits.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         return context  
@@ -564,6 +565,41 @@ class ProductCreateView(CreateView):
         auth_user = AuthUser.objects.get(id=self.request.user.id)
         kwargs['created_by_admin'] = auth_user
         return kwargs
+
+    def post(self, request, *args, **kwargs):
+        request.POST = request.POST.copy()
+        
+        size_unit_name = request.POST.get('size_unit')
+        if size_unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=size_unit_name)
+                request.POST['size_unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                pass
+
+        unit_price_val = request.POST.get('unit_price')
+        if unit_price_val:
+            try:
+                price_obj, created = UnitPrices.objects.get_or_create(
+                    unit_price=unit_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['unit_price'] = price_obj.id
+            except Exception:
+                pass
+
+        srp_price_val = request.POST.get('srp_price')
+        if srp_price_val:
+            try:
+                price_obj, created = SrpPrices.objects.get_or_create(
+                    srp_price=srp_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['srp_price'] = price_obj.id
+            except Exception:
+                pass
+        
+        return super().post(request, *args, **kwargs)
 
     @transaction.atomic
     def form_valid(self, form):
@@ -609,6 +645,7 @@ class ProductsUpdateView(UpdateView):
         context['product_types'] = ProductTypes.objects.all()
         context['variants'] = ProductVariants.objects.all()
         context['sizes'] = Sizes.objects.all()
+        context['size_units'] = SizeUnits.objects.all()
         context['unit_prices'] = UnitPrices.objects.all()
         context['srp_prices'] = SrpPrices.objects.all()
         context['recipe_list_url'] = reverse_lazy('recipe-list', kwargs={'product_id': self.object.id})
@@ -639,6 +676,42 @@ class ProductsUpdateView(UpdateView):
         return url
 
     def post(self, request, *args, **kwargs):
+        # Convert field names to ForeignKey IDs
+        request.POST = request.POST.copy()
+        
+        # Handle size_unit
+        size_unit_name = request.POST.get('size_unit')
+        if size_unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=size_unit_name)
+                request.POST['size_unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                pass
+        
+        # Handle unit_price
+        unit_price_val = request.POST.get('unit_price')
+        if unit_price_val:
+            try:
+                price_obj, created = UnitPrices.objects.get_or_create(
+                    unit_price=unit_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['unit_price'] = price_obj.id
+            except Exception:
+                pass
+        
+        # Handle srp_price
+        srp_price_val = request.POST.get('srp_price')
+        if srp_price_val:
+            try:
+                price_obj, created = SrpPrices.objects.get_or_create(
+                    srp_price=srp_price_val,
+                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
+                )
+                request.POST['srp_price'] = price_obj.id
+            except Exception:
+                pass
+        
         # Store the current page in session
         referer = request.META.get('HTTP_REFERER', '')
         if 'page=' in referer:
@@ -840,6 +913,23 @@ class RawMaterialsCreateView(CreateView):
     template_name = 'rawmaterial_add.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['size_units'] = SizeUnits.objects.all()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        unit_name = request.POST.get('unit')
+        if unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=unit_name)
+                request.POST = request.POST.copy()
+                request.POST['unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                messages.error(request, f"Unit '{unit_name}' not found.")
+                return redirect(self.request.path)
+        return super().post(request, *args, **kwargs)
+
     @transaction.atomic
     def form_valid(self, form):
         try:
@@ -850,7 +940,7 @@ class RawMaterialsCreateView(CreateView):
             transaction.set_rollback(True)
             messages.error(self.request, f"Raw material creation failed: {e}")
             return redirect(self.request.path)  
-        messages.success(self.request, "✅ Raw material created successfully.")
+        messages.success(self.request, "Raw material created successfully.")
         return redirect(self.success_url)
 
     def form_invalid(self, form):
@@ -864,9 +954,27 @@ class RawMaterialsUpdateView(UpdateView):
     template_name = 'rawmaterial_edit.html'
     success_url = reverse_lazy('rawmaterials')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['size_units'] = SizeUnits.objects.all()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        # Convert unit name to unit ID
+        unit_name = request.POST.get('unit')
+        if unit_name:
+            try:
+                unit_obj = SizeUnits.objects.get(unit_name=unit_name)
+                request.POST = request.POST.copy()
+                request.POST['unit'] = unit_obj.id
+            except SizeUnits.DoesNotExist:
+                messages.error(request, f"Unit '{unit_name}' not found.")
+                return redirect(reverse('rawmaterial-edit', kwargs={'pk': self.get_object().pk}))
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
         response = super().form_valid(form)
-        messages.success(self.request, "✏️ Raw Material updated successfully.")
+        messages.success(self.request, "Raw Material updated successfully.")
         return response
 
 
@@ -2652,7 +2760,6 @@ class StockChangesArchiveOldView(View):
         archived_count = StockChanges.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} stock change(s) older than 1 year have been archived.")
         return redirect('stock-changes')
-    
 
 def mask_email(email):
     """Mask email address for privacy: john@example.com -> j***@example.com"""
@@ -2661,9 +2768,9 @@ def mask_email(email):
     
     local, domain = email.split('@', 1)
     if len(local) <= 1:
-        masked_local = local + '***'
+        masked_local = local + '*'
     else:
-        masked_local = local[0] + '***'
+        masked_local = local[0] + '*'
     
     return f"{masked_local}@{domain}"
 
@@ -2971,7 +3078,8 @@ def register(request):
         else:
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
     else:
-        form = CustomUserCreationForm()  
+        form = CustomUserCreationForm() 
+
     return render(request, 'registration/register.html', {'form': form})
 
 @login_required
@@ -3171,6 +3279,7 @@ class UserActivityList(ListView):
 def set_user_active(sender, user, request, **kwargs):
     activity, created = UserActivity.objects.get_or_create(user=user)
     activity.active = True
+    activity.last_activity = timezone.now()
     activity.save()
 
 @receiver(user_logged_out)
@@ -3264,14 +3373,12 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
 
         now = timezone.now()
+
+        filter_date = self.request.GET.get('month')  
+        filter_year_only = self.request.GET.get('year')  
         
-        # Get filter parameters
-        filter_date = self.request.GET.get('month')  # YYYY-MM format
-        filter_year_only = self.request.GET.get('year')  # Year only
+        filter_type = None 
         
-        filter_type = None  # 'month', 'year', or None (current month)
-        
-        # Check if filtering by specific month
         if filter_date:
             try:
                 year, month = filter_date.split('-')
@@ -3285,7 +3392,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
                 current_year = now.year
                 filter_month = None
                 filter_year = None
-        # Check if filtering by year only
+
         elif filter_year_only:
             try:
                 current_year = int(filter_year_only)
@@ -3298,14 +3405,13 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
                 current_year = now.year
                 filter_month = None
                 filter_year = None
-        # Default to current month
+
         else:
             current_month = now.month
             current_year = now.year
             filter_month = None
             filter_year = None
 
-        # Build query filters
         filters = {
             'item_type': 'PRODUCT',
             'reason': 'SOLD',
@@ -3313,7 +3419,6 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
             'date__year': current_year
         }
         
-        # Add month filter only if not filtering by year only
         if filter_type != 'year':
             filters['date__month'] = current_month
 
@@ -3356,7 +3461,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
         
         best_sellers = sold_products_list[:10]
-        
+        best_seller_ids = [p['item_id'] for p in best_sellers]       
         sold_product_ids = [p['item_id'] for p in sold_products_list]
         no_sales_products = Products.objects.filter(
             is_archived=False
@@ -3365,12 +3470,14 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         )
         
         low_sellers_list = []
-        
+
         if len(sold_products_list) > 10:
-            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_from_sold = sorted(non_best_sellers, key=lambda x: x['total_quantity'])[:10]
             low_sellers_list.extend(low_sellers_from_sold)
         else:
-            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_list.extend(sorted(non_best_sellers, key=lambda x: x['total_quantity']))
 
         remaining_slots = 10 - len(low_sellers_list)
         if remaining_slots > 0:
@@ -3409,7 +3516,6 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         context['filter_year'] = filter_year
         context['filter_type'] = filter_type
         
-        # Set display values based on filter type
         if filter_type == 'year':
             context['current_month_name'] = None
             context['filter_month_name'] = None
@@ -3494,9 +3600,209 @@ def database_backup(request):
             
         except Exception as e:
             messages.error(request, f'❌ Backup error: {str(e)}')
-            return redirect(request.META.get('HTTP_REFERER', 'home'))
+@login_required
+def financial_loss(request):
+    """View for displaying financial losses from expired and damaged items"""
+    from django.core.paginator import Paginator
+
+    product_withdrawals = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    raw_material_withdrawals = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    ).select_related('created_by_admin').order_by('-date')
+
+    product_loss_data = []
+    total_product_loss = Decimal('0.00')
     
-    return redirect('home')
+    for withdrawal in product_withdrawals:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            product_loss_data.append({
+                'date': withdrawal.date,
+                'product_name': str(product),
+                'quantity': withdrawal.quantity,
+                'unit_price': product.unit_price.unit_price,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except Products.DoesNotExist:
+            continue
+
+    raw_material_loss_data = []
+    total_raw_material_loss = Decimal('0.00')
+    
+    for withdrawal in raw_material_withdrawals:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            raw_material_loss_data.append({
+                'date': withdrawal.date,
+                'material_name': material.name,
+                'quantity': withdrawal.quantity,
+                'unit_name': material.unit.unit_name,
+                'price_per_unit': material.price_per_unit,
+                'reason': withdrawal.reason,
+                'get_reason_display': withdrawal.get_reason_display(),
+                'loss_amount': loss_amount
+            })
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    total_loss = total_product_loss + total_raw_material_loss
+    
+    product_page = request.GET.get('product_page', 1)
+    product_paginator = Paginator(product_loss_data, 10)
+    product_page_obj = product_paginator.get_page(product_page)
+    
+    raw_material_page = request.GET.get('raw_material_page', 1)
+    raw_material_paginator = Paginator(raw_material_loss_data, 10)
+    raw_material_page_obj = raw_material_paginator.get_page(raw_material_page)
+    
+    context = {
+        'product_withdrawals': product_page_obj,
+        'product_paginator': product_paginator,
+        'product_page_obj': product_page_obj,
+        'product_is_paginated': product_paginator.num_pages > 1,
+        'raw_material_withdrawals': raw_material_page_obj,
+        'raw_material_paginator': raw_material_paginator,
+        'raw_material_page_obj': raw_material_page_obj,
+        'raw_material_is_paginated': raw_material_paginator.num_pages > 1,
+        'product_loss': total_product_loss,
+        'raw_material_loss': total_raw_material_loss,
+        'total_loss': total_loss,
+    }
+    
+    return render(request, 'financial_loss.html', context)
+
+
+@login_required
+def financial_loss_export(request):
+    """Export financial loss data to CSV"""
+    filter_type = request.GET.get('filter', 'date')
+    start_date = request.GET.get('start')
+    end_date = request.GET.get('end')
+
+    product_qs = Withdrawals.objects.filter(
+        item_type='PRODUCT',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    raw_material_qs = Withdrawals.objects.filter(
+        item_type='RAW_MATERIAL',
+        reason__in=['EXPIRED', 'DAMAGED'],
+        is_archived=False
+    )
+
+    if filter_type == "date" and start_date:
+        try:
+            year, month, day = start_date.split('-')
+            product_qs = product_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+            raw_material_qs = raw_material_qs.filter(date__year=int(year), date__month=int(month), date__day=int(day))
+        except (ValueError, AttributeError):
+            pass
+    
+    elif filter_type == "month" and start_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        product_qs = product_qs.filter(date__year=start.year, date__month=start.month)
+        raw_material_qs = raw_material_qs.filter(date__year=start.year, date__month=start.month)
+    
+    elif filter_type == "year" and start_date:
+        year = int(start_date)
+        product_qs = product_qs.filter(date__year=year)
+        raw_material_qs = raw_material_qs.filter(date__year=year)
+    
+    elif filter_type == "range" and start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m")
+        end = datetime.strptime(end_date, "%Y-%m")
+        
+        from calendar import monthrange
+        start = start.replace(day=1)
+        last_day = monthrange(end.year, end.month)[1]
+        end = end.replace(day=last_day)
+        product_qs = product_qs.filter(date__range=(start.date(), end.date()))
+        raw_material_qs = raw_material_qs.filter(date__range=(start.date(), end.date()))
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="financial_loss_{filter_type}.csv"'
+    response.write(u'\ufeff'.encode('utf8'))
+    
+    writer = csv.writer(response)
+
+    writer.writerow(['PRODUCTS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Product', 'Quantity', 'Unit Price', 'Reason', 'Financial Loss'])
+    
+    total_product_loss = Decimal('0.00')
+    for withdrawal in product_qs:
+        try:
+            product = Products.objects.select_related(
+                'product_type', 'variant', 'size', 'size_unit', 'unit_price'
+            ).get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * product.unit_price.unit_price
+            total_product_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                str(product),
+                withdrawal.quantity,
+                product.unit_price.unit_price,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except Products.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL PRODUCT LOSS', f"₱{total_product_loss:.2f}"])
+    writer.writerow([])
+
+    writer.writerow(['RAW MATERIALS - EXPIRED & DAMAGED'])
+    writer.writerow(['Date', 'Raw Material', 'Quantity', 'Price per Unit', 'Reason', 'Financial Loss'])
+    
+    total_raw_material_loss = Decimal('0.00')
+    for withdrawal in raw_material_qs:
+        try:
+            material = RawMaterials.objects.select_related('unit').get(id=withdrawal.item_id)
+            
+            loss_amount = Decimal(withdrawal.quantity) * material.price_per_unit
+            total_raw_material_loss += loss_amount
+            
+            writer.writerow([
+                withdrawal.date.strftime("%Y-%m-%d %H:%M"),
+                f"{material.name} ({material.unit.unit_name})",
+                withdrawal.quantity,
+                material.price_per_unit,
+                withdrawal.get_reason_display(),
+                f"{loss_amount:.2f}"
+            ])
+        except RawMaterials.DoesNotExist:
+            continue
+    
+    writer.writerow([])
+    writer.writerow(['', '', '', '', 'TOTAL RAW MATERIAL LOSS', f"₱{total_raw_material_loss:.2f}"])
+    writer.writerow([])
+
+    total_loss = total_product_loss + total_raw_material_loss
+    writer.writerow(['', '', '', '', 'TOTAL FINANCIAL LOSS', f"₱{total_loss:.2f}"])
+    
+    return response
 
 @login_required
 def setup_2fa(request):
@@ -3508,12 +3814,10 @@ def setup_2fa(request):
     from datetime import timedelta
     
     if request.method == 'POST':
-        # Check if this is verification step
         if 'verification_code' in request.POST:
             verification_code = request.POST.get('verification_code', '').strip()
             backup_email = request.session.get('2fa_setup_backup_email', '')
-            
-            # Verify the code
+
             otp = UserOTP.objects.filter(
                 user=request.user,
                 otp_code=verification_code,
@@ -3522,11 +3826,9 @@ def setup_2fa(request):
             ).first()
             
             if otp:
-                # Mark OTP as used
                 otp.is_used = True
                 otp.save()
-                
-                # Now enable 2FA
+
                 settings, created = User2FASettings.objects.get_or_create(
                     user=request.user,
                     defaults={
@@ -3540,8 +3842,7 @@ def setup_2fa(request):
                     settings.is_enabled = True
                     settings.backup_email = backup_email if backup_email else None
                     settings.save()
-                
-                # Send confirmation email
+
                 try:
                     email_to = backup_email if backup_email else request.user.email
                     send_mail(
@@ -3567,8 +3868,7 @@ Real's Food Products Security Team''',
                     print(f"[2FA SETUP] Confirmation email sent to {email_to}")
                 except Exception as e:
                     print(f"[2FA SETUP ERROR] Failed to send confirmation email: {e}")
-                
-                # Clean up session
+
                 if '2fa_setup_backup_email' in request.session:
                     del request.session['2fa_setup_backup_email']
                 
@@ -3578,14 +3878,11 @@ Real's Food Products Security Team''',
                 messages.error(request, "❌ Invalid or expired verification code. Please try again.")
                 return redirect('profile')
         
-        # Initial setup - send verification code
         backup_email = request.POST.get('backup_email', '').strip()
         email_to = backup_email if backup_email else request.user.email
-        
-        # Generate verification code
+
         verification_code = str(random.randint(100000, 999999))
-        
-        # Store in UserOTP table
+
         UserOTP.objects.create(
             user=request.user,
             otp_code=verification_code,
@@ -3593,10 +3890,8 @@ Real's Food Products Security Team''',
             ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0')
         )
         
-        # Store backup email in session
         request.session['2fa_setup_backup_email'] = backup_email
-        
-        # Send verification email
+
         try:
             send_mail(
                 subject='🔐 Verify Your Email - Enable 2FA',
@@ -3634,7 +3929,6 @@ Real's Food Products Security Team''',
         'twofa_settings': twofa_settings
     })
 
-
 @login_required
 def disable_2fa(request):
     """Disable 2FA for the current user"""
@@ -3659,7 +3953,6 @@ def disable_2fa(request):
         return redirect('profile')
     
     return redirect('profile')
-
 
 @login_required
 def delete_account(request):
@@ -3690,7 +3983,7 @@ def delete_account(request):
             
             # Soft delete: Deactivate account and anonymize email/username to prevent conflicts
             user.is_active = False
-            user.email = f"deleted_{user.id}_{timestamp}@deleted.invalid"
+            user.email = f"deleted_{user.id}_{timestamp}@deleted.local"
             user.username = f"deleted_user_{user.id}_{timestamp}"
             user.first_name = "Deleted"
             user.last_name = "User"

@@ -1,11 +1,37 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Check for success message after page reload
+  const saleSuccess = sessionStorage.getItem('saleSuccess');
+  if (saleSuccess) {
+    showToast(saleSuccess, 'success');
+    sessionStorage.removeItem('saleSuccess');
+  }
+  
   const categoryFilter = document.getElementById("categoryFilter");
   const dateFilter = document.getElementById("dateFilter");
   const tableBody = document.getElementById("salesTableBody");
   const pagination = document.querySelector(".pagination-container");
   const summaryContainer = document.getElementById("salesSummary");
+  const currentMonthDisplay = document.getElementById("currentMonthDisplay");
 
   let timeout;
+
+  function updateFilterInfo() {
+    const now = new Date();
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    
+    if (dateFilter.value) {
+      const [year, month] = dateFilter.value.split('-');
+      const monthName = monthNames[parseInt(month) - 1];
+      currentMonthDisplay.textContent = `${monthName} ${year}`;
+    } else {
+      const currentMonth = monthNames[now.getMonth()];
+      const currentYear = now.getFullYear();
+      currentMonthDisplay.textContent = `${currentMonth} ${currentYear}`;
+    }
+  }
+
+  updateFilterInfo();
 
   function fetchSales(resetPage = true) {
     clearTimeout(timeout);
@@ -60,7 +86,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Event listeners
   categoryFilter.addEventListener("change", () => fetchSales(true));
-  dateFilter.addEventListener("change", () => fetchSales(true));
+  dateFilter.addEventListener("change", () => {
+    updateFilterInfo();
+    fetchSales(true);
+  });
   
   // Handle pagination clicks
   document.addEventListener("click", function(e) {

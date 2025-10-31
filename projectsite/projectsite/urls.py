@@ -197,6 +197,9 @@ urlpatterns = [
 
     path('export-sales/', a.export_sales, name='export_sales'),
     path('export-expenses/', a.export_expenses, name='export_expenses'),
+    
+    path('financial-loss/', a.financial_loss, name='financial-loss'),
+    path('financial-loss/export/', a.financial_loss_export, name='financial-loss-export'),
 
     path('user-activity/', a.UserActivityList.as_view(), name='user-activity'),
 

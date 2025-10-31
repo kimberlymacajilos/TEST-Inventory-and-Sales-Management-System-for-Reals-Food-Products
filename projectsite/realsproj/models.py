@@ -204,7 +204,9 @@ class HistoryLog(models.Model):
 
             elif self.entity_type == "sale":
                 s = Sales.objects.get(pk=self.entity_id)
-                return f"{s.category}"
+                # Format category to title case (e.g., ORDER -> Order)
+                category = s.category.replace('_', ' ').title() if s.category else s.category
+                return f"{category}"
 
             elif self.entity_type == "withdrawal":
                 try:
@@ -228,7 +230,7 @@ class HistoryLog(models.Model):
                     "product__size",
                     "material"
                 ).get(pk=self.entity_id)
-                return f"{pr.product.product_type.name} - {pr.product.variant.name} ({pr.product.size.size_label if pr.product.size else ''} {pr.product.size_unit.unit_name}), Material: {pr.material.name}"
+                return f"{pr.product.product_type.name} - {pr.product.variant.name} ({pr.product.size.size_label if pr.product.size else ''} {pr.product.size_unit.unit_name})"
 
             elif self.entity_type == "product_type":
                 pt = ProductTypes.objects.get(pk=self.entity_id)
@@ -269,7 +271,24 @@ class HistoryLog(models.Model):
             if "delete" in log_category or "deleted" in log_category:
                 # Try to get entity info from details
                 if self.details and 'before' in self.details:
-                    return f"Deleted {self.entity_type.replace('_', ' ').title()}"
+                    before_data = self.details['before']
+
+                    if self.entity_type == "product":
+                        try:
+                            product_type = before_data.get('product_type_id', '')
+                            variant = before_data.get('variant_id', '')
+                            size = before_data.get('size_id', '')
+                            size_unit = before_data.get('size_unit_id', '')
+                            product_type_name = ProductTypes.objects.get(id=product_type).name if product_type else ''
+                            variant_name = ProductVariants.objects.get(id=variant).name if variant else ''
+                            size_label = Sizes.objects.get(id=size).size_label if size else ''
+                            size_unit_name = SizeUnits.objects.get(id=size_unit).unit_name if size_unit else ''
+                            
+                            return f"Deleted ({product_type_name} - {variant_name} ({size_label} {size_unit_name}))"
+                        except:
+                            pass
+                    
+                    return f"Deleted ({self.entity_type.replace('_', ' ').title()})"
                 return "Deleted Entity"
             
             return f"Entity #{self.entity_id}"
@@ -285,7 +304,6 @@ class HistoryLog(models.Model):
                 if value is None:
                     return None
 
-                # 🔹 Choice fields for Withdrawals
                 if key == "reason":
                     return dict(Withdrawals.REASON_CHOICES).get(value, value)
                 if key == "sales_channel":
@@ -294,8 +312,8 @@ class HistoryLog(models.Model):
                     return dict(Withdrawals.PRICE_TYPE_CHOICES).get(value, value)
                 if key == "item_type":
                     return dict(Withdrawals.ITEM_TYPE_CHOICES).get(value, value)
-
-                # 🔹 Product relations
+                if key == "category" and isinstance(value, str):
+                    return value.replace('_', ' ').title()
                 if key == "product_id":
                     try:
                         product = Products.objects.select_related("product_type", "variant", "size_unit", "size").get(id=value)
@@ -327,14 +345,12 @@ class HistoryLog(models.Model):
                     except SizeUnits.DoesNotExist:
                         return f"Unit #{value}"
 
-                # 🔹 Raw material relation
                 if key == "material_id":
                     try:
                         return RawMaterials.objects.get(id=value).name
                     except RawMaterials.DoesNotExist:
                         return f"Material #{value}"
 
-                # 🔹 Price lookups
                 if key == "srp_price_id":
                     try:
                         return str(SrpPrices.objects.get(id=value))
@@ -358,13 +374,12 @@ class HistoryLog(models.Model):
                 "batch_date",
                 "received_date",
                 "description",
+                "date",
+                "withdrawal_id", 
+                "item_id", 
+                "item_type",
             ]
 
-            # hide date changes for expenses & sales
-            if self.entity_type in ("expense", "sale"):
-                ignore_fields.append("date")
-            
-            # hide date_joined for user sign-ups
             if self.entity_type == "user":
                 ignore_fields.append("date_joined")
 
@@ -387,7 +402,10 @@ class HistoryLog(models.Model):
                 after = self.details["after"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in after.items() if k not in ignore_fields
+                    for k, v in after.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -395,7 +413,10 @@ class HistoryLog(models.Model):
                 before = self.details["before"]
                 summary = ", ".join(
                     f"{format_key(k)}: {humanize_field(k, v)}"
-                    for k, v in before.items() if k not in ignore_fields
+                    for k, v in before.items() 
+                    if k not in ignore_fields 
+                    and v is not None 
+                    and not (k == "is_archived" and v is False)
                 )
                 return summary
 
@@ -496,6 +517,16 @@ class Notifications(models.Model):
                         qty = int(batch.quantity or 0)
                         item_name = f"{qty} {material_name} ({unit_name})"
                     else:
+                        item_name = f"{material_name} ({unit_name})"
+                else:
+                    material = (
+                        RawMaterials.objects.filter(id=self.item_id)
+                        .select_related("unit")
+                        .first()
+                    )
+                    if material:
+                        material_name = getattr(material, "name", "")
+                        unit_name = getattr(material.unit, "unit_name", "")
                         item_name = f"{material_name} ({unit_name})"
 
         except Exception as e:
@@ -832,6 +863,7 @@ class UserActivity(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     last_logout = models.DateTimeField(blank=True, null=True)
     active = models.BooleanField(default=False)
+    last_activity = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -839,6 +871,22 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+    
+    @property
+    def is_truly_active(self):
+        """
+        User is truly active if:
+        - They are marked as active (logged in)
+        - AND their last activity was within the last 5 minutes
+        """
+        if not self.active:
+            return False
+        
+        if not self.last_activity:
+            return False
+
+        time_threshold = timezone.now() - timedelta(minutes=5)
+        return self.last_activity >= time_threshold
     
 
 class Withdrawals(models.Model):
@@ -964,6 +1012,7 @@ class Withdrawals(models.Model):
             )
         return qs
 
+
 class User2FASettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='twofa_settings')
     is_enabled = models.BooleanField(default=False)
@@ -974,8 +1023,9 @@ class User2FASettings(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False  # ← Important!
+        managed = False  
         db_table = 'user_2fa_settings'
+
 
 class UserOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otp_codes')
@@ -986,8 +1036,9 @@ class UserOTP(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     class Meta:
-        managed = False  # ← Important!
+        managed = False
         db_table = 'user_otp'
+
 
 class TrustedDevice(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_devices')
@@ -1001,9 +1052,10 @@ class TrustedDevice(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        managed = False  # ← Important!
+        managed = False 
         db_table = 'trusted_devices'
         unique_together = ['user', 'device_fingerprint']
+
 
 class LoginAttempt(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_attempts', null=True, blank=True)
@@ -1019,5 +1071,5 @@ class LoginAttempt(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False  # ← Important!
+        managed = False 
         db_table = 'login_attempts'

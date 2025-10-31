@@ -197,7 +197,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof jQuery === 'undefined') return;
     
     jQuery(document).ready(function($) {
-        // Auto-show verification modal if there's a success message about code being sent
         {% if messages %}
             {% for message in messages %}
                 {% if 'Verification code sent' in message.message or 'verification code sent' in message.message or 'code sent' in message.message %}
@@ -209,7 +208,6 @@ document.addEventListener('DOMContentLoaded', function() {
             {% endfor %}
         {% endif %}
         
-        // Handle setup form submission - close modal before redirect
         $('#setup2FAForm').on('submit', function() {
             $('#setup2FAModal').modal('hide');
         });

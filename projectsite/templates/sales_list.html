@@ -37,7 +37,7 @@
           <div class="card-body">
 
             <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
@@ -48,8 +48,11 @@
                   {% endfor %}
               </select>
               <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-
             </div>
+
+            <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
+              Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
+            </small>
 
             <!-- Sales Summary -->
             <div class="row mb-1 text-center" id="salesSummary">
@@ -100,7 +103,7 @@
                     <td>{{ object.category|lower|capfirst|slugify|title }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
-                    <td>{{ object.description }}</td>
+                    <td class="description-cell">{{ object.description }}</td>
                     <td>
                       <a href="{% url 'sales-edit' object.id %}" class="text-primary" title="Edit">
                         <i class="la la-edit la-lg"></i>
@@ -149,14 +152,13 @@
                     <th>Custom Price</th>
                     <th>Discount</th>
                     <th>Date</th>
-                    <th>Created By</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for withdrawal in withdrawal_sales %}
                   <tr>
                     <td>{{ withdrawal.get_item_display }}</td>
-                    <td>{{ withdrawal.quantity|floatformat:2 }}</td>
+                    <td>{{ withdrawal.quantity|floatformat:0 }}</td>
                     <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
                     <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
                     <td>
@@ -168,15 +170,14 @@
                     </td>
                     <td>
                       {% if withdrawal.custom_discount_value %}
-                        {{ withdrawal.custom_discount_value }}%
+                        {{ withdrawal.custom_discount_value|floatformat:2 }}%
                       {% elif withdrawal.discount %}
-                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value }}%)
+                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value|floatformat:2 }}%)
                       {% else %}
                         -
                       {% endif %}
                     </td>
                     <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
-                    <td>{{ withdrawal.created_by_admin.username }}</td>
                   </tr>
                   {% empty %}
                   <tr>
@@ -353,9 +354,6 @@ function handleArchiveSubmit(event, saleName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Archiving sale...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -366,11 +364,10 @@ function handleArchiveSubmit(event, saleName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Sale "${saleName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('saleSuccess', `Sale "${saleName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive sale. Please try again.', 'error');
         }
@@ -389,9 +386,6 @@ function handleDeleteSubmit(event, saleName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Deleting sale...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -402,11 +396,10 @@ function handleDeleteSubmit(event, saleName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Sale "${saleName}" deleted successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('saleSuccess', `Sale "${saleName}" deleted successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to delete sale. Please try again.', 'error');
         }
@@ -416,6 +409,48 @@ function handleDeleteSubmit(event, saleName) {
         showToast('An error occurred while deleting the sale.', 'error');
     });
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+  const descriptionCells = document.querySelectorAll('.description-cell');
+  descriptionCells.forEach(cell => {
+    let text = cell.textContent.trim();
+    
+    // Remove Withdrawal ID and Channel parts
+    text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
+    text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
+    text = text.replace(/PriceType:\s*([A-Z_]+)/gi, function(match, priceType) {
+      let formatted = priceType.toLowerCase().replace(/_/g, ' ');
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      return 'Price Type: ' + formatted;
+    });
+
+    text = text.replace(/,?\s*Discount:\s*0(\.0+)?%,?\s*/gi, '');
+    text = text.replace(/Discount:\s*([\d.]+)%/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Discount: ' + num.toFixed(2) + '%';
+    });
+
+    text = text.replace(/BasePrice:\s*([\d.]+)/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Base Price: ₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/₱\s*([\d,]+\.\d{3,})/g, function(match, value) {
+      let num = parseFloat(value.replace(/,/g, ''));
+      return '₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/(\bQuantity:\s*)([\d,]+)\.0+\b/gi, function(match, label, value) {
+      return label + value;
+    });
+    
+    // Clean up extra commas and spaces
+    text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    cell.textContent = text;
+  });
+});
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

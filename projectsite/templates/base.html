@@ -51,9 +51,8 @@
   {% block vendor_css %}{% endblock vendor_css %}
 </head>
 <body>
-<div class="wrapper">
-    <!-- Main Header -->
-    <div class="main-header">
+<!-- Main Header - OUTSIDE wrapper for true sticky behavior -->
+<div class="main-header">
         <div class="logo-header">
             <a href="{% url 'home' %}" class="logo">Real's Food Products</a>
             <button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse" data-target="collapse" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">
@@ -142,13 +141,13 @@
                             </form>
                         </ul>
                     </li>
-
-
                 </ul>
             </div>
         </nav>
-    </div>
+</div>
 
+<!-- Wrapper starts here -->
+<div class="wrapper">
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="scrollbar-inner sidebar-wrapper">
@@ -222,10 +221,10 @@
 
                 <li class="nav-item">
                     <a data-toggle="collapse" href="#financialMenu" 
-                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses' %}true{% else %}false{% endif %}">
+                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}true{% else %}false{% endif %}">
                         <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
                     </a>
-                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses' %}show{% endif %}" id="financialMenu">
+                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}show{% endif %}" id="financialMenu">
                         <ul class="nav nav-collapse">
                             <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
                                <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
@@ -235,6 +234,9 @@
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'expenses' %}active{% endif %}">
                                 <a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'financial-loss' %}active{% endif %}">
+                                <a href="{% url 'financial-loss' %}"><span class="sub-item">Financial Loss</span></a>
                             </li>
                         </ul>
                     </div>
@@ -290,9 +292,6 @@
 <script src="{% static 'js/plugin/chart-circle/circles.min.js' %}"></script>
 <script src="{% static 'js/plugin/jquery-scrollbar/jquery.scrollbar.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
-
-
-
 
 <script>
 (function(){

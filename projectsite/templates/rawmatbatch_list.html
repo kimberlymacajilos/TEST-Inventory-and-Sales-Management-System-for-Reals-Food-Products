@@ -57,7 +57,7 @@
                   <tr>
                     <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                     <td>{{ object.material }}</td>
-                    <td>{{ object.quantity }}</td>
+                    <td>{{ object.quantity|floatformat:0 }}</td>
                     <td>{{ object.received_date|date:"Y-m-d" }}</td>
                     <td>{{ object.expiration_date|date:"Y-m-d" }}</td>
                     <td>
@@ -176,6 +176,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Check for success message after page reload
+  const rawMatBatchSuccess = sessionStorage.getItem('rawMatBatchSuccess');
+  if (rawMatBatchSuccess) {
+    showToast(rawMatBatchSuccess, 'success');
+    sessionStorage.removeItem('rawMatBatchSuccess');
+  }
+  
   const searchInput = document.getElementById('searchInput');
   const dateFilter = document.getElementById('rawDateFilter');
   const tableBody = document.getElementById('batchTableBody');
@@ -293,9 +300,6 @@ function handleArchiveSubmit(event, batchName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Archiving raw material batch...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -306,11 +310,10 @@ function handleArchiveSubmit(event, batchName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Raw material batch "${batchName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('rawMatBatchSuccess', `Raw material batch "${batchName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive batch. Please try again.', 'error');
         }
@@ -329,9 +332,6 @@ function handleDeleteSubmit(event, batchName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Deleting raw material batch...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -342,11 +342,10 @@ function handleDeleteSubmit(event, batchName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Raw material batch "${batchName}" deleted successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('rawMatBatchSuccess', `Raw material batch "${batchName}" deleted successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to delete batch. Please try again.', 'error');
         }

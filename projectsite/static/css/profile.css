@@ -142,7 +142,6 @@ html[data-theme="dark"] .profile-page textarea{
   border-color: rgba(255,255,255,.2) !important;
 }
 
-/* Dark mode - Form placeholders */
 html[data-theme="dark"] .profile-page .form-control::placeholder,
 html[data-theme="dark"] .profile-page input::placeholder,
 html[data-theme="dark"] .profile-page textarea::placeholder{
