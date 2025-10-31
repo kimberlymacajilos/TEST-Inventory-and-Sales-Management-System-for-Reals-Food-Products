@@ -145,6 +145,9 @@ urlpatterns = [
     path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
     path('withdrawals/<int:pk>/unarchive/', a.WithdrawalsUnarchiveView.as_view(), name='withdrawals-unarchive'),
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
+    path('withdrawal-order/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-order-detail'),
+    path('withdrawal-order/<int:order_group_id>/update-payment/', a.WithdrawalOrderUpdatePaymentView.as_view(), name='withdrawal-order-update-payment'),
+
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
     path("login/", a.login_view, name="login"),

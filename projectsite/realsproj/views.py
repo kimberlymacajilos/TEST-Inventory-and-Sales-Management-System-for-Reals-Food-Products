@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from django.db import transaction
+from django.db import transaction, models
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal, InvalidOperation
@@ -1165,11 +1165,12 @@ class SalesList(ListView):
         categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
 
-        # Add withdrawal-based sales (reason='SOLD')
+        # Add withdrawal-based sales grouped by order_group_id
         month = self.request.GET.get("month", "").strip()
         withdrawal_sales_qs = Withdrawals.objects.filter(
             reason='SOLD',
-            is_archived=False
+            is_archived=False,
+            sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
         ).select_related("created_by_admin").order_by("-date")
         
         # Apply same month filter as regular sales
@@ -1185,7 +1186,39 @@ class SalesList(ListView):
             today = timezone.now()
             withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
         
-        context['withdrawal_sales'] = withdrawal_sales_qs
+        # Group withdrawals by order_group_id
+        from collections import defaultdict
+        grouped_orders = defaultdict(list)
+        for withdrawal in withdrawal_sales_qs:
+            if withdrawal.order_group_id:
+                grouped_orders[withdrawal.order_group_id].append(withdrawal)
+            else:
+                # For withdrawals without order_group_id, treat each as individual
+                grouped_orders[f"single_{withdrawal.id}"].append(withdrawal)
+        
+        # Convert to list of dicts for template
+        withdrawal_orders = []
+        for group_id, withdrawals in grouped_orders.items():
+            first_withdrawal = withdrawals[0]
+            # Check if this is a real order group or a single withdrawal
+            is_single = isinstance(group_id, str) and group_id.startswith('single_')
+            actual_group_id = group_id if not is_single else None
+            
+            withdrawal_orders.append({
+                'group_id': group_id,
+                'actual_group_id': actual_group_id,
+                'is_single': is_single,
+                'customer_name': first_withdrawal.customer_name,
+                'sales_channel': first_withdrawal.get_sales_channel_display(),
+                'payment_status': first_withdrawal.payment_status,
+                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else 'N/A',
+                'paid_amount': first_withdrawal.paid_amount,
+                'date': first_withdrawal.date,
+                'item_count': len(withdrawals),
+                'withdrawals': withdrawals,
+            })
+        
+        context['withdrawal_orders'] = sorted(withdrawal_orders, key=lambda x: x['date'], reverse=True)
 
         return context
 
@@ -1232,6 +1265,286 @@ class SalesDeleteView(DeleteView):
         messages.success(self.request, "🗑️ Sale deleted successfully.")
         return super().get_success_url()
 
+
+# Withdrawal Order Views
+class WithdrawalOrderDetailView(View):
+    """View details of a withdrawal order (grouped withdrawals)"""
+    template_name = "withdrawal_order_detail.html"
+    
+    def get(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id,
+            is_archived=False
+        ).select_related('created_by_admin').order_by('id')
+        
+        if not withdrawals.exists():
+            messages.error(request, "Order not found.")
+            return redirect('sales')
+        
+        first_withdrawal = withdrawals.first()
+        
+        # Calculate total amount and add subtotals to each withdrawal
+        total_amount = Decimal(0)
+        withdrawal_list = []
+        
+        # Check if this order was created with prices (during withdrawal) or will be priced later (during payment update)
+        # If any withdrawal has price_type or custom_price, it was priced during withdrawal
+        # Otherwise, pricing happens during payment update
+        has_initial_pricing = any(w.price_type or w.custom_price for w in withdrawals)
+        has_custom_price = any(w.custom_price for w in withdrawals)
+        
+        # For PARTIAL payment, paid_amount is the TOTAL for the order, not per item
+        is_partial = first_withdrawal.payment_status == 'PARTIAL'
+        partial_amount_added = False
+        
+        # For custom price or no initial pricing, get total from Sales table
+        if has_custom_price or not has_initial_pricing:
+            if first_withdrawal.payment_status in ['PAID', 'PARTIAL']:
+                # Get all sales entries for this order (case-insensitive search)
+                sales_entries_list = Sales.objects.filter(
+                    is_archived=False
+                ).filter(
+                    Q(description__icontains=f"Order #{order_group_id}") | 
+                    Q(description__icontains=f"order #{order_group_id}")
+                )
+                
+                print(f"🔍 Fetching sales for order #{order_group_id}")
+                print(f"   Found {sales_entries_list.count()} sales entries:")
+                for sale in sales_entries_list:
+                    print(f"   - ID: {sale.id}, Amount: ₱{sale.amount}, Description: {sale.description}")
+                
+                total_sum = sales_entries_list.aggregate(total=Sum('amount'))['total']
+                if total_sum:
+                    total_amount = total_sum
+                    partial_amount_added = True
+                    print(f"   Total: ₱{total_amount}")
+        
+        for withdrawal in withdrawals:
+            subtotal = None
+            unit_price = None
+            price_type_display = None
+            
+            if withdrawal.payment_status == 'PAID':
+                if has_initial_pricing:
+                    # Order was created with prices - show individual item prices
+                    if withdrawal.custom_price:
+                        # Custom price - don't show individual subtotals
+                        # The total will be fetched from Sales table
+                        subtotal = None
+                        unit_price = None
+                        price_type_display = "Custom Price"
+                    elif withdrawal.price_type:
+                        product = Products.objects.get(id=withdrawal.item_id)
+                        if withdrawal.price_type == 'UNIT':
+                            unit_price = product.unit_price.unit_price
+                            subtotal = Decimal(withdrawal.quantity) * unit_price
+                            price_type_display = "Unit Price"
+                        elif withdrawal.price_type == 'SRP':
+                            unit_price = product.srp_price.srp_price
+                            subtotal = Decimal(withdrawal.quantity) * unit_price
+                            price_type_display = "SRP Price"
+                    if subtotal:
+                        total_amount += subtotal
+                else:
+                    # Order was created as UNPAID, then updated to PAID with total amount
+                    # Don't show individual prices, just show total at the end
+                    subtotal = None
+                    unit_price = None
+                    price_type_display = None
+                    # Get total from Sales table for this order
+                    if not partial_amount_added:
+                        sales_entries = Sales.objects.filter(
+                            description__contains=f"order #{order_group_id}",
+                            is_archived=False
+                        ).aggregate(total=Sum('amount'))
+                        if sales_entries['total']:
+                            total_amount = sales_entries['total']
+                        partial_amount_added = True
+            elif withdrawal.payment_status == 'PARTIAL':
+                # For partial, paid_amount is the TOTAL for the entire order
+                if withdrawal.paid_amount and not partial_amount_added:
+                    total_amount = Decimal(withdrawal.paid_amount)
+                    partial_amount_added = True
+                # Don't show individual prices
+                subtotal = None
+                price_type_display = None
+            else:  # UNPAID
+                subtotal = None
+                price_type_display = None
+            
+            # Add attributes to the withdrawal object
+            withdrawal.subtotal = subtotal
+            withdrawal.unit_price_display = unit_price
+            withdrawal.price_type_display = price_type_display
+            withdrawal_list.append(withdrawal)
+        
+        # Get payment history from Sales table
+        payment_history = []
+        if order_group_id:
+            sales_payments = Sales.objects.filter(
+                is_archived=False
+            ).filter(
+                Q(description__icontains=f"Order #{order_group_id}") | 
+                Q(description__icontains=f"order #{order_group_id}")
+            ).order_by('date')
+            
+            payment_count = 0
+            for payment in sales_payments:
+                print(f"   Processing payment: {payment.description}")
+                
+                if 'Status: PARTIAL' in payment.description or 'Partial payment' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'1st Payment (Partial)',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as 1st Payment (Partial): ₱{payment.amount}")
+                elif 'Final payment' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'2nd Payment (Final)',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as 2nd Payment (Final): ₱{payment.amount}")
+                elif 'Status: PAID' in payment.description or 'Payment received' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'Payment',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as Payment: ₱{payment.amount}")
+                else:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'Payment #{payment_count}',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as Payment #{payment_count}: ₱{payment.amount}")
+            
+            print(f"   Total payment history entries: {len(payment_history)}")
+        
+        context = {
+            'order_group_id': order_group_id,
+            'customer_name': first_withdrawal.customer_name,
+            'sales_channel': first_withdrawal.get_sales_channel_display(),
+            'payment_status': first_withdrawal.payment_status,
+            'payment_status_display': first_withdrawal.get_payment_status_display(),
+            'date': first_withdrawal.date,
+            'withdrawals': withdrawal_list,
+            'total_amount': total_amount,
+            'payment_history': payment_history,
+        }
+        
+        return render(request, self.template_name, context)
+
+
+class WithdrawalOrderUpdatePaymentView(View):
+    """Update payment status of a withdrawal order"""
+    
+    def post(self, request, order_group_id):
+        new_payment_status = request.POST.get('payment_status')
+        paid_amount = request.POST.get('paid_amount')
+        total_price = request.POST.get('total_price')
+        
+        if new_payment_status not in ['PAID', 'UNPAID', 'PARTIAL']:
+            messages.error(request, "Invalid payment status.")
+            return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id,
+            is_archived=False
+        )
+        
+        if not withdrawals.exists():
+            messages.error(request, "Order not found.")
+            return redirect('sales')
+        
+        # Determine the amount for sales entry
+        sales_amount = Decimal(0)
+        
+        if new_payment_status == 'PAID':
+            # Use the total_price entered by user
+            if total_price:
+                try:
+                    sales_amount = Decimal(total_price)
+                except (ValueError, InvalidOperation):
+                    messages.error(request, "Invalid total price.")
+                    return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+            else:
+                messages.error(request, "Please enter the total price paid.")
+                return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        elif new_payment_status == 'PARTIAL':
+            # Use the partial paid_amount
+            if paid_amount:
+                try:
+                    sales_amount = Decimal(paid_amount)
+                except (ValueError, InvalidOperation):
+                    messages.error(request, "Invalid paid amount.")
+                    return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+            else:
+                messages.error(request, "Please enter the partial amount paid.")
+                return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        
+        # Check if transitioning from PARTIAL to PAID
+        old_payment_status = withdrawals.first().payment_status
+        previous_partial_amount = Decimal(0)
+        
+        if old_payment_status == 'PARTIAL' and withdrawals.first().paid_amount:
+            previous_partial_amount = Decimal(withdrawals.first().paid_amount)
+        
+        # Update all withdrawals in the order
+        for withdrawal in withdrawals:
+            withdrawal.payment_status = new_payment_status
+            
+            if new_payment_status == 'PARTIAL':
+                # Store the total paid amount (same for all withdrawals in the order)
+                withdrawal.paid_amount = sales_amount
+            elif new_payment_status == 'PAID':
+                withdrawal.paid_amount = None
+                # Don't set custom_price - let the detail view fetch from Sales table
+            else:  # UNPAID
+                withdrawal.paid_amount = None
+            
+            withdrawal.save()
+        
+        # Create our consolidated sales entry based on payment status
+        # Get AuthUser instance from request.user
+        from .models import AuthUser
+        auth_user = AuthUser.objects.get(id=request.user.id)
+        
+        if new_payment_status == 'PAID':
+            # Add full amount to sales
+            if previous_partial_amount > 0:
+                description = f"Final payment for order #{order_group_id} (Previous: ₱{previous_partial_amount:,.2f}, Additional: ₱{sales_amount:,.2f}, Total: ₱{previous_partial_amount + sales_amount:,.2f})"
+                success_msg = f"✅ Order marked as PAID. ₱{sales_amount:,.2f} added to sales. Total paid: ₱{previous_partial_amount + sales_amount:,.2f}"
+            else:
+                description = f"Payment received for order #{order_group_id}"
+                success_msg = f"✅ Order marked as PAID. ₱{sales_amount:,.2f} added to sales."
+            
+            Sales.objects.create(
+                category=f"{withdrawals.first().get_sales_channel_display()} - {withdrawals.first().customer_name}",
+                amount=sales_amount,
+                date=timezone.now().date(),
+                description=description,
+                created_by_admin=auth_user
+            )
+            print(f"✅ PAID Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            messages.success(request, success_msg)
+        elif new_payment_status == 'PARTIAL':
+            # Add partial amount to sales
+            Sales.objects.create(
+                category=f"{withdrawals.first().get_sales_channel_display()} - {withdrawals.first().customer_name}",
+                amount=sales_amount,
+                date=timezone.now().date(),
+                description=f"Partial payment for order #{order_group_id}",
+                created_by_admin=auth_user
+            )
+            print(f"✅ PARTIAL Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            messages.success(request, f"✅ Partial payment recorded. ₱{sales_amount:,.2f} added to sales.")
+        else:  # UNPAID
+            messages.success(request, "✅ Order marked as UNPAID. No sales recorded.")
+        
+        return redirect('sales')
 
 
 class ExpensesList(ListView):
@@ -2192,20 +2505,55 @@ class WithdrawItemView(View):
         })
 
     def post(self, request):
+        # Debug logging
+        print("=" * 50)
+        print("WITHDRAWAL POST DATA:")
+        print(f"POST data: {dict(request.POST)}")
+        print("=" * 50)
+        
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_input = request.POST.get("price_input")
+        customer_name = request.POST.get("customer_name")
+        payment_status = request.POST.get("payment_status", "PAID")
+        paid_amount_input = request.POST.get("paid_amount")
+        
+        print(f"Parsed values:")
+        print(f"  item_type: {item_type}")
+        print(f"  reason: {reason}")
+        print(f"  sales_channel: {sales_channel}")
+        print(f"  customer_name: {customer_name}")
+        print(f"  payment_status: {payment_status}")
+        print(f"  price_input: {price_input}")
 
+        # Parse price input
         if price_input in ['UNIT', 'SRP']:
             price_type = price_input
             custom_price = None
         else:
             price_type = None
             try:
-                custom_price = float(price_input)
+                custom_price = float(price_input) if price_input else None
             except (TypeError, ValueError):
                 custom_price = None
+        
+        # Parse paid amount for partial payments
+        paid_amount = None
+        if paid_amount_input:
+            try:
+                paid_amount = Decimal(paid_amount_input)
+            except (TypeError, ValueError, InvalidOperation):
+                paid_amount = None
+
+        # Generate order_group_id for ORDER, CONSIGNMENT, RESELLER
+        order_group_id = None
+        if reason == "SOLD" and sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER']:
+            # Get the max order_group_id and increment
+            max_id = Withdrawals.objects.filter(order_group_id__isnull=False).aggregate(
+                max_id=models.Max('order_group_id')
+            )['max_id']
+            order_group_id = (max_id or 0) + 1
 
         count = 0
 
@@ -2214,7 +2562,7 @@ class WithdrawItemView(View):
                 if key.startswith("product_") and value:
                     try:
                         product_id = key.split("_")[1]
-                        quantity = float(value)
+                        quantity = Decimal(value)  # Use Decimal instead of float
                         if quantity <= 0:
                             continue
                         product = Products.objects.get(id=product_id)
@@ -2241,24 +2589,31 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
-                            custom_price=custom_price if sales_channel == "CONSIGNMENT" or custom_price else None,
+                            price_type=price_type if reason == "SOLD" and payment_status == "PAID" else None,
+                            custom_price=custom_price if custom_price else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
+                            customer_name=customer_name if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else None,
+                            payment_status=payment_status if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else 'PAID',
+                            paid_amount=paid_amount if payment_status == 'PARTIAL' else None,
+                            order_group_id=order_group_id,
                         )
 
                         inv.total_stock -= quantity
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"❌ Error withdrawing product: {e}")
+                        import traceback
+                        error_details = traceback.format_exc()
+                        print(f"Withdrawal error: {error_details}")  # Log to console
+                        messages.error(request, f"❌ Error withdrawing product: {str(e)}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
                 if key.startswith("material_") and value:
                     try:
                         material_id = key.split("_")[1]
-                        quantity = float(value)
+                        quantity = Decimal(value)  # Use Decimal instead of float
                         if quantity <= 0:
                             continue
                         material = RawMaterials.objects.get(id=material_id)
@@ -2284,6 +2639,78 @@ class WithdrawItemView(View):
                         messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
+            # For ORDER/CONSIGNMENT/RESELLER with PAID or PARTIAL status, create sales entry
+            print(f"🔍 Checking sales entry creation:")
+            print(f"  reason={reason}, sales_channel={sales_channel}, order_group_id={order_group_id}")
+            print(f"  payment_status={payment_status}")
+            
+            if reason == "SOLD" and sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and order_group_id:
+                if payment_status in ['PAID', 'PARTIAL']:
+                    # Calculate total amount for the order
+                    withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id)
+                    total_sales_amount = Decimal(0)
+                    
+                    if payment_status == 'PARTIAL':
+                        # For partial, use the paid_amount
+                        total_sales_amount = paid_amount if paid_amount else Decimal(0)
+                    else:
+                        # For PAID, calculate from withdrawals
+                        has_custom_price = any(w.custom_price for w in withdrawals)
+                        
+                        if has_custom_price:
+                            # Custom price is the TOTAL for the entire order, not per item
+                            # Just use the custom_price from the first withdrawal
+                            total_sales_amount = Decimal(withdrawals.first().custom_price)
+                        else:
+                            # Unit/SRP price: calculate sum of all items with discounts
+                            for w in withdrawals:
+                                if w.price_type:
+                                    product = Products.objects.get(id=w.item_id)
+                                    base_price = Decimal(0)
+                                    
+                                    if w.price_type == 'UNIT':
+                                        base_price = product.unit_price.unit_price
+                                    elif w.price_type == 'SRP':
+                                        base_price = product.srp_price.srp_price
+                                    
+                                    # Apply discount if exists
+                                    discount_percent = Decimal(0)
+                                    if w.discount_id:
+                                        discount = Discounts.objects.get(id=w.discount_id)
+                                        discount_percent = Decimal(discount.value)
+                                    elif w.custom_discount_value:
+                                        discount_percent = Decimal(w.custom_discount_value)
+                                    
+                                    # Calculate discounted price
+                                    discounted_price = base_price * (1 - (discount_percent / 100))
+                                    item_total = Decimal(w.quantity) * discounted_price
+                                    total_sales_amount += item_total
+                                    
+                                    print(f"  Item: {product}, Qty: {w.quantity}, Base: ₱{base_price}, Discount: {discount_percent}%, Final: ₱{item_total}")
+                    
+                    # Create ONE sales entry for the entire order
+                    print(f"💰 Total sales amount calculated: ₱{total_sales_amount}")
+                    
+                    if total_sales_amount > 0:
+                        from .models import AuthUser
+                        auth_user = AuthUser.objects.get(id=request.user.id)
+                        
+                        sales_entry = Sales.objects.create(
+                            category=f"{sales_channel} - {customer_name}",
+                            amount=total_sales_amount,
+                            date=timezone.now().date(),
+                            description=f"Order #{order_group_id}, Status: {payment_status}",
+                            created_by_admin=auth_user
+                        )
+                        print(f"✅ Sales entry created successfully!")
+                        print(f"   ID: {sales_entry.id}")
+                        print(f"   Order: #{order_group_id}")
+                        print(f"   Amount: ₱{total_sales_amount}")
+                        print(f"   Status: {payment_status}")
+                        print(f"   Description: {sales_entry.description}")
+                    else:
+                        print(f"⚠️ Sales entry NOT created - total_sales_amount is 0")
+            
             messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
             messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")

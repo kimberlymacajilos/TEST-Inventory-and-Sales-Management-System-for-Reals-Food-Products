@@ -935,6 +935,24 @@ class Withdrawals(models.Model):
     )
     custom_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_archived = models.BooleanField(default=False)
+    
+    # NEW CUSTOMER AND PAYMENT FIELDS
+    customer_name = models.CharField(max_length=255, null=True, blank=True)
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('PAID', 'Paid'),
+        ('UNPAID', 'Unpaid'),
+        ('PARTIAL', 'Partial Payment'),
+    ]
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='PAID',
+        null=True,
+        blank=True
+    )
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    order_group_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         managed = False  # existing table

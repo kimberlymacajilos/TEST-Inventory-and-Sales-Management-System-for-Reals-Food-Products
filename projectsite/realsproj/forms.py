@@ -309,7 +309,6 @@ class WithdrawEditForm(forms.ModelForm):
                 materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
                 self.fields['item_id'].choices = materials
                 self.fields['item_id'].initial = self.instance.item_id
-                
                 self.fields['reason'].choices = [
                     ('EXPIRED', 'Expired'),
                     ('DAMAGED', 'Damaged'),
@@ -342,7 +341,6 @@ class WithdrawEditForm(forms.ModelForm):
         price_input = cleaned_data.get("price_type_or_custom")
 
         is_raw_material = self.instance.pk and self.instance.item_type == 'RAW_MATERIAL'
-
         if is_raw_material and reason == "SOLD":
             self.add_error("reason", "Raw materials cannot be marked as SOLD.")
             return cleaned_data
