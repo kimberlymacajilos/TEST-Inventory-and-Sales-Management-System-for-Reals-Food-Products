@@ -33,12 +33,19 @@
                         <form class="row mb-3" id="filterForm" method="get">
                             <div class="col-md-6">
                                 <input type="text" id="batchSearchInput" name="search" class="form-control"
+                                    style="width:350px;"
                                     placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                             </div>
-                            <div class="col-md-3">
-                                <input type="date" name="date_created" class="form-control"
-                                    placeholder="Filter by Date"
-                                    value="{{ request.GET.date_created }}" id="dateFilter">
+                            <div class="col-md-2">
+                                <input type="month" name="date_created" class="form-control"
+                                    style="width:180px;"
+                                    placeholder="Filter by Month"
+                                    value="{% if request.GET.date_created %}{{ request.GET.date_created }}{% else %}2025-11{% endif %}" id="dateFilter">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                                    <i class="la la-list"></i> Show All
+                                </button>
                             </div>
                             <div class="col-md-1">
                                 <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">

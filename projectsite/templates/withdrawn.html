@@ -49,14 +49,17 @@
                 {% endfor %}
               </select>
               <!-- Reason Filter -->
-              <select id="reasonFilter" class="form-control" style="width:180px;">
+              <select id="reasonFilter" class="form-control" style="width:150px;">
                 <option value="">All Reasons</option>
                 {% for value, label in withdrawals.model.REASON_CHOICES %}
                   <option value="{{ label }}">{{ label }}</option>
                 {% endfor %}
               </select>
               <!-- Month-Year Filter -->
-              <input id="dateFilter" type="month" class="form-control" style="width:180px;" />
+              <input id="dateFilter" type="month" class="form-control" style="width:180px;" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
               </button>
