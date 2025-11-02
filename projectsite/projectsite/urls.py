@@ -147,6 +147,10 @@ urlpatterns = [
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
     path('withdrawal-order/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-order-detail'),
     path('withdrawal-order/<int:order_group_id>/update-payment/', a.WithdrawalOrderUpdatePaymentView.as_view(), name='withdrawal-order-update-payment'),
+    path('withdrawal-group/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-group-detail'),
+    path('withdrawal-group/<int:order_group_id>/edit/', a.WithdrawalGroupEditView.as_view(), name='withdrawal-group-edit'),
+    path('withdrawal-group/<int:order_group_id>/archive/', a.WithdrawalGroupArchiveView.as_view(), name='withdrawal-group-archive'),
+    path('withdrawal-group/<int:order_group_id>/delete/', a.WithdrawalGroupDeleteView.as_view(), name='withdrawal-group-delete'),
 
     path("api/get-stock/", a.get_stock, name="get-stock"),
 

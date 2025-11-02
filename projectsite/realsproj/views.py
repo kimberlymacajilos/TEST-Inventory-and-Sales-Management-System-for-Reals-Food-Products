@@ -2516,6 +2516,9 @@ class WithdrawSuccessView(ListView):
 
     def get_context_data(self, **kwargs):
         from django.core.cache import cache
+        from collections import defaultdict
+        from django.core.paginator import Paginator
+        
         context = super().get_context_data(**kwargs)
         
         # Cache admin list for 5 minutes to reduce queries
@@ -2530,6 +2533,62 @@ class WithdrawSuccessView(ListView):
             cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
         
         context["admins"] = admins
+        
+        # Group withdrawals by order_group_id or by timestamp for non-grouped items
+        # Get all withdrawals (not paginated yet)
+        all_withdrawals = self.get_queryset()
+        
+        grouped_withdrawals = defaultdict(list)
+        for withdrawal in all_withdrawals:
+            # Use order_group_id if available, otherwise use a unique key based on timestamp
+            if withdrawal.order_group_id:
+                group_key = f"order_{withdrawal.order_group_id}"
+            else:
+                # For non-grouped withdrawals, create individual groups
+                group_key = f"single_{withdrawal.id}"
+            
+            grouped_withdrawals[group_key].append(withdrawal)
+        
+        # Convert to list of dicts for template
+        withdrawal_groups = []
+        for group_key, withdrawals_list in grouped_withdrawals.items():
+            first_withdrawal = withdrawals_list[0]
+            is_single = group_key.startswith('single_')
+            actual_group_id = first_withdrawal.order_group_id if not is_single else None
+            
+            withdrawal_groups.append({
+                'group_key': group_key,
+                'order_group_id': actual_group_id,
+                'is_single': is_single,
+                'date': first_withdrawal.date,
+                'reason': first_withdrawal.reason,
+                'reason_display': first_withdrawal.get_reason_display(),
+                'item_type': first_withdrawal.item_type,
+                'item_type_display': first_withdrawal.get_item_type_display(),
+                'sales_channel': first_withdrawal.sales_channel,
+                'sales_channel_display': first_withdrawal.get_sales_channel_display() if first_withdrawal.sales_channel else None,
+                'payment_status': first_withdrawal.payment_status,
+                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else None,
+                'customer_name': first_withdrawal.customer_name,
+                'created_by_admin': first_withdrawal.created_by_admin,
+                'item_count': len(withdrawals_list),
+                'withdrawals': withdrawals_list,
+            })
+        
+        # Sort by date (most recent first)
+        withdrawal_groups.sort(key=lambda x: x['date'], reverse=True)
+        
+        # Manual pagination for grouped withdrawals
+        paginator = Paginator(withdrawal_groups, self.paginate_by)
+        page_number = self.request.GET.get('page', 1)
+        page_obj = paginator.get_page(page_number)
+        
+        # Replace the context with grouped data
+        context['withdrawal_groups'] = page_obj
+        context['is_paginated'] = paginator.num_pages > 1
+        context['paginator'] = paginator
+        context['page_obj'] = page_obj
+        
         return context
     
 class WithdrawItemView(View):
@@ -2987,6 +3046,10 @@ class WithdrawDeleteView(DeleteView):
         }
         
         withdrawal_id = withdrawal.id
+        order_group_id = withdrawal.order_group_id
+        reason = withdrawal.reason
+        sales_channel = withdrawal.sales_channel
+        payment_status = withdrawal.payment_status
         
         # Call parent delete
         response = super().post(request, *args, **kwargs)
@@ -3000,12 +3063,348 @@ class WithdrawDeleteView(DeleteView):
             before=before
         )
         
+        # Update sales entry if this was part of a PAID/PARTIAL order
+        if (reason == 'SOLD' and 
+            sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+            payment_status in ['PAID', 'PARTIAL'] and
+            order_group_id):
+            
+            # Check if there are remaining withdrawals in this order
+            remaining_withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id)
+            
+            if remaining_withdrawals.exists():
+                # Recalculate total for remaining items
+                new_total = Decimal(0)
+                
+                for w in remaining_withdrawals:
+                    if w.custom_price:
+                        new_total = Decimal(w.custom_price)
+                        break
+                    elif w.price_type:
+                        product = Products.objects.get(id=w.item_id)
+                        base_price = Decimal(0)
+                        
+                        if w.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif w.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        discount_percent = Decimal(0)
+                        if w.discount_id:
+                            discount = Discounts.objects.get(id=w.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif w.custom_discount_value:
+                            discount_percent = Decimal(w.custom_discount_value)
+                        
+                        discounted_price = base_price * (1 - (discount_percent / 100))
+                        item_total = Decimal(w.quantity) * discounted_price
+                        new_total += item_total
+                
+                # Update sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.amount = new_total
+                    sales_entry.save()
+                    messages.success(request, f"🗑️ Withdrawal deleted. Sales updated to ₱{new_total:,.2f}")
+                else:
+                    messages.success(request, "🗑️ Withdrawal deleted successfully.")
+            else:
+                # No more withdrawals, delete the sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.delete()
+                    messages.success(request, "🗑️ Withdrawal and sales entry deleted successfully.")
+                else:
+                    messages.success(request, "🗑️ Withdrawal deleted successfully.")
+        
         return response
 
     def get_success_url(self):
-        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
-        return super().get_success_url()
+        return reverse_lazy('withdrawals')
+
+
+# Withdrawal Group Actions
+class WithdrawalGroupArchiveView(View):
+    """Archive all withdrawals in a group"""
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id, is_archived=False)
+        count = withdrawals.count()
+        
+        if count > 0:
+            withdrawals.update(is_archived=True)
+            messages.success(request, f"✅ Archived {count} withdrawal(s) from Order #{order_group_id}")
+        else:
+            messages.warning(request, "No withdrawals found to archive.")
+        
+        return redirect('withdrawals')
+
+
+class WithdrawalGroupDeleteView(View):
+    """Delete all withdrawals in a group"""
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id, is_archived=False)
+        count = withdrawals.count()
+        
+        if count > 0:
+            # Check if this is a SOLD order with PAID/PARTIAL status
+            first_withdrawal = withdrawals.first()
+            should_delete_sales = (
+                first_withdrawal.reason == 'SOLD' and
+                first_withdrawal.sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+                first_withdrawal.payment_status in ['PAID', 'PARTIAL']
+            )
+            
+            # Log each deletion
+            for withdrawal in withdrawals:
+                before = {
+                    'item_type': withdrawal.item_type,
+                    'item_id': withdrawal.item_id,
+                    'quantity': str(withdrawal.quantity),
+                    'reason': withdrawal.reason,
+                    'sales_channel': withdrawal.sales_channel,
+                    'order_group_id': withdrawal.order_group_id,
+                }
+                
+                create_history_log(
+                    admin=request.user,
+                    log_category="Withdrawal Group Deleted",
+                    entity_type="withdrawal",
+                    entity_id=withdrawal.id,
+                    before=before
+                )
+            
+            # Delete all withdrawals in the group
+            withdrawals.delete()
+            
+            # Delete corresponding sales entry if applicable
+            if should_delete_sales:
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.delete()
+                    messages.success(request, f"🗑️ Deleted {count} withdrawal(s) and sales entry from Order #{order_group_id}")
+                else:
+                    messages.success(request, f"🗑️ Deleted {count} withdrawal(s) from Order #{order_group_id}")
+            else:
+                messages.success(request, f"🗑️ Deleted {count} withdrawal(s) from Order #{order_group_id}")
+        else:
+            messages.warning(request, "No withdrawals found to delete.")
+        
+        return redirect('withdrawals')
+
+
+class WithdrawalGroupEditView(View):
+    """Edit all withdrawals in a group"""
+    template_name = "withdrawal_group_edit.html"
     
+    def get(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id, 
+            is_archived=False
+        ).select_related('created_by_admin')
+        
+        if not withdrawals.exists():
+            messages.error(request, "Withdrawal group not found.")
+            return redirect('withdrawals')
+        
+        # Get products and discounts for the form
+        products = Products.objects.all().order_by('id').select_related(
+            "product_type", "variant", "size", "size_unit", "productinventory"
+        )
+        discounts = Discounts.objects.all()
+        
+        # Get first withdrawal for common data
+        first_withdrawal = withdrawals.first()
+        
+        context = {
+            'withdrawals': withdrawals,
+            'order_group_id': order_group_id,
+            'products': products,
+            'discounts': discounts,
+            'reason': first_withdrawal.reason,
+            'sales_channel': first_withdrawal.sales_channel,
+            'customer_name': first_withdrawal.customer_name,
+            'payment_status': first_withdrawal.payment_status,
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id, 
+            is_archived=False
+        )
+        
+        if not withdrawals.exists():
+            messages.error(request, "Withdrawal group not found.")
+            return redirect('withdrawals')
+        
+        try:
+            # Get common fields
+            reason = request.POST.get("reason")
+            sales_channel = request.POST.get("sales_channel")
+            customer_name = request.POST.get("customer_name")
+            payment_status = request.POST.get("payment_status", "PAID")
+            
+            # Track if any changes were made
+            updated_count = 0
+            
+            # Track items to delete
+            items_to_delete = []
+            
+            # Update each withdrawal in the group
+            for withdrawal in withdrawals:
+                # Check if item should be removed
+                remove_key = f"remove_{withdrawal.id}"
+                if request.POST.get(remove_key) == '1':
+                    items_to_delete.append(withdrawal)
+                    continue
+                
+                # Get the new values for this specific withdrawal
+                item_id_key = f"item_id_{withdrawal.id}"
+                quantity_key = f"quantity_{withdrawal.id}"
+                price_key = f"price_{withdrawal.id}"
+                discount_key = f"discount_{withdrawal.id}"
+                
+                new_item_id = request.POST.get(item_id_key)
+                new_quantity = request.POST.get(quantity_key)
+                price_val = request.POST.get(price_key, '').strip().upper()
+                discount_val = request.POST.get(discount_key)
+                
+                if new_quantity and new_item_id:
+                    new_quantity = Decimal(new_quantity)
+                    
+                    # Handle price field (can be UNIT, SRP, or custom amount)
+                    if price_val in ['UNIT', 'SRP']:
+                        # Price type selected
+                        withdrawal.price_type = price_val
+                        withdrawal.custom_price = None
+                    elif price_val:
+                        # Try to parse as custom price
+                        try:
+                            custom_amount = Decimal(price_val)
+                            withdrawal.price_type = None
+                            withdrawal.custom_price = custom_amount
+                        except:
+                            # Invalid input, clear both
+                            withdrawal.price_type = None
+                            withdrawal.custom_price = None
+                    else:
+                        # Empty (for UNPAID or non-SOLD)
+                        withdrawal.price_type = None
+                        withdrawal.custom_price = None
+                    
+                    # Handle discount (only for Unit/SRP, not for custom price)
+                    discount_obj = None
+                    custom_discount = None
+                    if discount_val and withdrawal.price_type:  # Only apply discount if price_type is set
+                        try:
+                            discount_obj = Discounts.objects.get(value=discount_val)
+                        except Discounts.DoesNotExist:
+                            custom_discount = discount_val
+                    else:
+                        # Clear discount if custom price
+                        withdrawal.discount_id = None
+                        withdrawal.custom_discount_value = None
+                    
+                    # Update withdrawal
+                    withdrawal.item_id = int(new_item_id)  # Update item_id
+                    withdrawal.quantity = new_quantity
+                    withdrawal.reason = reason
+                    withdrawal.sales_channel = sales_channel if reason == "SOLD" else None
+                    withdrawal.customer_name = customer_name if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else None
+                    withdrawal.payment_status = payment_status if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else 'PAID'
+                    
+                    if discount_obj or custom_discount:
+                        withdrawal.discount_id = discount_obj.id if discount_obj else None
+                        withdrawal.custom_discount_value = custom_discount
+                    
+                    withdrawal.save()
+                    updated_count += 1
+            
+            # Delete marked items
+            deleted_count = 0
+            for withdrawal in items_to_delete:
+                withdrawal.delete()
+                deleted_count += 1
+            
+            # Update sales entry if this is a PAID order with Unit/SRP price
+            if (reason == 'SOLD' and 
+                sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+                payment_status == 'PAID'):
+                
+                # Recalculate total
+                new_total = Decimal(0)
+                for w in withdrawals:
+                    if w.custom_price:
+                        # Custom price is the TOTAL for the entire order
+                        new_total = Decimal(w.custom_price)
+                        break  # Stop after first custom price (should only be one)
+                    elif w.price_type:
+                        # Unit/SRP price with discount
+                        product = Products.objects.get(id=w.item_id)
+                        base_price = Decimal(0)
+                        
+                        if w.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif w.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        # Apply discount
+                        discount_percent = Decimal(0)
+                        if w.discount_id:
+                            discount = Discounts.objects.get(id=w.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif w.custom_discount_value:
+                            discount_percent = Decimal(w.custom_discount_value)
+                        
+                        discounted_price = base_price * (1 - (discount_percent / 100))
+                        item_total = Decimal(w.quantity) * discounted_price
+                        new_total += item_total
+                
+                # Update the sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}") &
+                    Q(description__icontains="Status: PAID"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.amount = new_total
+                    sales_entry.save()
+                    msg = f"✅ Updated {updated_count} withdrawal(s)"
+                    if deleted_count > 0:
+                        msg += f", deleted {deleted_count} item(s)"
+                    msg += f". Sales updated to ₱{new_total:,.2f}"
+                    messages.success(request, msg)
+                else:
+                    msg = f"✅ Updated {updated_count} withdrawal(s)"
+                    if deleted_count > 0:
+                        msg += f", deleted {deleted_count} item(s)"
+                    messages.success(request, msg)
+            else:
+                msg = f"✅ Updated {updated_count} withdrawal(s)"
+                if deleted_count > 0:
+                    msg += f", deleted {deleted_count} item(s)"
+                messages.success(request, msg)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Error updating withdrawals: {str(e)}")
+        
+        return redirect('withdrawals')
+
+
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
