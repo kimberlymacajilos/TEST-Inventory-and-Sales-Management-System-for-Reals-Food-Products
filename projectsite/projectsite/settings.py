@@ -91,6 +91,7 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 #        'PASSWORD': 'Reals_db_123',
 #        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
 #        'PORT': '5432',
+#        'CONN_MAX_AGE': 600, 
 #    }
 # }
 

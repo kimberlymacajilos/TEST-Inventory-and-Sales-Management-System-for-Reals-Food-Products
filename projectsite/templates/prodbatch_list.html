@@ -47,15 +47,28 @@
                             </div>
                         </form>
 
+                        <!-- Bulk Action Buttons -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteProdBatch()">
+                                <i class="la la-trash"></i> Delete Selected
+                            </button>
+                            <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveProdBatch()">
+                                <i class="la la-archive"></i> Archive Selected
+                            </button>
+                        </div>
+
                         <!-- Table -->
                         <div class="table-responsive">
                             <table class="table table-striped" id="batchTable">
                                 <thead>
                                     <tr>
+                                        <th scope="col" style="width: 40px;">
+                                            <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                                        </th>
                                         <th scope="col">Batch Date</th>
                                         <th scope="col">Product</th>
                                         <th scope="col">Quantity</th>
-                                        <th scope="col">Manufactured and Expiration Date</th>
+                                        <th scope="col">Manufactured Date</th>
                                         <th scope="col">Expiration Date</th>
                                         <th scope="col">Actions</th>
                                     </tr>
@@ -63,6 +76,9 @@
                                 <tbody id="batchTableBody">
                                     {% for object in page_obj %}
                                     <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                                        </td>
                                         <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                                         <td>{{ object.product }}</td>
                                         <td>{{ object.quantity }}</td>
@@ -299,6 +315,110 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteProdBatch() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one batch', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} batch(es)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "product-batch-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete batches', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting batches', 'error');
+    });
+}
+
+function bulkArchiveProdBatch() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one batch', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} batch(es)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "product-batch-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive batches', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving batches', 'error');
+    });
+}
 
 // Handle archive form submission with toast
 function handleArchiveSubmit(event, batchName) {

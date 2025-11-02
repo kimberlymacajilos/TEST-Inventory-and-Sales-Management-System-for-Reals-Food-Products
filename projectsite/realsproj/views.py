@@ -20,6 +20,7 @@ from .forms import CustomUserCreationForm
 from django.db.models import Avg, Count, Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_http_method
 from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
@@ -531,6 +532,40 @@ class ProductArchiveOldView(View):
         Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('product-list')
 
+@require_http_methods(["POST"])
+def product_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        deleted_count = Products.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        archived_count = Products.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class ProductCreateView(CreateView):
     model = Products
     form_class = ProductsForm
@@ -873,6 +908,40 @@ class RawMaterialArchiveOldView(View):
         RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('rawmaterials-list')
 
+@require_http_methods(["POST"])
+def rawmaterial_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        deleted_count = RawMaterials.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        archived_count = RawMaterials.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class ArchivedRawMaterialsListView(ListView):
     model = RawMaterials
     template_name = 'archived_rawmaterials.html'
@@ -1071,6 +1140,40 @@ class SaleUnarchiveView(View):
         sale.is_archived = False
         sale.save()
         return redirect('sales-archived-list')
+
+@require_http_methods(["POST"])
+def sales_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        deleted_count = Sales.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def sales_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        archived_count = Sales.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class SaleBulkRestoreView(View):
     def post(self, request):
@@ -1299,7 +1402,42 @@ class ExpenseArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, "📦 Old expenses archived successfully.")
         return redirect('expenses')
+
+@require_http_methods(["POST"])
+def expenses_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        deleted_count = Expenses.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def expenses_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        archived_count = Expenses.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class ArchivedExpensesListView(ListView):
     model = Expenses
@@ -1466,6 +1604,40 @@ class ProductBatchArchiveOldView(View):
         archived_count = ProductBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} product batch(es) older than 1 year have been archived.")
         return redirect('product-batch')
+
+@require_http_methods(["POST"])
+def product_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = ProductBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = ProductBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
     
 
 class ProductInventoryList(ListView):
@@ -1631,6 +1803,39 @@ class RawMaterialBatchArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} raw material batch(es) older than 1 year have been archived.")
         return redirect('rawmaterial-batch')
 
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = RawMaterialBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = RawMaterialBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
@@ -2379,6 +2584,40 @@ class WithdrawalsArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
 
+@require_http_methods(["POST"])
+def withdrawals_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        deleted_count = Withdrawals.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def withdrawals_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        archived_count = Withdrawals.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class WithdrawUpdateView(UpdateView):
     model = Withdrawals
     form_class = WithdrawEditForm
@@ -2653,11 +2892,27 @@ def profile_view(request):
     return render(request, "profile.html")
 
 def best_sellers_api(request):
+    from datetime import datetime
     TOP_N = 5
+    
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    now = datetime.now()
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+
+    qs = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
+  
+    if month and month != 'all':
+        qs = qs.filter(date__year=year, date__month=month)
+    else:
+        qs = qs.filter(date__year=year)
+    
     qs = (
-        Withdrawals.objects
-        .filter(item_type="PRODUCT", reason="SOLD")
-        .values("item_id")
+        qs.values("item_id")
         .annotate(total_sold=Sum("quantity"))
         .order_by("-total_sold")
     )
@@ -2673,7 +2928,6 @@ def best_sellers_api(request):
         data.append(float(item["total_sold"]))
 
     return JsonResponse({"labels": labels, "data": data})
-
 
 def mark_notification_read(request, pk):
     notif = get_object_or_404(Notifications, pk=pk)
@@ -3277,75 +3531,39 @@ def set_user_inactive(sender, user, request, **kwargs):
 
 
 def check_expirations(request):
-    today = timezone.localdate()
-    next_week = today + timedelta(days=7)
-    next_month = today + timedelta(days=30)
-    messages = []
-
-    product_batches = (
-        ProductBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values(
-            "product__product_type__name",
-            "product__variant__name",
-            "product__size__size_label",
-            "product__size_unit__unit_name",
-            "expiration_date"
-        )
-        .annotate(count=Count("id"))
-    )
-
-    for pb in product_batches:
-        days = (pb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
-        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
-        messages.append(message)
-
-    raw_batches = (
-        RawMaterialBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values("material__name", "expiration_date")
-        .annotate(count=Count("id"))
-    )
-
-    for rb in raw_batches:
-        days = (rb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
-        messages.append(message)
-
-    if messages:
-        Notifications.objects.create(
-            item_type="SYSTEM",
-            item_id=0,
+    """
+    Trigger the expiration check management command.
+    This will create notifications, deduct expired items from inventory,
+    and log them to financial loss.
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    
+    # Capture command output
+    out = StringIO()
+    
+    try:
+        # Call the management command that handles everything properly
+        call_command('check_expirations', stdout=out)
+        output = out.getvalue()
+        
+        # Count notifications created
+        notification_count = Notifications.objects.filter(
             notification_type="EXPIRATION_ALERT",
-            notification_timestamp=timezone.now(),
-            is_read=False,
-        )
-        print("\n".join(messages))
-
-    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+            is_read=False
+        ).count()
+        
+        return JsonResponse({
+            "status": "ok",
+            "message": "Expiration check completed successfully",
+            "notifications_created": notification_count,
+            "details": output
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": str(e)
+        }, status=500)
 
 
 @method_decorator(login_required, name='dispatch')

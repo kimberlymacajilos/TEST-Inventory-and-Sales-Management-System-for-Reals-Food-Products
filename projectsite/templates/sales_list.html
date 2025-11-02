@@ -56,7 +56,7 @@
             <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
               Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
             </small>
-
+            
             <!-- Sales Summary -->
             <div class="row mb-1 text-center" id="salesSummary">
               <div class="col-md-4">
@@ -85,11 +85,24 @@
               </div>
             </div>
 
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteSale()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveSale()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+
             <!-- Table -->
             <div class="table-responsive">
               <table class="table table-striped" id="salesTable">
                 <thead>
                   <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th>Category</th>
                     <th>Amount</th>
                     <th>Date</th>
@@ -103,7 +116,10 @@
                       data-sale-category="{{ object.category }}" 
                       data-sale-amount="{{ object.amount }}"
                       data-sale-date="{{ object.date|date:'Y-m-d' }}">
-                    <td>{{ object.category|lower|capfirst|slugify|title }}</td>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
+                    <td>{{ object.category }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td class="description-cell">{{ object.description }}</td>
@@ -454,6 +470,111 @@ document.addEventListener("DOMContentLoaded", function() {
     cell.textContent = text;
   });
 });
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-delete-new" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting sales', 'error');
+    });
+}
+
+function bulkArchiveSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving sales', 'error');
+    });
+}
+
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

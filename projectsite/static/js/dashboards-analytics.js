@@ -217,30 +217,46 @@
     });
 
 
-  fetch("/api/best-sellers/")
-    .then(res => res.json())
-    .then(data => {
-      const themeColors = getThemeColors();
-      bestSellerChart = new ApexCharts(document.querySelector("#bestSellerChart"), {
-        chart: { 
-          type: "pie", 
-          height: 300,
-          foreColor: themeColors.textColor
-        },
-        series: data.data,
-        labels: data.labels,
-        legend: { 
-          position: "bottom",
-          labels: {
-            colors: themeColors.textColor
-          }
-        },
-        tooltip: {
-          theme: isDarkMode() ? 'dark' : 'light'
+  function fetchBestSellers() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    fetch(`/api/best-sellers/?year=${currentYear}&month=${currentMonth}`)
+      .then(res => res.json())
+      .then(data => {
+        const themeColors = getThemeColors();
+        
+        if (bestSellerChart) {
+          bestSellerChart.updateSeries(data.data);
+          bestSellerChart.updateOptions({
+            labels: data.labels
+          });
+        } else {
+          bestSellerChart = new ApexCharts(document.querySelector("#bestSellerChart"), {
+            chart: { 
+              type: "pie", 
+              height: 300,
+              foreColor: themeColors.textColor
+            },
+            series: data.data,
+            labels: data.labels,
+            legend: { 
+              position: "bottom",
+              labels: {
+                colors: themeColors.textColor
+              }
+            },
+            tooltip: {
+              theme: isDarkMode() ? 'dark' : 'light'
+            }
+          });
+          bestSellerChart.render();
         }
       });
-      bestSellerChart.render();
-    });
+  }
+  
+  fetchBestSellers();
 
   document.addEventListener("DOMContentLoaded", function () {
   const yearSelect = document.querySelector("#revenueYearFilter");
