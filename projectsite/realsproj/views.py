@@ -3256,6 +3256,19 @@ class WithdrawalGroupEditView(View):
             sales_channel = request.POST.get("sales_channel")
             customer_name = request.POST.get("customer_name")
             payment_status = request.POST.get("payment_status", "PAID")
+            price_or_custom = request.POST.get("price_or_custom", "").strip().upper()
+            paid_amount = request.POST.get("paid_amount")
+            
+            # Determine if it's price type or custom amount
+            price_type = None
+            custom_total_price = None
+            if price_or_custom in ['UNIT', 'SRP']:
+                price_type = price_or_custom
+            elif price_or_custom:
+                try:
+                    custom_total_price = Decimal(price_or_custom)
+                except:
+                    pass  # Invalid input, ignore
             
             # Track if any changes were made
             updated_count = 0
@@ -3274,36 +3287,39 @@ class WithdrawalGroupEditView(View):
                 # Get the new values for this specific withdrawal
                 item_id_key = f"item_id_{withdrawal.id}"
                 quantity_key = f"quantity_{withdrawal.id}"
-                price_key = f"price_{withdrawal.id}"
                 discount_key = f"discount_{withdrawal.id}"
                 
                 new_item_id = request.POST.get(item_id_key)
                 new_quantity = request.POST.get(quantity_key)
-                price_val = request.POST.get(price_key, '').strip().upper()
                 discount_val = request.POST.get(discount_key)
                 
                 if new_quantity and new_item_id:
                     new_quantity = Decimal(new_quantity)
                     
-                    # Handle price field (can be UNIT, SRP, or custom amount)
-                    if price_val in ['UNIT', 'SRP']:
-                        # Price type selected
-                        withdrawal.price_type = price_val
-                        withdrawal.custom_price = None
-                    elif price_val:
-                        # Try to parse as custom price
-                        try:
-                            custom_amount = Decimal(price_val)
+                    # Handle pricing based on payment status
+                    if payment_status == 'PAID':
+                        if custom_total_price:
+                            # Custom total price for entire order
                             withdrawal.price_type = None
-                            withdrawal.custom_price = custom_amount
-                        except:
-                            # Invalid input, clear both
+                            withdrawal.custom_price = Decimal(custom_total_price)
+                        elif price_type in ['UNIT', 'SRP']:
+                            # Unit/SRP price type (same for all items)
+                            withdrawal.price_type = price_type
+                            withdrawal.custom_price = None
+                        else:
                             withdrawal.price_type = None
                             withdrawal.custom_price = None
-                    else:
-                        # Empty (for UNPAID or non-SOLD)
+                    elif payment_status == 'PARTIAL':
+                        # Partial payment - store paid amount
                         withdrawal.price_type = None
                         withdrawal.custom_price = None
+                        if paid_amount:
+                            withdrawal.paid_amount = Decimal(paid_amount)
+                    else:
+                        # UNPAID - clear pricing
+                        withdrawal.price_type = None
+                        withdrawal.custom_price = None
+                        withdrawal.paid_amount = None
                     
                     # Handle discount (only for Unit/SRP, not for custom price)
                     discount_obj = None
@@ -3339,60 +3355,89 @@ class WithdrawalGroupEditView(View):
                 withdrawal.delete()
                 deleted_count += 1
             
-            # Update sales entry if this is a PAID order with Unit/SRP price
+            # Handle sales entry based on payment status
+            sales_entry = Sales.objects.filter(
+                Q(description__icontains=f"Order #{order_group_id}"),
+                is_archived=False
+            ).first()
+            
             if (reason == 'SOLD' and 
-                sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
-                payment_status == 'PAID'):
+                sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER']):
                 
-                # Recalculate total
-                new_total = Decimal(0)
-                for w in withdrawals:
-                    if w.custom_price:
-                        # Custom price is the TOTAL for the entire order
-                        new_total = Decimal(w.custom_price)
-                        break  # Stop after first custom price (should only be one)
-                    elif w.price_type:
-                        # Unit/SRP price with discount
-                        product = Products.objects.get(id=w.item_id)
-                        base_price = Decimal(0)
-                        
-                        if w.price_type == 'UNIT':
-                            base_price = product.unit_price.unit_price
-                        elif w.price_type == 'SRP':
-                            base_price = product.srp_price.srp_price
-                        
-                        # Apply discount
-                        discount_percent = Decimal(0)
-                        if w.discount_id:
-                            discount = Discounts.objects.get(id=w.discount_id)
-                            discount_percent = Decimal(discount.value)
-                        elif w.custom_discount_value:
-                            discount_percent = Decimal(w.custom_discount_value)
-                        
-                        discounted_price = base_price * (1 - (discount_percent / 100))
-                        item_total = Decimal(w.quantity) * discounted_price
-                        new_total += item_total
+                if payment_status == 'UNPAID':
+                    # Delete sales entry if changing to UNPAID
+                    if sales_entry:
+                        sales_entry.delete()
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += ". Sales entry removed (UNPAID)"
+                        messages.success(request, msg)
+                    else:
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        messages.success(request, msg)
                 
-                # Update the sales entry
-                sales_entry = Sales.objects.filter(
-                    Q(description__icontains=f"Order #{order_group_id}") &
-                    Q(description__icontains="Status: PAID"),
-                    is_archived=False
-                ).first()
-                
-                if sales_entry:
-                    sales_entry.amount = new_total
-                    sales_entry.save()
-                    msg = f"✅ Updated {updated_count} withdrawal(s)"
-                    if deleted_count > 0:
-                        msg += f", deleted {deleted_count} item(s)"
-                    msg += f". Sales updated to ₱{new_total:,.2f}"
-                    messages.success(request, msg)
-                else:
-                    msg = f"✅ Updated {updated_count} withdrawal(s)"
-                    if deleted_count > 0:
-                        msg += f", deleted {deleted_count} item(s)"
-                    messages.success(request, msg)
+                elif payment_status in ['PAID', 'PARTIAL']:
+                    # Recalculate total based on payment status
+                    new_total = Decimal(0)
+                    
+                    if payment_status == 'PARTIAL':
+                        # Use paid amount for partial payments
+                        if paid_amount:
+                            new_total = Decimal(paid_amount)
+                    elif payment_status == 'PAID':
+                        # Calculate from withdrawals
+                        for w in withdrawals:
+                            if w.custom_price:
+                                # Custom price is the TOTAL for the entire order
+                                new_total = Decimal(w.custom_price)
+                                break  # Stop after first custom price (should only be one)
+                            elif w.price_type:
+                                # Unit/SRP price with discount
+                                product = Products.objects.get(id=w.item_id)
+                                base_price = Decimal(0)
+                                
+                                if w.price_type == 'UNIT':
+                                    base_price = product.unit_price.unit_price
+                                elif w.price_type == 'SRP':
+                                    base_price = product.srp_price.srp_price
+                                
+                                # Apply discount
+                                discount_percent = Decimal(0)
+                                if w.discount_id:
+                                    discount = Discounts.objects.get(id=w.discount_id)
+                                    discount_percent = Decimal(discount.value)
+                                elif w.custom_discount_value:
+                                    discount_percent = Decimal(w.custom_discount_value)
+                                
+                                discounted_price = base_price * (1 - (discount_percent / 100))
+                                item_total = Decimal(w.quantity) * discounted_price
+                                new_total += item_total
+                    
+                    # Update or create sales entry
+                    if sales_entry:
+                        sales_entry.amount = new_total
+                        sales_entry.save()
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += f". Sales updated to ₱{new_total:,.2f}"
+                        messages.success(request, msg)
+                    else:
+                        # Create new sales entry if it doesn't exist
+                        Sales.objects.create(
+                            amount=new_total,
+                            description=f"Order #{order_group_id} - {customer_name or 'N/A'} - Status: {payment_status}",
+                            date=timezone.now().date(),
+                            created_by_admin=request.user
+                        )
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += f". Sales entry created: ₱{new_total:,.2f}"
+                        messages.success(request, msg)
             else:
                 msg = f"✅ Updated {updated_count} withdrawal(s)"
                 if deleted_count > 0:

@@ -46,21 +46,45 @@
               </div>
               
               <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <div class="form-group">
                     <label>Customer Name</label>
                     <input type="text" name="customer_name" class="form-control" value="{{ customer_name|default:'' }}">
                   </div>
                 </div>
                 
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <div class="form-group">
                     <label>Payment Status</label>
-                    <select name="payment_status" class="form-control">
+                    <select name="payment_status" class="form-control" id="paymentStatusSelect">
                       <option value="PAID" {% if payment_status == 'PAID' %}selected{% endif %}>Paid</option>
-                      <option value="PARTIAL" {% if payment_status == 'PARTIAL' %}selected{% endif %}>Partial</option>
                       <option value="UNPAID" {% if payment_status == 'UNPAID' %}selected{% endif %}>Unpaid</option>
+                      <option value="PARTIAL" {% if payment_status == 'PARTIAL' %}selected{% endif %}>Partial</option>
                     </select>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="form-group price-field" style="display: none;">
+                    <label>Price Type or Custom Total Price</label>
+                    <input type="text" 
+                           name="price_or_custom" 
+                           class="form-control" 
+                           id="priceOrCustomInput"
+                           list="priceTypeList"
+                           value="{% if withdrawals.0.price_type %}{{ withdrawals.0.price_type }}{% elif withdrawals.0.custom_price %}{{ withdrawals.0.custom_price }}{% endif %}"
+                           placeholder="Type custom amount or select UNIT/SRP">
+                    <datalist id="priceTypeList">
+                      <option value="UNIT">Unit Price</option>
+                      <option value="SRP">SRP Price</option>
+                    </datalist>
+                    <small class="text-muted">Select UNIT/SRP for calculated pricing, or type custom total amount for entire order</small>
+                  </div>
+                  
+                  <div class="form-group paid-amount-field" style="display: none;">
+                    <label>Paid Amount <span class="text-danger">*</span></label>
+                    <input type="number" name="paid_amount" class="form-control" step="0.01" min="0" placeholder="Enter paid amount" value="{{ withdrawals.0.paid_amount|default:'' }}">
+                    <small class="text-muted">Amount already paid</small>
                   </div>
                 </div>
               </div>
@@ -75,7 +99,6 @@
                     <tr>
                       <th>Item</th>
                       <th>Quantity <span class="text-danger">*</span></th>
-                      <th class="price-column">Price</th>
                       <th class="discount-column">Discount (%)</th>
                       <th>Action</th>
                     </tr>
@@ -100,19 +123,6 @@
                                step="0.01" 
                                min="0.01" 
                                required>
-                      </td>
-                      <td class="price-column">
-                        <input type="text" 
-                               name="price_{{ withdrawal.id }}" 
-                               class="form-control price-input" 
-                               data-withdrawal-id="{{ withdrawal.id }}"
-                               list="priceList_{{ withdrawal.id }}"
-                               value="{% if withdrawal.price_type %}{{ withdrawal.price_type }}{% elif withdrawal.custom_price %}{{ withdrawal.custom_price }}{% endif %}"
-                               placeholder="Type amount or select">
-                        <datalist id="priceList_{{ withdrawal.id }}">
-                          <option value="UNIT">Unit Price</option>
-                          <option value="SRP">SRP Price</option>
-                        </datalist>
                       </td>
                       <td class="discount-column">
                         <input type="text" 
@@ -145,11 +155,11 @@
                 <strong>Note:</strong> Changes to quantities and discounts will automatically update the sales entry if this is a PAID order.
               </div>
               
-              <div class="form-group text-right mt-4">
-                <button type="submit" class="btn btn-success btn-lg">
+              <div class="form-group mt-4">
+                <button type="submit" class="btn btn-success">
                   <i class="la la-save"></i> Save Changes
                 </button>
-                <a href="{% url 'withdrawals' %}" class="btn btn-secondary btn-lg">
+                <a href="{% url 'withdrawals' %}" class="btn btn-secondary">
                   <i class="la la-times"></i> Cancel
                 </a>
               </div>
@@ -294,39 +304,72 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Handle visibility of price and discount columns based on reason and payment status
+    // Handle visibility of fields based on payment status
     function updateFieldVisibility() {
         const reason = reasonSelect.value;
         const salesChannel = salesChannelSelect.value;
-        const paymentStatus = paymentStatusSelect.value;
+        const paymentStatus = document.getElementById('paymentStatusSelect').value;
         
-        const priceColumns = document.querySelectorAll('.price-column');
+        const priceField = document.querySelector('.price-field');
         const discountColumns = document.querySelectorAll('.discount-column');
+        const paidAmountField = document.querySelector('.paid-amount-field');
         
-        // Show/hide based on conditions
+        // Show/hide based on payment status
         if (reason === 'SOLD' && 
-            ['ORDER', 'CONSIGNMENT', 'RESELLER'].includes(salesChannel) && 
-            paymentStatus === 'PAID') {
-            // Show price and discount fields
-            priceColumns.forEach(col => col.style.display = '');
-            discountColumns.forEach(col => col.style.display = '');
-        } else if (reason === 'SOLD' && 
-                   ['ORDER', 'CONSIGNMENT', 'RESELLER'].includes(salesChannel) && 
-                   paymentStatus === 'UNPAID') {
-            // Hide price and discount fields for UNPAID
-            priceColumns.forEach(col => col.style.display = 'none');
-            discountColumns.forEach(col => col.style.display = 'none');
+            ['ORDER', 'CONSIGNMENT', 'RESELLER'].includes(salesChannel)) {
+            
+            if (paymentStatus === 'PAID') {
+                // PAID: Show price field + discount column
+                priceField.style.display = 'block';
+                discountColumns.forEach(col => col.style.display = '');
+                paidAmountField.style.display = 'none';
+                updateDiscountState();  // Check if discount should be enabled
+            } else if (paymentStatus === 'PARTIAL') {
+                // PARTIAL: Show paid amount only
+                paidAmountField.style.display = 'block';
+                priceField.style.display = 'none';
+                discountColumns.forEach(col => col.style.display = 'none');
+            } else if (paymentStatus === 'UNPAID') {
+                // UNPAID: Hide all pricing fields
+                paidAmountField.style.display = 'none';
+                priceField.style.display = 'none';
+                discountColumns.forEach(col => col.style.display = 'none');
+            }
         } else {
-            // Hide for non-SOLD or WALK_IN
-            priceColumns.forEach(col => col.style.display = 'none');
+            // Not ORDER/CONSIGNMENT/RESELLER - hide all
+            paidAmountField.style.display = 'none';
+            priceField.style.display = 'none';
             discountColumns.forEach(col => col.style.display = 'none');
         }
+    }
+    
+    // Handle discount enable/disable based on price input
+    const priceOrCustomInput = document.getElementById('priceOrCustomInput');
+    const discountInputs = document.querySelectorAll('.discount-input');
+    
+    function updateDiscountState() {
+        if (!priceOrCustomInput) return;
+        
+        const value = priceOrCustomInput.value.trim().toUpperCase();
+        const isUnitOrSrp = (value === 'UNIT' || value === 'SRP');
+        
+        // Enable discount only if UNIT or SRP is selected
+        discountInputs.forEach(input => {
+            input.disabled = !isUnitOrSrp;
+            if (!isUnitOrSrp) {
+                input.value = '';  // Clear discount if custom price
+            }
+        });
+    }
+    
+    if (priceOrCustomInput) {
+        priceOrCustomInput.addEventListener('input', updateDiscountState);
     }
     
     // Add event listeners
     reasonSelect.addEventListener('change', updateFieldVisibility);
     salesChannelSelect.addEventListener('change', updateFieldVisibility);
-    paymentStatusSelect.addEventListener('change', updateFieldVisibility);
+    document.getElementById('paymentStatusSelect').addEventListener('change', updateFieldVisibility);
     
     // Initialize on page load
     updateFieldVisibility();
