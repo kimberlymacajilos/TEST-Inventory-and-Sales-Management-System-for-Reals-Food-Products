@@ -93,11 +93,6 @@
                     <td>
                         <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
                     </td>
-                    <td>{{ object.date|date:"Y-m-d" }}</td>
-                    <td>{{ object.get_item_type_display }}</td>
-                    <td>{{ object.get_item_display }}</td>
-                    <td>{{ object.quantity|floatformat:0 }}</td>
-                    <td>{{ object.get_reason_display }}</td>
                     <td>{{ group.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>{{ group.item_type_display }}</td>
                     <td>

@@ -20,7 +20,7 @@ from .forms import CustomUserCreationForm
 from django.db.models import Avg, Count, Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.views.decorators.http import require_http_method
+from django.views.decorators.http import require_http_methods
 from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
