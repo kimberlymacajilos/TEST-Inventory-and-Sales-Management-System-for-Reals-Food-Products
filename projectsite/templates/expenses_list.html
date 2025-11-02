@@ -41,7 +41,7 @@
             <!-- Filters moved here -->
             <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:180px;">
+              <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
                   {% for cat in categories %}
                     <option value="{{ cat }}" {% if request.GET.category == cat %}selected{% endif %}>
@@ -49,16 +49,15 @@
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" />
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
               </button>
             </div>
 
-            <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
-              Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
-            </small>
-            
             <!-- Expenses Summary -->
             <div class="row mb-1 text-center" id="expensesSummary">
               <div class="col-md-4">

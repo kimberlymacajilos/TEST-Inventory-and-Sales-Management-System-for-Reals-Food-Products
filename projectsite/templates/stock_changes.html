@@ -29,27 +29,20 @@
           </div>
 
           <div class="card-body">
-            <!-- Search and Filters -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
-              <!-- Search by Item -->
-              <input type="text" id="itemSearch" class="form-control" style="width:200px;" placeholder="Search item...">
-              
-              <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:180px;">
-                <option value="">All Categories</option>
-                <option value="Product Stock Increased">Product Stock Increased</option>
-                <option value="Raw Material Stock Increased">Raw Material Stock Increased</option>
-              </select>
-              
-              <!-- Date Filter -->
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-              
-              <!-- Clear Button -->
-              <button type="button" id="clearFilters" class="btn btn-secondary btn-rounded">
-                <i class="la la-times"></i> Clear
-              </button>
-            </div>
-
+            <!-- Date Filter -->
+            <form method="get" class="mb-3">
+              <div class="row">
+                <div class="col-md-3">
+                  <input type="month" name="date" class="form-control" style="width:180px;" value="{% if request.GET.date %}{{ request.GET.date }}{% else %}2025-11{% endif %}" placeholder="Filter by Month">
+                </div>
+                <div class="col-md-1">
+                  <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                    <i class="la la-times"></i>
+                  </button>
+                </div>
+              </div>
+            </form>
+            
             <div class="table-responsive">
               <table class="table table-striped" id="stockChangesTable">
                 <thead>
