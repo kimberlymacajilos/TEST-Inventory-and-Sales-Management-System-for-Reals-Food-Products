@@ -147,7 +147,8 @@ class HistoryLogForm(ModelForm):
 class SalesForm(ModelForm):
     class Meta:
         model = Sales
-        exclude = ['created_by_admin', 'is_archived'] 
+        exclude = ['created_by_admin', 'is_archived']
+        fields = ['category', 'amount', 'date', 'description']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -155,7 +156,8 @@ class SalesForm(ModelForm):
 class ExpensesForm(ModelForm):
     class Meta:
         model = Expenses
-        exclude = ['created_by_admin', 'is_archived'] 
+        exclude = ['created_by_admin', 'is_archived']
+        fields = ['category', 'amount', 'date', 'description']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -181,8 +183,10 @@ class ProductBatchForm(ModelForm):
             'deduct_raw_material',
         ]
         widgets = {
-            'batch_date': forms.DateInput(attrs={'type': 'date'}),
-            'manufactured_date': forms.DateInput(attrs={'type': 'date'}),
+            'product': forms.Select(attrs={'class': 'form-control'}),
+            'batch_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'manufactured_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
             'deduct_raw_material': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -199,12 +203,13 @@ class ProductInventoryForm(ModelForm):
 class RawMaterialBatchForm(ModelForm):
     class Meta:
         model = RawMaterialBatches
-        fields = "__all__"
-        exclude = ['created_by_admin', 'is_archived'] 
+        fields = ['material', 'quantity', 'batch_date', 'received_date', 'expiration_date']
         widgets = {
-            'batch_date': forms.DateInput(attrs={'type': 'date'}),
-            'received_date': forms.DateInput(attrs={'type': 'date'}),
-            'expiration_date': forms.DateInput(attrs={'type': 'date'}),
+            'material': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'batch_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'received_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'expiration_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
 class RawMaterialInventoryForm(ModelForm):
@@ -523,7 +528,7 @@ class BulkProductBatchForm(forms.Form):
                 required=False,
                 min_value=0,
                 label=str(product),
-                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Enter Quantity'})
             )
             self.products.append({
                 "product": product,
@@ -544,12 +549,12 @@ class BulkRawMaterialBatchForm(forms.Form):
                 required=False,
                 min_value=0,
                 label=str(rawmaterial),
-                widget=forms.NumberInput(attrs={'class': 'product-qty', 'style': 'width:100px;'})
+                widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Enter Quantity'})
             )
 
             self.fields[exp_field_name] = forms.DateField(
                 required=False,
-                widget=forms.DateInput(attrs={'type': 'date'})
+                widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control', 'placeholder': 'Select Expiration Date'})
             )
 
             self.rawmaterials.append({

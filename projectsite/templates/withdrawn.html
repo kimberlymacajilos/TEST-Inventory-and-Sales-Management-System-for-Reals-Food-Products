@@ -33,21 +33,21 @@
           <div class="card-body">
             <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Admin Filter -->
-              <select id="adminFilter" class="form-control" style="width:160px;">
+              <select id="adminFilter" class="form-control" style="width:180px;">
                 <option value="">All Admins</option>
                 {% for admin in admins %}
                   <option value="{{ admin }}">{{ admin }}</option>
                 {% endfor %}
               </select>
               <!-- Item Type Filter -->
-              <select id="itemTypeFilter" class="form-control" style="width:160px;">
+              <select id="itemTypeFilter" class="form-control" style="width:180px;">
                 <option value="">All Types</option>
                 {% for value, label in withdrawals.model.ITEM_TYPE_CHOICES %}
                   <option value="{{ label }}">{{ label }}</option>
                 {% endfor %}
               </select>
               <!-- Reason Filter -->
-              <select id="reasonFilter" class="form-control" style="width:160px;">
+              <select id="reasonFilter" class="form-control" style="width:180px;">
                 <option value="">All Reasons</option>
                 {% for value, label in withdrawals.model.REASON_CHOICES %}
                   <option value="{{ label }}">{{ label }}</option>
@@ -55,7 +55,20 @@
               </select>
               <!-- Month-Year Filter -->
               <input id="dateFilter" type="month" class="form-control" style="width:180px;" />
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </form>
+            
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteWithdrawal()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveWithdrawal()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
           </div>
 
           <div class="card-body">
@@ -63,6 +76,9 @@
               <table class="table table-striped" id="withdrawalTable">
                 <thead>
                   <tr>
+                    <th scope="col" style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th scope="col">Date</th>
                     <th scope="col">Type</th>
                     <th scope="col">Reason</th>
@@ -74,6 +90,14 @@
                 <tbody id="withdrawalTableBody">
                   {% for group in withdrawal_groups %}
                   <tr>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
+                    <td>{{ object.date|date:"Y-m-d" }}</td>
+                    <td>{{ object.get_item_type_display }}</td>
+                    <td>{{ object.get_item_display }}</td>
+                    <td>{{ object.quantity|floatformat:0 }}</td>
+                    <td>{{ object.get_reason_display }}</td>
                     <td>{{ group.date|localtime|date:"Y-m-d g:i A" }}</td>
                     <td>{{ group.item_type_display }}</td>
                     <td>
@@ -162,7 +186,7 @@
             Are you sure you want to archive this withdrawal?
             <br><br>
             <strong>Item:</strong> {{ object.get_item_display }}<br>
-            <strong>Quantity:</strong> {{ object.quantity }}<br>
+            <strong>Quantity:</strong> {{ object.quantity|floatformat:0 }}<br>
             <strong>Reason:</strong> {{ object.get_reason_display }}<br>
             <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
           </div>
@@ -191,7 +215,7 @@
             Are you sure you want to delete this withdrawal?
             <br><br>
             <strong>Item:</strong> {{ object.get_item_display }}<br>
-            <strong>Quantity:</strong> {{ object.quantity }}<br>
+            <strong>Quantity:</strong> {{ object.quantity|floatformat:0 }}<br>
             <strong>Reason:</strong> {{ object.get_reason_display }}<br>
             <strong>Date:</strong> {{ object.date|localtime|date:"Y-m-d g:i A" }}
           </div>
@@ -577,6 +601,110 @@ function handleDeleteSubmit(event, withdrawalName) {
     .catch(error => {
         console.error('Delete error:', error);
         showToast('An error occurred while deleting the withdrawal.', 'error');
+    });
+}
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteWithdrawal() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one withdrawal', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} withdrawal(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "withdrawals-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete withdrawals', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting withdrawals', 'error');
+    });
+}
+
+function bulkArchiveWithdrawal() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one withdrawal', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} withdrawal(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "withdrawals-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive withdrawals', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving withdrawals', 'error');
     });
 }
 </script>

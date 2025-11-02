@@ -20,11 +20,16 @@
             <!-- Search bar -->
             <form method="get" action="" id="filterForm">
               <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <div class="input-group">
                     <input type="text" id="searchInput" name="q" value="{{ request.GET.q }}" 
                       class="form-control" placeholder="Search raw material inventory...">
                   </div>
+                </div>
+                <div class="col-md-1">
+                  <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                    <i class="la la-times"></i>
+                  </button>
                 </div>
               </div>
 
@@ -53,8 +58,8 @@
                     {% for item in rawmatinvent %}
                     <tr>
                       <td>{{ item.material.name }}</td>
-                      <td>{{ item.total_stock }}</td>
-                      <td>{{ item.reorder_threshold }}</td>
+                      <td>{{ item.total_stock|floatformat:0 }}</td>
+                      <td>{{ item.reorder_threshold|floatformat:0 }}</td>
                       <td>
                         {% if item.total_stock == 0 %}
                           <span class="badge bg-danger">Out of Stock</span>

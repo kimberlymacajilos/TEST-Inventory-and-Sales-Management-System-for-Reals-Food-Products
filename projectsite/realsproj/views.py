@@ -20,6 +20,7 @@ from .forms import CustomUserCreationForm
 from django.db.models import Avg, Count, Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_http_method
 from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
@@ -410,27 +411,21 @@ class ProductsList(ListView):
             .order_by("-id")
         )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
             queryset = queryset.filter(
-                Q(description__icontains=query) |
-                Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)
+                Q(product_type__name__icontains=search) |
+                Q(variant__name__icontains=search) |
+                Q(size__size_label__icontains=search) |
+                Q(description__icontains=search)
             )
-        product_type = self.request.GET.get("product_type")
-        variant = self.request.GET.get("variant")
-        size = self.request.GET.get("size")
+        
         date_created = self.request.GET.get("date_created")
         barcode = self.request.GET.get("barcode")
 
         if barcode:
             queryset = queryset.filter(barcode__icontains=barcode)
-        if product_type:
-            queryset = queryset.filter(product_type__name__icontains=product_type)
-        if variant:
-            queryset = queryset.filter(variant__name__icontains=variant)
-        if size:
-            queryset = queryset.filter(size__size_label__icontains=size)
         if date_created:
             date_created = date_created.replace("/", "-").strip()
             parts = date_created.split("-")
@@ -536,6 +531,40 @@ class ProductArchiveOldView(View):
         one_year_ago = timezone.now() - timedelta(days=365)
         Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('product-list')
+
+@require_http_methods(["POST"])
+def product_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        deleted_count = Products.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        archived_count = Products.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class ProductCreateView(CreateView):
     model = Products
@@ -879,6 +908,40 @@ class RawMaterialArchiveOldView(View):
         RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('rawmaterials-list')
 
+@require_http_methods(["POST"])
+def rawmaterial_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        deleted_count = RawMaterials.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        archived_count = RawMaterials.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class ArchivedRawMaterialsListView(ListView):
     model = RawMaterials
     template_name = 'archived_rawmaterials.html'
@@ -1077,6 +1140,40 @@ class SaleUnarchiveView(View):
         sale.is_archived = False
         sale.save()
         return redirect('sales-archived-list')
+
+@require_http_methods(["POST"])
+def sales_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        deleted_count = Sales.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def sales_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        archived_count = Sales.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class SaleBulkRestoreView(View):
     def post(self, request):
@@ -1664,7 +1761,42 @@ class ExpenseArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, "📦 Old expenses archived successfully.")
         return redirect('expenses')
+
+@require_http_methods(["POST"])
+def expenses_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        deleted_count = Expenses.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def expenses_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        archived_count = Expenses.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class ArchivedExpensesListView(ListView):
     model = Expenses
@@ -1741,26 +1873,21 @@ class ProductBatchList(ListView):
             .order_by('-id')
         )
 
-        query = self.request.GET.get("q", "").strip()
-        date_filter = self.request.GET.get("date_filter", "").strip()
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        date_created = self.request.GET.get("date_created", "").strip()
 
-        if query:
+        if search:
             queryset = queryset.filter(
-                Q(product__product_type__name__icontains=query) |
-                Q(product__variant__name__icontains=query) |
-                Q(batch_date__icontains=query) |
-                Q(manufactured_date__icontains=query) |
-                Q(expiration_date__icontains=query)
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
-        if date_filter:
+        if date_created:
             try:
-                parsed_date = datetime.strptime(date_filter, "%Y-%m")
-                queryset = queryset.filter(
-                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
-                    Q(manufactured_date__year=parsed_date.year, manufactured_date__month=parsed_date.month) |
-                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
-                )
+                parsed_date = datetime.strptime(date_created, "%Y-%m-%d")
+                queryset = queryset.filter(batch_date=parsed_date)
             except ValueError:
                 pass
 
@@ -1836,6 +1963,40 @@ class ProductBatchArchiveOldView(View):
         archived_count = ProductBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} product batch(es) older than 1 year have been archived.")
         return redirect('product-batch')
+
+@require_http_methods(["POST"])
+def product_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = ProductBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = ProductBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
     
 
 class ProductInventoryList(ListView):
@@ -1853,16 +2014,13 @@ class ProductInventoryList(ListView):
             "product__size_unit",
         )
 
-        q = self.request.GET.get("q", "").strip()
-        if q:
-            queryset = queryset.annotate(
-                total_stock_str=Cast("total_stock", CharField()),
-                restock_threshold_str=Cast("restock_threshold", CharField()),
-            ).filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
         status = self.request.GET.get("status", "")
@@ -2004,6 +2162,39 @@ class RawMaterialBatchArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} raw material batch(es) older than 1 year have been archived.")
         return redirect('rawmaterial-batch')
 
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = RawMaterialBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = RawMaterialBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
@@ -2925,6 +3116,40 @@ class WithdrawalsArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
 
+@require_http_methods(["POST"])
+def withdrawals_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        deleted_count = Withdrawals.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def withdrawals_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        archived_count = Withdrawals.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class WithdrawUpdateView(UpdateView):
     model = Withdrawals
     form_class = WithdrawEditForm
@@ -3650,11 +3875,27 @@ def profile_view(request):
     return render(request, "profile.html")
 
 def best_sellers_api(request):
+    from datetime import datetime
     TOP_N = 5
+    
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    now = datetime.now()
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+
+    qs = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
+  
+    if month and month != 'all':
+        qs = qs.filter(date__year=year, date__month=month)
+    else:
+        qs = qs.filter(date__year=year)
+    
     qs = (
-        Withdrawals.objects
-        .filter(item_type="PRODUCT", reason="SOLD")
-        .values("item_id")
+        qs.values("item_id")
         .annotate(total_sold=Sum("quantity"))
         .order_by("-total_sold")
     )
@@ -3670,7 +3911,6 @@ def best_sellers_api(request):
         data.append(float(item["total_sold"]))
 
     return JsonResponse({"labels": labels, "data": data})
-
 
 def mark_notification_read(request, pk):
     notif = get_object_or_404(Notifications, pk=pk)
@@ -3939,9 +4179,20 @@ def login_view(request):
                     
                     send_login_notification(user, device_info, ip_address, is_new_device=True)
                     
+                    # Get remember me setting from session
+                    remember_me = request.session.get('remember_me', False)
                     del request.session['2fa_user_id']
+                    if 'remember_me' in request.session:
+                        del request.session['remember_me']
                     
                     login(request, user)
+                    
+                    # Set session expiry based on remember me
+                    if remember_me:
+                        request.session.set_expiry(2592000)  # 30 days in seconds
+                    else:
+                        request.session.set_expiry(0)  # Expire on browser close
+                    
                     messages.success(request, "✅ Successfully logged in! This device is now trusted.")
                     return redirect('home')
                 else:
@@ -3968,16 +4219,8 @@ def login_view(request):
                 device_info = get_device_info(request)
                 ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
                 
-                print(f"\n{'='*60}")
-                print(f"[2FA DEBUG] Login attempt for user: {user.username}")
-                print(f"[2FA DEBUG] Device fingerprint: {device_fingerprint[:20]}...")
-                print(f"[2FA DEBUG] Device info: {device_info}")
-                print(f"[2FA DEBUG] IP Address: {ip_address}")
-                
                 try:
                     twofa_settings = User2FASettings.objects.get(user=user, is_enabled=True)
-                    print(f"[2FA DEBUG] ✅ 2FA is ENABLED for user: {user.username}")
-                    print(f"[2FA DEBUG] Backup email: {twofa_settings.backup_email or 'None (using primary)'}")
                     
                     trusted_device = TrustedDevice.objects.filter(
                         user=user,
@@ -3986,17 +4229,6 @@ def login_view(request):
                     ).first()
                     
                     if trusted_device:
-                        print(f"[2FA DEBUG] ✅ TRUSTED DEVICE FOUND: {trusted_device.device_name}")
-                        print(f"[2FA DEBUG] Last used: {trusted_device.last_used}")
-                    else:
-                        print(f"[2FA DEBUG] ⚠️ NEW DEVICE - OTP Required")
-                        all_devices = TrustedDevice.objects.filter(user=user)
-                        print(f"[2FA DEBUG] Total trusted devices for user: {all_devices.count()}")
-                        for dev in all_devices:
-                            print(f"  - {dev.device_name} (fingerprint: {dev.device_fingerprint[:20]}...)")
-
-                    if trusted_device:
-                        print(f"[2FA DEBUG] 🔓 Allowing login from trusted device")
                         trusted_device.last_used = timezone.now()
                         trusted_device.save()
                         
@@ -4015,14 +4247,17 @@ def login_view(request):
                         send_login_notification(user, device_info, ip_address, is_new_device=False)
                         
                         login(request, user)
+                        
+                        remember_me = request.POST.get('remember', False)
+                        if remember_me:
+                            request.session.set_expiry(2592000)  
+                        else:
+                            request.session.set_expiry(0)  
+                        
                         messages.success(request, f"✅ Welcome back! Logged in from trusted device.")
-                        print(f"[2FA DEBUG] ✅ Login successful (trusted device)")
-                        print(f"{'='*60}\n")
                         return redirect('home')
                     else:
-                        print(f"[2FA DEBUG] 📧 Generating OTP for new device...")
                         otp_code = str(random.randint(100000, 999999))
-                        print(f"[2FA DEBUG] OTP Code: {otp_code}")
                         
                         UserOTP.objects.create(
                             user=user,
@@ -4032,7 +4267,6 @@ def login_view(request):
                         )
                         
                         email_to = twofa_settings.backup_email if twofa_settings.backup_email else user.email
-                        print(f"[2FA DEBUG] Sending OTP to: {email_to}")
                         
                         try:
                             send_mail(
@@ -4042,9 +4276,8 @@ def login_view(request):
                                 recipient_list=[email_to],
                                 fail_silently=False,
                             )
-                            print(f"[2FA DEBUG] ✅ OTP email sent successfully!")
                         except Exception as email_error:
-                            print(f"[2FA DEBUG] ❌ EMAIL ERROR: {email_error}")
+                            pass
                         
                         LoginAttempt.objects.create(
                             user=user,
@@ -4059,28 +4292,31 @@ def login_view(request):
                         )
                         
                         request.session['2fa_user_id'] = user.id
+                        remember_me = request.POST.get('remember', False)
+                        request.session['remember_me'] = bool(remember_me)
+                        
                         masked_email = mask_email(email_to)
                         messages.info(request, f"📧 New device detected! OTP sent to {masked_email}")
-                        print(f"[2FA DEBUG] ✅ Redirecting to OTP verification page")
-                        print(f"{'='*60}\n")
                         return render(request, '2fa_verify.html', {'user_email': masked_email})
                         
                 except User2FASettings.DoesNotExist:
-                    print(f"[2FA DEBUG] ❌ 2FA is NOT ENABLED for user: {user.username}")
-                    print(f"[2FA DEBUG] Allowing direct login (no 2FA)")
-                    print(f"{'='*60}\n")
                     login(request, user)
+                    
+                    remember_me = request.POST.get('remember', False)
+                    if remember_me:
+                        request.session.set_expiry(2592000)  
+                    else:
+                        request.session.set_expiry(0)  
+                    
                     return redirect('home')
                 except Exception as e:
-                    print(f"[2FA DEBUG] ❌ EXCEPTION: {str(e)}")
-                    print(f"{'='*60}\n")
                     messages.error(request, f"Failed to process login: {str(e)}")
                     return render(request, 'login.html')
             else:
                 messages.error(request, "Your account is not active.")
         else:
             messages.error(request, "Invalid username or password.")
-    return render(request, 'login.html')    
+    return render(request, 'login.html')
 
 def register(request):
     if request.method == 'POST':
@@ -4318,75 +4554,39 @@ def set_user_inactive(sender, user, request, **kwargs):
 
 
 def check_expirations(request):
-    today = timezone.localdate()
-    next_week = today + timedelta(days=7)
-    next_month = today + timedelta(days=30)
-    messages = []
-
-    product_batches = (
-        ProductBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values(
-            "product__product_type__name",
-            "product__variant__name",
-            "product__size__size_label",
-            "product__size_unit__unit_name",
-            "expiration_date"
-        )
-        .annotate(count=Count("id"))
-    )
-
-    for pb in product_batches:
-        days = (pb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
-        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
-        messages.append(message)
-
-    raw_batches = (
-        RawMaterialBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values("material__name", "expiration_date")
-        .annotate(count=Count("id"))
-    )
-
-    for rb in raw_batches:
-        days = (rb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
-        messages.append(message)
-
-    if messages:
-        Notifications.objects.create(
-            item_type="SYSTEM",
-            item_id=0,
+    """
+    Trigger the expiration check management command.
+    This will create notifications, deduct expired items from inventory,
+    and log them to financial loss.
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    
+    # Capture command output
+    out = StringIO()
+    
+    try:
+        # Call the management command that handles everything properly
+        call_command('check_expirations', stdout=out)
+        output = out.getvalue()
+        
+        # Count notifications created
+        notification_count = Notifications.objects.filter(
             notification_type="EXPIRATION_ALERT",
-            notification_timestamp=timezone.now(),
-            is_read=False,
-        )
-        print("\n".join(messages))
-
-    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+            is_read=False
+        ).count()
+        
+        return JsonResponse({
+            "status": "ok",
+            "message": "Expiration check completed successfully",
+            "notifications_created": notification_count,
+            "details": output
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": str(e)
+        }, status=500)
 
 
 @method_decorator(login_required, name='dispatch')
@@ -4485,7 +4685,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         sold_products_list.sort(key=lambda x: x['total_quantity'], reverse=True)
         
         best_sellers = sold_products_list[:10]
-        
+        best_seller_ids = [p['item_id'] for p in best_sellers]       
         sold_product_ids = [p['item_id'] for p in sold_products_list]
         no_sales_products = Products.objects.filter(
             is_archived=False
@@ -4494,12 +4694,14 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         )
         
         low_sellers_list = []
-        
+
         if len(sold_products_list) > 10:
-            low_sellers_from_sold = sorted(sold_products_list, key=lambda x: x['total_quantity'])[:10]
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_from_sold = sorted(non_best_sellers, key=lambda x: x['total_quantity'])[:10]
             low_sellers_list.extend(low_sellers_from_sold)
         else:
-            low_sellers_list.extend(sorted(sold_products_list, key=lambda x: x['total_quantity']))
+            non_best_sellers = [p for p in sold_products_list if p['item_id'] not in best_seller_ids]
+            low_sellers_list.extend(sorted(non_best_sellers, key=lambda x: x['total_quantity']))
 
         remaining_slots = 10 - len(low_sellers_list)
         if remaining_slots > 0:
@@ -4622,14 +4824,10 @@ def database_backup(request):
             
         except Exception as e:
             messages.error(request, f'❌ Backup error: {str(e)}')
-            return redirect(request.META.get('HTTP_REFERER', 'home'))
-    
-    return redirect('home')
-
-
 @login_required
 def financial_loss(request):
     """View for displaying financial losses from expired and damaged items"""
+    from django.core.paginator import Paginator
 
     product_withdrawals = Withdrawals.objects.filter(
         item_type='PRODUCT',
@@ -4692,9 +4890,23 @@ def financial_loss(request):
     
     total_loss = total_product_loss + total_raw_material_loss
     
+    product_page = request.GET.get('product_page', 1)
+    product_paginator = Paginator(product_loss_data, 10)
+    product_page_obj = product_paginator.get_page(product_page)
+    
+    raw_material_page = request.GET.get('raw_material_page', 1)
+    raw_material_paginator = Paginator(raw_material_loss_data, 10)
+    raw_material_page_obj = raw_material_paginator.get_page(raw_material_page)
+    
     context = {
-        'product_withdrawals': product_loss_data,
-        'raw_material_withdrawals': raw_material_loss_data,
+        'product_withdrawals': product_page_obj,
+        'product_paginator': product_paginator,
+        'product_page_obj': product_page_obj,
+        'product_is_paginated': product_paginator.num_pages > 1,
+        'raw_material_withdrawals': raw_material_page_obj,
+        'raw_material_paginator': raw_material_paginator,
+        'raw_material_page_obj': raw_material_page_obj,
+        'raw_material_is_paginated': raw_material_paginator.num_pages > 1,
         'product_loss': total_product_loss,
         'raw_material_loss': total_raw_material_loss,
         'total_loss': total_loss,
@@ -4818,28 +5030,116 @@ def financial_loss_export(request):
 
 @login_required
 def setup_2fa(request):
-    """Enable 2FA for the current user"""
-    from realsproj.models import User2FASettings
+    """Enable 2FA for the current user - with email verification"""
+    from realsproj.models import User2FASettings, UserOTP
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+    import random
+    from datetime import timedelta
     
     if request.method == 'POST':
-        backup_email = request.POST.get('backup_email', '').strip()
+        if 'verification_code' in request.POST:
+            verification_code = request.POST.get('verification_code', '').strip()
+            backup_email = request.session.get('2fa_setup_backup_email', '')
+
+            otp = UserOTP.objects.filter(
+                user=request.user,
+                otp_code=verification_code,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            ).first()
+            
+            if otp:
+                otp.is_used = True
+                otp.save()
+
+                settings, created = User2FASettings.objects.get_or_create(
+                    user=request.user,
+                    defaults={
+                        'is_enabled': True,
+                        'method': 'email',
+                        'backup_email': backup_email if backup_email else None
+                    }
+                )
+                
+                if not created:
+                    settings.is_enabled = True
+                    settings.backup_email = backup_email if backup_email else None
+                    settings.save()
+
+                try:
+                    email_to = backup_email if backup_email else request.user.email
+                    send_mail(
+                        subject='🔐 Two-Factor Authentication Enabled - Real\'s Food Products',
+                        message=f'''Hello {request.user.username},
+
+Two-Factor Authentication has been successfully enabled for your account.
+
+Primary Email: {request.user.email}
+{'Backup Email: ' + backup_email if backup_email else ''}
+
+From now on, you will receive a one-time password (OTP) when logging in from a new device.
+
+If you did not enable this feature, please contact support immediately.
+
+Thank you for keeping your account secure!
+
+Real's Food Products Security Team''',
+                        from_email=django_settings.EMAIL_HOST_USER,
+                        recipient_list=[email_to],
+                        fail_silently=True,
+                    )
+                    print(f"[2FA SETUP] Confirmation email sent to {email_to}")
+                except Exception as e:
+                    print(f"[2FA SETUP ERROR] Failed to send confirmation email: {e}")
+
+                if '2fa_setup_backup_email' in request.session:
+                    del request.session['2fa_setup_backup_email']
+                
+                messages.success(request, "✅ Two-Factor Authentication has been enabled! A confirmation email has been sent.")
+                return redirect('profile')
+            else:
+                messages.error(request, "❌ Invalid or expired verification code. Please try again.")
+                return redirect('profile')
         
-        # Create or update 2FA settings
-        settings, created = User2FASettings.objects.get_or_create(
+        backup_email = request.POST.get('backup_email', '').strip()
+        email_to = backup_email if backup_email else request.user.email
+
+        verification_code = str(random.randint(100000, 999999))
+
+        UserOTP.objects.create(
             user=request.user,
-            defaults={
-                'is_enabled': True,
-                'method': 'email',
-                'backup_email': backup_email if backup_email else None
-            }
+            otp_code=verification_code,
+            expires_at=timezone.now() + timedelta(minutes=5),
+            ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0')
         )
         
-        if not created:
-            settings.is_enabled = True
-            settings.backup_email = backup_email if backup_email else None
-            settings.save()
+        request.session['2fa_setup_backup_email'] = backup_email
+
+        try:
+            send_mail(
+                subject='🔐 Verify Your Email - Enable 2FA',
+                message=f'''Hello {request.user.username},
+
+You are enabling Two-Factor Authentication for your account.
+
+Your verification code is: {verification_code}
+
+This code will expire in 5 minutes.
+
+If you did not request this, please ignore this email.
+
+Real's Food Products Security Team''',
+                from_email=django_settings.EMAIL_HOST_USER,
+                recipient_list=[email_to],
+                fail_silently=False,
+            )
+            print(f"[2FA SETUP] Verification code sent to {email_to}")
+            messages.success(request, f"📧 Verification code sent to {mask_email(email_to)}. Please check your email.")
+        except Exception as e:
+            print(f"[2FA SETUP ERROR] Failed to send verification email: {e}")
+            messages.error(request, "❌ Failed to send verification email. Please try again.")
         
-        messages.success(request, "✅ Two-Factor Authentication has been enabled!")
         return redirect('profile')
     
     # GET request - show setup form
@@ -4852,7 +5152,6 @@ def setup_2fa(request):
         'user_email': request.user.email,
         'twofa_settings': twofa_settings
     })
-
 
 @login_required
 def disable_2fa(request):
@@ -4878,3 +5177,57 @@ def disable_2fa(request):
         return redirect('profile')
     
     return redirect('profile')
+
+@login_required
+def delete_account(request):
+    """Soft delete user account - deactivates instead of deleting to preserve database integrity"""
+    from django.contrib.auth import logout
+    from realsproj.models import User2FASettings, UserOTP, TrustedDevice
+    
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        confirm_text = request.POST.get('confirm_text', '')
+        
+        # Verify password
+        if not request.user.check_password(password):
+            messages.error(request, "❌ Incorrect password. Account deletion cancelled.")
+            return redirect('delete_account')
+        
+        # Verify confirmation text
+        if confirm_text != 'DELETE':
+            messages.error(request, "❌ Please type 'DELETE' to confirm account deletion.")
+            return redirect('delete_account')
+
+        try:
+            user = request.user
+            
+            # Generate unique timestamp-based identifier
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            
+            # Soft delete: Deactivate account and anonymize email/username to prevent conflicts
+            user.is_active = False
+            user.email = f"deleted_{user.id}_{timestamp}@deleted.local"
+            user.username = f"deleted_user_{user.id}_{timestamp}"
+            user.first_name = "Deleted"
+            user.last_name = "User"
+            user.set_unusable_password()
+            user.save()
+            
+            # Clean up 2FA and security data
+            User2FASettings.objects.filter(user=user).delete()
+            UserOTP.objects.filter(user=user).delete()
+            TrustedDevice.objects.filter(user=user).delete()
+            
+            # Log the user out
+            logout(request)
+            
+            messages.success(request, "✅ Your account has been successfully deactivated. All your data has been preserved for record-keeping purposes.")
+            return redirect('home')
+            
+        except Exception as e:
+            messages.error(request, f"❌ An error occurred while deleting your account: {str(e)}")
+            return redirect('delete_account')
+    
+    # GET request - show confirmation page
+    return render(request, 'delete_account_confirm.html')

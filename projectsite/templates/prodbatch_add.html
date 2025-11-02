@@ -1,56 +1,77 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/style.css' %}">
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Bulk Add Product Batches</h4>
-
-    <!-- Scanner Status (NEW) -->
-    <div class="mb-4">
-      <span id="scanner-status" class="badge badge-secondary">Connecting...</span>
-    </div>
+    <h4 class="page-title">
+      <a href="{% url 'product-batch-list' %}" class="btn btn-link p-0 mr-2" title="Back to Product Batches">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Bulk Add Product Batches
+    </h4>
 
     <div class="card">
+      <div class="card-header">
+        <div class="card-title">Bulk Add Product Batches</div>
+      </div>
       <div class="card-body">
         <form method="post">
           {% csrf_token %}
 
-          <!-- Batch Details -->
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Manufactured Date</label>
-              {{ form.manufactured_date }}
-            </div>
+          <!-- <div class="form-group mt-2">
             <div class="form-check">
               {{ form.deduct_raw_material }}
-              <!-- <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
-                <span class="custom-checkbox"></span> -->
+              <label class="form-check-label" for="{{ form.deduct_raw_material.id_for_label }}">
                 Deduct Raw Materials
               </label>
             </div>
+          </div> -->
+
+          <!-- Products Table -->
+          <div class="mt-3">
+            <h5>Products</h5>
+
+          <!-- Scanner Status -->
+          <div class="alert alert-light text-dark d-flex justify-content-between align-items-center mb-3">
+            <span>📱 Barcode Scanner</span>
+            <span id="scanner-status" class="badge badge-secondary">Connecting...</span>
           </div>
 
-          <h5>Input Quantities for Products</h5>
+          <!-- Batch Details -->
+          <div class="form-group mb-4">
+            <label for="{{ form.manufactured_date.id_for_label }}" class="font-weight-bold">Manufactured Date</label>
+            <input type="date" 
+                   id="{{ form.manufactured_date.id_for_label }}" 
+                   name="{{ form.manufactured_date.name }}" 
+                   class="form-control" 
+                   style="max-width: 300px;"
+                   placeholder="Select Manufactured Date"
+                   value="{{ form.manufactured_date.value|default:'' }}">
+          </div>
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Current Stock</th>
+                  <th>Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in products %}
+                <tr data-barcode="{{ p.product.barcode }}">
+                  <td>{{ p.product }}</td>
+                  <td>{{ p.product.productinventory.total_stock|floatformat:0 }}</td>
+                  <td>{{ p.qty_field }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
-          <table class="table table-bordered table-striped">
-            <thead class="thead-light">
-              <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for p in products %}
-              <tr data-barcode="{{ p.product.barcode }}">
-                <td>{{ p.product }}</td>
-                <td>{{ p.qty_field }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-          <button type="submit" class="btn btn-success btn-rounded">Save Batches</button>
+          <!-- Submit Button -->
+          <div class="form-group mt-3">
+            <button type="submit" class="btn btn-success btn-rounded">Save Batches</button>
+          </div>
         </form>
       </div>
     </div>
@@ -64,6 +85,12 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  const manufacturedDateInput = document.getElementById('{{ form.manufactured_date.id_for_label }}');
+  if (manufacturedDateInput && !manufacturedDateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    manufacturedDateInput.value = today;
+  }
+
   const statusBadge = document.getElementById("scanner-status");
   const beepSound = document.getElementById("beep-sound");
   

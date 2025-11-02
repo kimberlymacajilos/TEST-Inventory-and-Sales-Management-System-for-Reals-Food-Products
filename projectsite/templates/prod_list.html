@@ -31,7 +31,7 @@
                                     <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldProductsModal">Archive Old Data</a>
                                 </div>
                             </div>
-
+                            
                             <!-- Add Product button (standalone) -->
                             <a href="{% url 'product-add' %}" class="btn btn-success btn-rounded">
                                 Add Product
@@ -45,41 +45,47 @@
 
                             <!-- Other Filters Row -->
                             <div class="row">
-                                <div class="col-md-2">
-                                    <input type="text" name="product_type" class="form-control"
-                                        placeholder="Product Type" value="{{ request.GET.product_type }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" name="variant" class="form-control"
-                                        placeholder="Variant" value="{{ request.GET.variant }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="text" name="size" class="form-control"
-                                        placeholder="Size" value="{{ request.GET.size }}">
+                                <div class="col-md-6">
+                                    <input type="text" name="search" class="form-control"
+                                        placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                                 </div>
                                 <div class="col-md-2">
                                     <input type="date" name="date_created" class="form-control"
+                                           placeholder="Filter by Date"
                                            value="{{ request.GET.date_created }}">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="input-group">
                                         <input type="text" name="barcode" id="barcode-search" class="form-control"
                                             placeholder="🔍 Scan or enter barcode..." value="{{ request.GET.barcode }}">
-                                        <div class="input-group-append">
-                                            <button type="button" id="clear-barcode" class="btn btn-outline-secondary" title="Clear barcode">
-                                                <i class="la la-times"></i>
-                                            </button>
-                                        </div>
                                     </div>
                                     <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
                                 </div>
+                                <div class="col-md-1">
+                                    <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                                        <i class="la la-times"></i>
+                                    </button>
+                                </div>
                             </div>
                         </form>
+
+                        <!-- Bulk Action Buttons -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDelete()">
+                                <i class="la la-trash"></i> Delete Selected
+                            </button>
+                            <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchive()">
+                                <i class="la la-archive"></i> Archive Selected
+                            </button>
+                        </div>
 
                         <!-- Table -->
                         <table class="table table-striped mt-3" id="productsTable">
                             <thead>
                                 <tr>
+                                    <th scope="col" style="width: 40px;">
+                                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                                    </th>
                                     <th scope="col">Product</th>
                                     <th scope="col">Unit Price</th>
                                     <th scope="col">SRP Price</th>
@@ -91,6 +97,9 @@
                             <tbody id="productsTableBody">
                                 {% for object in products %}
                                 <tr>
+                                    <td>
+                                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                                    </td>
                                     <td>{{ object.product_type.name }} - {{ object.variant.name }} ({{ object.size.size_label }} {{ object.size_unit.unit_name }})</td>
                                     <td>{{ object.unit_price.unit_price }}</td>
                                     <td>{{ object.srp_price.srp_price }}</td>
@@ -247,7 +256,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const barcodeInput = document.getElementById("barcode-search");
     const barcodeStatus = document.getElementById("barcode-status");
     const scannerStatus = document.getElementById("scanner-status");
-    const clearBarcodeBtn = document.getElementById("clear-barcode");
 
     let typingTimer;
     const debounceTime = 600;
@@ -331,7 +339,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 
                 // Auto-submit form to search
                 setTimeout(() => {
-                    form.submit();
+                    fetchProducts(true);
                 }, 300);
 
             } catch (err) {
@@ -363,14 +371,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Start WebSocket connection
     connectWebSocket();
-
-    // Clear barcode button
-    clearBarcodeBtn.addEventListener("click", function() {
-        barcodeInput.value = "";
-        barcodeInput.focus();
-        updateBarcodeStatus("Ready to scan...", "text-muted");
-        fetchProducts(true);
-    });
 
     // Manual input handling
     barcodeInput.addEventListener("input", function() {
@@ -524,6 +524,113 @@ function handleArchiveSubmit(event, productName) {
     .catch(error => {
         console.error('Archive error:', error);
         showToast('An error occurred while archiving the product.', 'error');
+    });
+}
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDelete() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one product', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} product(s)?`)) {
+        return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "product-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete products', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting products', 'error');
+    });
+}
+
+function bulkArchive() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one product', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} product(s)?`)) {
+        return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "product-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive products', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving products', 'error');
     });
 }
 </script>

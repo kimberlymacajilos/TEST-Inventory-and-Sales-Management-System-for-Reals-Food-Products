@@ -1,11 +1,3 @@
-/* =========================================
-   Profile Page (scoped) — no conflicts
-   ========================================= */
-
-/* Wrapper only; wag gagalawin ang global <body> styles */
-.profile-page { /* optional page-specific spacing here if needed */ }
-
-/* Avatar helper */
 .profile-page .ui-w-80 { width: 80px !important; height: auto; }
 
 /* Buttons (scoped) */
@@ -32,7 +24,14 @@
   border-color: var(--primary-600);
 }
 
-/* Text tone (scoped; hindi tatama sa global .text-light) */
+.profile-page .btn-lg{
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
 .profile-page .text-light{ color: var(--muted) !important; }
 
 /* Cards — huwag sapawan ang global card look; subtle lang */
@@ -118,7 +117,6 @@
   outline: 0;
 }
 
-/* -------- Dark mode variants (scoped) -------- */
 html[data-theme="dark"] .profile-page .account-settings-links .list-group-item{
   border-color: rgba(255,255,255,.06) !important;
   color: var(--text);
@@ -133,13 +131,22 @@ html[data-theme="dark"] .profile-page .account-settings-links .list-group-item.a
   box-shadow: 0 6px 18px rgba(0,0,0,.25);
 }
 
-/* Dark mode inputs: keep white fields for readability (same as Change Password) */
 html[data-theme="dark"] .profile-page .form-control,
+html[data-theme="dark"] .profile-page input[type="text"],
+html[data-theme="dark"] .profile-page input[type="email"],
+html[data-theme="dark"] .profile-page input[type="password"],
 html[data-theme="dark"] .profile-page select,
 html[data-theme="dark"] .profile-page textarea{
-  background: #fff;
-  color: #0f172a;
-  border-color: rgba(255,255,255,.2);
+  background: #fff !important;
+  color: #0f172a !important;
+  border-color: rgba(255,255,255,.2) !important;
+}
+
+html[data-theme="dark"] .profile-page .form-control::placeholder,
+html[data-theme="dark"] .profile-page input::placeholder,
+html[data-theme="dark"] .profile-page textarea::placeholder{
+  color: #64748b !important;
+  opacity: 0.7;
 }
 
 /* Buttons in dark */

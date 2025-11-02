@@ -1,35 +1,35 @@
 {% load widget_tweaks %}
 
 {% if form.non_field_errors %}
-    <div class="alert alert-danger" role="alert">
-        {% for error in form.non_field_errors %}
-            <p{% if forloop.last %} class="mb-0"{% endif %}>{{ error }}</p>
-        {% endfor %}
-    </div>
+  <div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}
+      <p{% if forloop.last %} class="mb-0"{% endif %}>{{ error }}</p>
+    {% endfor %}
+  </div>
 {% endif %}
 
-{% for field in form %}
-<div class="field item form-group">
+<div class="form-container">
+  {% for field in form %}
+  <div class="form-item">
     {% if field.field.widget.input_type == "checkbox" %}
-        <!-- For checkboxes -->
-        <div class="form-check">
-            {% render_field field class="form-check-input show-checkbox" %}
-            <label class="form-check-label ms-2" for="{{ field.id_for_label }}">
-                {{ field.label }}
-            </label>
-        </div>
+      <!-- For checkboxes -->
+      <div class="form-check">
+        {% render_field field class="form-check-input show-checkbox" %}
+        <label class="form-check-label ms-2" for="{{ field.id_for_label }}">
+          {{ field.label }}
+        </label>
+      </div>
     {% else %}
-        <!-- For all other fields -->
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        <div class="form-group">
-            {% render_field field class="form-control" %}
-        </div>
+      <!-- For all other fields -->
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {% render_field field class="form-control" %}
     {% endif %}
 
     {% for error in field.errors %}
-        <div class="invalid-feedback d-block">
-            {{ error }}
-        </div>
+      <div class="invalid-feedback d-block">
+        {{ error }}
+      </div>
     {% endfor %}
+  </div>
+  {% endfor %}
 </div>
-{% endfor %}

@@ -39,9 +39,9 @@
           <div class="card-body">
 
             <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:150px;">
+              <select id="categoryFilter" class="form-control" style="width:180px;">
                 <option value="">All Categories</option>
                   {% for cat_value, cat_display in categories %}
                     <option value="{{ cat_value }}" {% if request.GET.category == cat_value %}selected{% endif %}>
@@ -49,10 +49,16 @@
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" />
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
+            <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
+              Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
+            </small>
+            
             <!-- Sales Summary -->
             <div class="row mb-1 text-center" id="salesSummary">
               <div class="col-md-4">
@@ -81,11 +87,24 @@
               </div>
             </div>
 
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteSale()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveSale()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+
             <!-- Table -->
             <div class="table-responsive">
               <table class="table table-striped" id="salesTable">
                 <thead>
                   <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th>Category</th>
                     <th>Amount</th>
                     <th>Date</th>
@@ -99,10 +118,13 @@
                       data-sale-category="{{ object.category }}" 
                       data-sale-amount="{{ object.amount }}"
                       data-sale-date="{{ object.date|date:'Y-m-d' }}">
-                    <td>{{ object.category|lower|capfirst|slugify|title }}</td>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
+                    <td>{{ object.category }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
-                    <td>{{ object.description }}</td>
+                    <td class="description-cell">{{ object.description }}</td>
                     <td>
                       <a href="{% url 'sales-edit' object.id %}" class="text-primary" title="Edit">
                         <i class="la la-edit la-lg"></i>
@@ -422,6 +444,153 @@ $(document).on('change', '.payment-status-select', function() {
         partialField.find('input').attr('required', false);
     }
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+  const descriptionCells = document.querySelectorAll('.description-cell');
+  descriptionCells.forEach(cell => {
+    let text = cell.textContent.trim();
+    
+    // Remove Withdrawal ID and Channel parts
+    text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
+    text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
+    text = text.replace(/PriceType:\s*([A-Z_]+)/gi, function(match, priceType) {
+      let formatted = priceType.toLowerCase().replace(/_/g, ' ');
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      return 'Price Type: ' + formatted;
+    });
+
+    text = text.replace(/,?\s*Discount:\s*0(\.0+)?%,?\s*/gi, '');
+    text = text.replace(/Discount:\s*([\d.]+)%/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Discount: ' + num.toFixed(2) + '%';
+    });
+
+    text = text.replace(/BasePrice:\s*([\d.]+)/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Base Price: ₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/₱\s*([\d,]+\.\d{3,})/g, function(match, value) {
+      let num = parseFloat(value.replace(/,/g, ''));
+      return '₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/(\bQuantity:\s*)([\d,]+)\.0+\b/gi, function(match, label, value) {
+      return label + value;
+    });
+    
+    // Clean up extra commas and spaces
+    text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    cell.textContent = text;
+  });
+});
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-delete-new" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting sales', 'error');
+    });
+}
+
+function bulkArchiveSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving sales', 'error');
+    });
+}
+
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>
