@@ -15,20 +15,18 @@
               <div class="card-title">List of Withdrawals</div>
             </div>
             <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Actions Dropdown -->
-              <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   Archive Options
                 </button>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
                   <a class="dropdown-item" href="{% url 'withdrawals-archived-list' %}">Show Archived</a>
-                  <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldWithdrawalsModal">
-                    Archive Old Data
-                  </button>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldWithdrawalsModal">Archive Old Data</a>
                 </div>
               </div>
 
-              <!-- Withdraw Button -->
+              <!-- Withdraw Item button -->
               <a href="{% url 'withdraw-item' %}" class="btn btn-success btn-rounded">Withdraw Item</a>
             </div>
           </div>
@@ -386,6 +384,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Check for success message after page reload
+  const withdrawalSuccess = sessionStorage.getItem('withdrawalSuccess');
+  if (withdrawalSuccess) {
+    showToast(withdrawalSuccess, 'success');
+    sessionStorage.removeItem('withdrawalSuccess');
+  }
+  
   const adminFilter = document.getElementById('adminFilter');
   const itemTypeFilter = document.getElementById('itemTypeFilter');
   const reasonFilter = document.getElementById('reasonFilter');
@@ -519,9 +524,6 @@ function handleArchiveSubmit(event, withdrawalName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Archiving withdrawal...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -532,11 +534,10 @@ function handleArchiveSubmit(event, withdrawalName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Withdrawal "${withdrawalName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('withdrawalSuccess', `Withdrawal "${withdrawalName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive withdrawal. Please try again.', 'error');
         }
@@ -555,9 +556,6 @@ function handleDeleteSubmit(event, withdrawalName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Deleting withdrawal...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -568,11 +566,10 @@ function handleDeleteSubmit(event, withdrawalName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Withdrawal "${withdrawalName}" deleted successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('withdrawalSuccess', `Withdrawal "${withdrawalName}" deleted successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to delete withdrawal. Please try again.', 'error');
         }

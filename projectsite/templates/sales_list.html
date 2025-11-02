@@ -14,22 +14,24 @@
             <div>
               <div class="card-title">List of Sales</div>
             </div>
-            <div>
-              <!-- Actions Dropdown -->
-              <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Actions
-              </button>
-              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
-                <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
-                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldSalesModal">
-                  Archive Old Data
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  Archive Options
                 </button>
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
+                  <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldSalesModal">Archive Old Data</a>
+                </div>
               </div>
+
               <!-- Export Button -->
               <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportSalesModal">
                 <i class="la la-download"></i> Export Sales
               </button>
-              <!-- Add Button -->
+
+              <!-- Add Sale button -->
               <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
             </div>
           </div>
@@ -351,9 +353,6 @@ function handleArchiveSubmit(event, saleName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Archiving sale...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -364,11 +363,10 @@ function handleArchiveSubmit(event, saleName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Sale "${saleName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('saleSuccess', `Sale "${saleName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive sale. Please try again.', 'error');
         }
@@ -387,9 +385,6 @@ function handleDeleteSubmit(event, saleName) {
     // Close the modal
     $(form).closest('.modal').modal('hide');
     
-    // Show loading toast
-    showToast('Deleting sale...', 'info');
-    
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
@@ -400,11 +395,10 @@ function handleDeleteSubmit(event, saleName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Sale "${saleName}" deleted successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('saleSuccess', `Sale "${saleName}" deleted successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to delete sale. Please try again.', 'error');
         }

@@ -1,4 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Check for success message after page reload
+  const saleSuccess = sessionStorage.getItem('saleSuccess');
+  if (saleSuccess) {
+    showToast(saleSuccess, 'success');
+    sessionStorage.removeItem('saleSuccess');
+  }
+  
   const categoryFilter = document.getElementById("categoryFilter");
   const dateFilter = document.getElementById("dateFilter");
   const tableBody = document.getElementById("salesTableBody");

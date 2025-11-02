@@ -15,22 +15,41 @@
               <div class="card-title">List of Stock Change</div>
             </div>
             <div class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Actions Dropdown -->
-              <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   Archive Options
                 </button>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
                   <a class="dropdown-item" href="{% url 'stock-changes-archived-list' %}">Show Archived</a>
-                  <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldStockChangesModal">
-                    Archive Old Data
-                  </button>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldStockChangesModal">Archive Old Data</a>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="card-body">
+            <!-- Search and Filters -->
+            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+              <!-- Search by Item -->
+              <input type="text" id="itemSearch" class="form-control" style="width:200px;" placeholder="Search item...">
+              
+              <!-- Category Filter -->
+              <select id="categoryFilter" class="form-control" style="width:180px;">
+                <option value="">All Categories</option>
+                <option value="Product Stock Increased">Product Stock Increased</option>
+                <option value="Raw Material Stock Increased">Raw Material Stock Increased</option>
+              </select>
+              
+              <!-- Date Filter -->
+              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
+              
+              <!-- Clear Button -->
+              <button type="button" id="clearFilters" class="btn btn-secondary btn-rounded">
+                <i class="la la-times"></i> Clear
+              </button>
+            </div>
+
             <div class="table-responsive">
               <table class="table table-striped" id="stockChangesTable">
                 <thead>
@@ -59,7 +78,10 @@
                 </tbody>
               </table>
             </div>
-            {% include 'includes/pagination.html' %}
+            
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
           </div>
         </div>
       </div>
@@ -68,6 +90,7 @@
 </div>
 
 <!-- Individual Archive Modals -->
+<div id="stockChangeModalsContainer">
 {% for object in object_list %}
 <div class="modal fade" id="archiveStockChangeModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -96,6 +119,7 @@
   </div>
 </div>
 {% endfor %}
+</div>
 
 <!-- Archive Old Stock Changes Modal -->
 <div class="modal fade" id="archiveOldStockChangesModal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -124,33 +148,6 @@
 </div>
 
 <script>
-(function () {
-  const tbody = document.getElementById('stockChangesTableBody');
-  const table = document.getElementById('stockChangesTable');
-
-  function showNoResultsIfEmpty(){
-    let rows = tbody.querySelectorAll('tr');
-    let existing = document.getElementById('noStockChangesRow');
-
-    // exclude no-results row itself
-    let actualRows = Array.from(rows).filter(r => r.id !== 'noStockChangesRow');
-
-    if(actualRows.length === 0){
-      if(!existing){
-        const cols = table.querySelectorAll('thead th').length;
-        const tr = document.createElement('tr');
-        tr.id = 'noStockChangesRow';
-        tr.innerHTML = `<td colspan="${cols}" class="text-center">No stock changes recorded yet.</td>`;
-        tbody.appendChild(tr);
-      }
-    } else {
-      if(existing) existing.remove();
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', showNoResultsIfEmpty);
-})();
-
 // Handle archive form submission with toast
 function handleArchiveSubmit(event, stockChangeName) {
     event.preventDefault();
@@ -158,9 +155,6 @@ function handleArchiveSubmit(event, stockChangeName) {
     
     // Close the modal
     $(form).closest('.modal').modal('hide');
-    
-    // Show loading toast
-    showToast('Archiving stock change...', 'info');
     
     // Submit form via fetch
     fetch(form.action, {
@@ -172,11 +166,10 @@ function handleArchiveSubmit(event, stockChangeName) {
     })
     .then(response => {
         if (response.ok) {
-            showToast(`Stock change "${stockChangeName}" archived successfully!`, 'success');
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Store success message in sessionStorage
+            sessionStorage.setItem('stockChangeSuccess', `Stock change "${stockChangeName}" archived successfully!`);
+            // Reload page immediately
+            window.location.reload();
         } else {
             showToast('Failed to archive stock change. Please try again.', 'error');
         }
@@ -187,4 +180,6 @@ function handleArchiveSubmit(event, stockChangeName) {
     });
 }
 </script>
+
+<script src="{% static 'js/stock_changes_search.js' %}"></script>
 {% endblock %}
