@@ -23,7 +23,13 @@
           <div class="card-body">
             <!-- Date Filter -->
             <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
             <!-- Summary Cards -->

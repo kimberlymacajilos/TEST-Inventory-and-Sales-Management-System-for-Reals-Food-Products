@@ -9,31 +9,21 @@
         <div class="card mb-3">
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
-                    <select id="yearFilter" class="form-control" style="width:120px;">
-                        <option value="">Select Year</option>
-                        {% for year in available_years %}
-                            <option value="{{ year }}" {% if year == current_year and not filter_month %}selected{% endif %}>{{ year }}</option>
-                        {% endfor %}
-                    </select>
                     <input
                         type="month"
                         id="monthFilter"
                         class="form-control"
-                        style="width:160px;"
+                         style="width:180px;"
                         placeholder="Select month"
-                        value="{{ filter_month_value }}"
+                        value="{% if filter_month_value %}{{ filter_month_value }}{% else %}2025-11{% endif %}"
                     />
+                    <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                        <i class="la la-list"></i> Show All
+                    </button>
+                    <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                        <i class="la la-times"></i>
+                    </button>
                 </div>
-
-                <small class="text-muted mt-0 d-block" id="filterInfo">
-                {% if filter_type == 'year' %}
-                    Showing data for year {{ current_year }}
-                {% elif filter_month and filter_year %}
-                    Showing data for {{ filter_month_name }} {{ filter_year }}
-                {% else %}
-                    Showing data for {{ current_month_name }} {{ current_year }} (Current Month)
-                {% endif %}
-                </small>
             </div>
         </div>
         

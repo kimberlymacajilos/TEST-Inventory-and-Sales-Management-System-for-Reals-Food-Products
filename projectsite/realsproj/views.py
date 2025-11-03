@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.views import View
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from django.db import transaction
+from django.db import transaction, models
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal, InvalidOperation
@@ -20,6 +20,7 @@ from .forms import CustomUserCreationForm
 from django.db.models import Avg, Count, Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_http_methods
 from django.forms import modelformset_factory
 from realsproj.forms import (
     ProductsForm,
@@ -411,27 +412,21 @@ class ProductsList(ListView):
             .order_by("-id")
         )
 
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
             queryset = queryset.filter(
-                Q(description__icontains=query) |
-                Q(product_type__name__icontains=query) |
-                Q(variant__name__icontains=query)
+                Q(product_type__name__icontains=search) |
+                Q(variant__name__icontains=search) |
+                Q(size__size_label__icontains=search) |
+                Q(description__icontains=search)
             )
-        product_type = self.request.GET.get("product_type")
-        variant = self.request.GET.get("variant")
-        size = self.request.GET.get("size")
+        
         date_created = self.request.GET.get("date_created")
         barcode = self.request.GET.get("barcode")
 
         if barcode:
             queryset = queryset.filter(barcode__icontains=barcode)
-        if product_type:
-            queryset = queryset.filter(product_type__name__icontains=product_type)
-        if variant:
-            queryset = queryset.filter(variant__name__icontains=variant)
-        if size:
-            queryset = queryset.filter(size__size_label__icontains=size)
         if date_created:
             date_created = date_created.replace("/", "-").strip()
             parts = date_created.split("-")
@@ -538,11 +533,47 @@ class ProductArchiveOldView(View):
         Products.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('product-list')
 
+<<<<<<< HEAD
 from django.views.generic import CreateView
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.db import transaction
+=======
+@require_http_methods(["POST"])
+def product_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        deleted_count = Products.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        archived_count = Products.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+>>>>>>> dc8a5deea499ea5156422a83d4c00e5469c94568
 
 class ProductCreateView(CreateView):
     model = Products
@@ -891,6 +922,40 @@ class RawMaterialArchiveOldView(View):
         RawMaterials.objects.filter(is_archived=False, date_created__lt=one_year_ago).update(is_archived=True)
         return redirect('rawmaterials-list')
 
+@require_http_methods(["POST"])
+def rawmaterial_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        deleted_count = RawMaterials.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        archived_count = RawMaterials.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class ArchivedRawMaterialsListView(ListView):
     model = RawMaterials
     template_name = 'archived_rawmaterials.html'
@@ -1033,6 +1098,13 @@ class HistoryLogList(ListView):
             except (ValueError, IndexError):
                 # If date format is invalid, skip the date filter
                 pass
+        else:
+            today = timezone.now()
+            import calendar
+            last_day = calendar.monthrange(today.year, today.month)[1]
+            start_date = timezone.make_aware(datetime(today.year, today.month, 1))
+            end_date = timezone.make_aware(datetime(today.year, today.month, last_day, 23, 59, 59))
+            queryset = queryset.filter(log_date__gte=start_date, log_date__lte=end_date)
 
         return queryset
 
@@ -1090,6 +1162,40 @@ class SaleUnarchiveView(View):
         sale.save()
         return redirect('sales-archived-list')
 
+@require_http_methods(["POST"])
+def sales_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        deleted_count = Sales.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def sales_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No sales selected'})
+        
+        archived_count = Sales.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} sale(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class SaleBulkRestoreView(View):
     def post(self, request):
         import json
@@ -1127,8 +1233,13 @@ class SalesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        # Pagsamahin ang filter dito. Magsimula sa pagkuha lang ng HINDI naka-archive.
-        qs = Sales.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
+        # Exclude withdrawal-based sales (they have their own table below)
+        # Withdrawal sales have "Order #" or "order #" in description
+        qs = Sales.objects.filter(
+            is_archived=False
+        ).exclude(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).select_related("created_by_admin").order_by("-date")
 
         query = self.request.GET.get("q", "").strip()
         if query:
@@ -1165,23 +1276,65 @@ class SalesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        full_qs = getattr(self, "_full_queryset", Sales.objects.all())
+        # Get the filtered queryset for display (excludes withdrawal sales)
+        display_qs = getattr(self, "_full_queryset", Sales.objects.all())
 
-        context["sales_summary"] = full_qs.aggregate(
+        # For total sales computation, include ALL sales (manual + withdrawal)
+        # Apply same filters (month, category, search) but don't exclude withdrawal sales
+        month = self.request.GET.get("month", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        query = self.request.GET.get("q", "").strip()
+        
+        total_qs = Sales.objects.filter(is_archived=False).order_by("-date")
+        
+        # Apply month filter
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                total_qs = total_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            total_qs = total_qs.filter(date__year=today.year, date__month=today.month)
+        
+        # Apply category filter (only affects manual sales display, not total)
+        if category:
+            total_qs = total_qs.filter(category__iexact=category)
+        
+        # Apply search filter
+        if query:
+            total_qs = total_qs.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+
+        # Calculate summary from ALL sales (including withdrawals)
+        context["sales_summary"] = total_qs.aggregate(
             total_sales=Sum("amount"),
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        # Format categories for display
-        raw_categories = Sales.objects.values_list('category', flat=True).distinct()
+        # Format categories for display (exclude withdrawal-based sales)
+        raw_categories = Sales.objects.filter(
+            is_archived=False
+        ).exclude(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).values_list('category', flat=True).distinct()
         categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
         context['categories'] = categories
 
-        # Add withdrawal-based sales (reason='SOLD')
+        # Add withdrawal-based sales grouped by order_group_id
         month = self.request.GET.get("month", "").strip()
         withdrawal_sales_qs = Withdrawals.objects.filter(
             reason='SOLD',
-            is_archived=False
+            is_archived=False,
+            sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
         ).select_related("created_by_admin").order_by("-date")
         
         # Apply same month filter as regular sales
@@ -1197,7 +1350,39 @@ class SalesList(ListView):
             today = timezone.now()
             withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
         
-        context['withdrawal_sales'] = withdrawal_sales_qs
+        # Group withdrawals by order_group_id
+        from collections import defaultdict
+        grouped_orders = defaultdict(list)
+        for withdrawal in withdrawal_sales_qs:
+            if withdrawal.order_group_id:
+                grouped_orders[withdrawal.order_group_id].append(withdrawal)
+            else:
+                # For withdrawals without order_group_id, treat each as individual
+                grouped_orders[f"single_{withdrawal.id}"].append(withdrawal)
+        
+        # Convert to list of dicts for template
+        withdrawal_orders = []
+        for group_id, withdrawals in grouped_orders.items():
+            first_withdrawal = withdrawals[0]
+            # Check if this is a real order group or a single withdrawal
+            is_single = isinstance(group_id, str) and group_id.startswith('single_')
+            actual_group_id = group_id if not is_single else None
+            
+            withdrawal_orders.append({
+                'group_id': group_id,
+                'actual_group_id': actual_group_id,
+                'is_single': is_single,
+                'customer_name': first_withdrawal.customer_name,
+                'sales_channel': first_withdrawal.get_sales_channel_display(),
+                'payment_status': first_withdrawal.payment_status,
+                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else 'N/A',
+                'paid_amount': first_withdrawal.paid_amount,
+                'date': first_withdrawal.date,
+                'item_count': len(withdrawals),
+                'withdrawals': withdrawals,
+            })
+        
+        context['withdrawal_orders'] = sorted(withdrawal_orders, key=lambda x: x['date'], reverse=True)
 
         return context
 
@@ -1245,6 +1430,286 @@ class SalesDeleteView(DeleteView):
         return super().get_success_url()
 
 
+# Withdrawal Order Views
+class WithdrawalOrderDetailView(View):
+    """View details of a withdrawal order (grouped withdrawals)"""
+    template_name = "withdrawal_order_detail.html"
+    
+    def get(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id,
+            is_archived=False
+        ).select_related('created_by_admin').order_by('id')
+        
+        if not withdrawals.exists():
+            messages.error(request, "Order not found.")
+            return redirect('sales')
+        
+        first_withdrawal = withdrawals.first()
+        
+        # Calculate total amount and add subtotals to each withdrawal
+        total_amount = Decimal(0)
+        withdrawal_list = []
+        
+        # Check if this order was created with prices (during withdrawal) or will be priced later (during payment update)
+        # If any withdrawal has price_type or custom_price, it was priced during withdrawal
+        # Otherwise, pricing happens during payment update
+        has_initial_pricing = any(w.price_type or w.custom_price for w in withdrawals)
+        has_custom_price = any(w.custom_price for w in withdrawals)
+        
+        # For PARTIAL payment, paid_amount is the TOTAL for the order, not per item
+        is_partial = first_withdrawal.payment_status == 'PARTIAL'
+        partial_amount_added = False
+        
+        # For custom price or no initial pricing, get total from Sales table
+        if has_custom_price or not has_initial_pricing:
+            if first_withdrawal.payment_status in ['PAID', 'PARTIAL']:
+                # Get all sales entries for this order (case-insensitive search)
+                sales_entries_list = Sales.objects.filter(
+                    is_archived=False
+                ).filter(
+                    Q(description__icontains=f"Order #{order_group_id}") | 
+                    Q(description__icontains=f"order #{order_group_id}")
+                )
+                
+                print(f"🔍 Fetching sales for order #{order_group_id}")
+                print(f"   Found {sales_entries_list.count()} sales entries:")
+                for sale in sales_entries_list:
+                    print(f"   - ID: {sale.id}, Amount: ₱{sale.amount}, Description: {sale.description}")
+                
+                total_sum = sales_entries_list.aggregate(total=Sum('amount'))['total']
+                if total_sum:
+                    total_amount = total_sum
+                    partial_amount_added = True
+                    print(f"   Total: ₱{total_amount}")
+        
+        for withdrawal in withdrawals:
+            subtotal = None
+            unit_price = None
+            price_type_display = None
+            
+            if withdrawal.payment_status == 'PAID':
+                if has_initial_pricing:
+                    # Order was created with prices - show individual item prices
+                    if withdrawal.custom_price:
+                        # Custom price - don't show individual subtotals
+                        # The total will be fetched from Sales table
+                        subtotal = None
+                        unit_price = None
+                        price_type_display = "Custom Price"
+                    elif withdrawal.price_type:
+                        product = Products.objects.get(id=withdrawal.item_id)
+                        if withdrawal.price_type == 'UNIT':
+                            unit_price = product.unit_price.unit_price
+                            subtotal = Decimal(withdrawal.quantity) * unit_price
+                            price_type_display = "Unit Price"
+                        elif withdrawal.price_type == 'SRP':
+                            unit_price = product.srp_price.srp_price
+                            subtotal = Decimal(withdrawal.quantity) * unit_price
+                            price_type_display = "SRP Price"
+                    if subtotal:
+                        total_amount += subtotal
+                else:
+                    # Order was created as UNPAID, then updated to PAID with total amount
+                    # Don't show individual prices, just show total at the end
+                    subtotal = None
+                    unit_price = None
+                    price_type_display = None
+                    # Get total from Sales table for this order
+                    if not partial_amount_added:
+                        sales_entries = Sales.objects.filter(
+                            description__contains=f"order #{order_group_id}",
+                            is_archived=False
+                        ).aggregate(total=Sum('amount'))
+                        if sales_entries['total']:
+                            total_amount = sales_entries['total']
+                        partial_amount_added = True
+            elif withdrawal.payment_status == 'PARTIAL':
+                # For partial, paid_amount is the TOTAL for the entire order
+                if withdrawal.paid_amount and not partial_amount_added:
+                    total_amount = Decimal(withdrawal.paid_amount)
+                    partial_amount_added = True
+                # Don't show individual prices
+                subtotal = None
+                price_type_display = None
+            else:  # UNPAID
+                subtotal = None
+                price_type_display = None
+            
+            # Add attributes to the withdrawal object
+            withdrawal.subtotal = subtotal
+            withdrawal.unit_price_display = unit_price
+            withdrawal.price_type_display = price_type_display
+            withdrawal_list.append(withdrawal)
+        
+        # Get payment history from Sales table
+        payment_history = []
+        if order_group_id:
+            sales_payments = Sales.objects.filter(
+                is_archived=False
+            ).filter(
+                Q(description__icontains=f"Order #{order_group_id}") | 
+                Q(description__icontains=f"order #{order_group_id}")
+            ).order_by('date')
+            
+            payment_count = 0
+            for payment in sales_payments:
+                print(f"   Processing payment: {payment.description}")
+                
+                if 'Status: PARTIAL' in payment.description or 'Partial payment' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'1st Payment (Partial)',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as 1st Payment (Partial): ₱{payment.amount}")
+                elif 'Final payment' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'2nd Payment (Final)',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as 2nd Payment (Final): ₱{payment.amount}")
+                elif 'Status: PAID' in payment.description or 'Payment received' in payment.description:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'Payment',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as Payment: ₱{payment.amount}")
+                else:
+                    payment_count += 1
+                    payment_history.append({
+                        'label': f'Payment #{payment_count}',
+                        'amount': payment.amount
+                    })
+                    print(f"   -> Added as Payment #{payment_count}: ₱{payment.amount}")
+            
+            print(f"   Total payment history entries: {len(payment_history)}")
+        
+        context = {
+            'order_group_id': order_group_id,
+            'customer_name': first_withdrawal.customer_name,
+            'sales_channel': first_withdrawal.get_sales_channel_display(),
+            'payment_status': first_withdrawal.payment_status,
+            'payment_status_display': first_withdrawal.get_payment_status_display(),
+            'date': first_withdrawal.date,
+            'withdrawals': withdrawal_list,
+            'total_amount': total_amount,
+            'payment_history': payment_history,
+        }
+        
+        return render(request, self.template_name, context)
+
+
+class WithdrawalOrderUpdatePaymentView(View):
+    """Update payment status of a withdrawal order"""
+    
+    def post(self, request, order_group_id):
+        new_payment_status = request.POST.get('payment_status')
+        paid_amount = request.POST.get('paid_amount')
+        total_price = request.POST.get('total_price')
+        
+        if new_payment_status not in ['PAID', 'UNPAID', 'PARTIAL']:
+            messages.error(request, "Invalid payment status.")
+            return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id,
+            is_archived=False
+        )
+        
+        if not withdrawals.exists():
+            messages.error(request, "Order not found.")
+            return redirect('sales')
+        
+        # Determine the amount for sales entry
+        sales_amount = Decimal(0)
+        
+        if new_payment_status == 'PAID':
+            # Use the total_price entered by user
+            if total_price:
+                try:
+                    sales_amount = Decimal(total_price)
+                except (ValueError, InvalidOperation):
+                    messages.error(request, "Invalid total price.")
+                    return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+            else:
+                messages.error(request, "Please enter the total price paid.")
+                return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        elif new_payment_status == 'PARTIAL':
+            # Use the partial paid_amount
+            if paid_amount:
+                try:
+                    sales_amount = Decimal(paid_amount)
+                except (ValueError, InvalidOperation):
+                    messages.error(request, "Invalid paid amount.")
+                    return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+            else:
+                messages.error(request, "Please enter the partial amount paid.")
+                return redirect('withdrawal-order-detail', order_group_id=order_group_id)
+        
+        # Check if transitioning from PARTIAL to PAID
+        old_payment_status = withdrawals.first().payment_status
+        previous_partial_amount = Decimal(0)
+        
+        if old_payment_status == 'PARTIAL' and withdrawals.first().paid_amount:
+            previous_partial_amount = Decimal(withdrawals.first().paid_amount)
+        
+        # Update all withdrawals in the order
+        for withdrawal in withdrawals:
+            withdrawal.payment_status = new_payment_status
+            
+            if new_payment_status == 'PARTIAL':
+                # Store the total paid amount (same for all withdrawals in the order)
+                withdrawal.paid_amount = sales_amount
+            elif new_payment_status == 'PAID':
+                withdrawal.paid_amount = None
+                # Don't set custom_price - let the detail view fetch from Sales table
+            else:  # UNPAID
+                withdrawal.paid_amount = None
+            
+            withdrawal.save()
+        
+        # Create our consolidated sales entry based on payment status
+        # Get AuthUser instance from request.user
+        from .models import AuthUser
+        auth_user = AuthUser.objects.get(id=request.user.id)
+        
+        if new_payment_status == 'PAID':
+            # Add full amount to sales
+            if previous_partial_amount > 0:
+                description = f"Final payment for order #{order_group_id} (Previous: ₱{previous_partial_amount:,.2f}, Additional: ₱{sales_amount:,.2f}, Total: ₱{previous_partial_amount + sales_amount:,.2f})"
+                success_msg = f"✅ Order marked as PAID. ₱{sales_amount:,.2f} added to sales. Total paid: ₱{previous_partial_amount + sales_amount:,.2f}"
+            else:
+                description = f"Payment received for order #{order_group_id}"
+                success_msg = f"✅ Order marked as PAID. ₱{sales_amount:,.2f} added to sales."
+            
+            Sales.objects.create(
+                category=f"{withdrawals.first().get_sales_channel_display()} - {withdrawals.first().customer_name}",
+                amount=sales_amount,
+                date=timezone.now().date(),
+                description=description,
+                created_by_admin=auth_user
+            )
+            print(f"✅ PAID Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            messages.success(request, success_msg)
+        elif new_payment_status == 'PARTIAL':
+            # Add partial amount to sales
+            Sales.objects.create(
+                category=f"{withdrawals.first().get_sales_channel_display()} - {withdrawals.first().customer_name}",
+                amount=sales_amount,
+                date=timezone.now().date(),
+                description=f"Partial payment for order #{order_group_id}",
+                created_by_admin=auth_user
+            )
+            print(f"✅ PARTIAL Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            messages.success(request, f"✅ Partial payment recorded. ₱{sales_amount:,.2f} added to sales.")
+        else:  # UNPAID
+            messages.success(request, "✅ Order marked as UNPAID. No sales recorded.")
+        
+        return redirect('sales')
+
 
 class ExpensesList(ListView):
     model = Expenses
@@ -1273,8 +1738,12 @@ class ExpensesList(ListView):
             qs = qs.filter(category__iexact=category)
 
         # --- Month filter (YYYY-MM) ---
+        show_all = self.request.GET.get("show_all", "").strip()
         month = self.request.GET.get("month", "").strip()
-        if month:
+        
+        if show_all == "true":
+            pass
+        elif month:
             try:
                 year_str, month_str = month.split("-")
                 year = int(year_str)
@@ -1317,7 +1786,42 @@ class ExpenseArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
+        messages.success(request, "📦 Old expenses archived successfully.")
         return redirect('expenses')
+
+@require_http_methods(["POST"])
+def expenses_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        deleted_count = Expenses.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def expenses_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No expenses selected'})
+        
+        archived_count = Expenses.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} expense(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class ArchivedExpensesListView(ListView):
     model = Expenses
@@ -1394,28 +1898,30 @@ class ProductBatchList(ListView):
             .order_by('-id')
         )
 
-        query = self.request.GET.get("q", "").strip()
-        date_filter = self.request.GET.get("date_filter", "").strip()
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        date_created = self.request.GET.get("date_created", "").strip()
 
-        if query:
+        if search:
             queryset = queryset.filter(
-                Q(product__product_type__name__icontains=query) |
-                Q(product__variant__name__icontains=query) |
-                Q(batch_date__icontains=query) |
-                Q(manufactured_date__icontains=query) |
-                Q(expiration_date__icontains=query)
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
-        if date_filter:
+        show_all = self.request.GET.get("show_all", "").strip()
+        
+        if show_all == "true":
+            pass
+        elif date_created:
             try:
-                parsed_date = datetime.strptime(date_filter, "%Y-%m")
-                queryset = queryset.filter(
-                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
-                    Q(manufactured_date__year=parsed_date.year, manufactured_date__month=parsed_date.month) |
-                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
-                )
+                parsed_date = datetime.strptime(date_created, "%Y-%m")
+                queryset = queryset.filter(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month)
             except ValueError:
                 pass
+        else:
+            today = timezone.now()
+            queryset = queryset.filter(batch_date__year=today.year, batch_date__month=today.month)
 
         return queryset
     
@@ -1489,6 +1995,40 @@ class ProductBatchArchiveOldView(View):
         archived_count = ProductBatches.objects.filter(is_archived=False, batch_date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, f"📦 {archived_count} product batch(es) older than 1 year have been archived.")
         return redirect('product-batch')
+
+@require_http_methods(["POST"])
+def product_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = ProductBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = ProductBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
     
 
 class ProductInventoryList(ListView):
@@ -1506,16 +2046,13 @@ class ProductInventoryList(ListView):
             "product__size_unit",
         )
 
-        q = self.request.GET.get("q", "").strip()
-        if q:
-            queryset = queryset.annotate(
-                total_stock_str=Cast("total_stock", CharField()),
-                restock_threshold_str=Cast("restock_threshold", CharField()),
-            ).filter(
-                Q(product__product_type__name__icontains=q) |
-                Q(product__variant__name__icontains=q) |
-                Q(total_stock_str__icontains=q) |
-                Q(restock_threshold_str__icontains=q)
+        # Unified search field for Product Type, Variant, and Size
+        search = self.request.GET.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search) |
+                Q(product__size__size_label__icontains=search)
             )
 
         status = self.request.GET.get("status", "")
@@ -1581,9 +2118,12 @@ class RawMaterialBatchList(ListView):
                 Q(created_by_admin__username__icontains=query)
             )
 
-        if date_filter:
+        show_all = self.request.GET.get("show_all", "").strip()
+        
+        if show_all == "true":
+            pass
+        elif date_filter:
             try:
-                # Parse only year and month (from YYYY-MM)
                 parsed_date = datetime.strptime(date_filter, "%Y-%m")
                 queryset = queryset.filter(
                     Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
@@ -1592,9 +2132,12 @@ class RawMaterialBatchList(ListView):
                 )
             except ValueError:
                 pass
+        else:
+            # Default: show only current month
+            today = timezone.now()
+            queryset = queryset.filter(batch_date__year=today.year, batch_date__month=today.month)
 
         return queryset
-
 
 class RawMaterialBatchCreateView(CreateView):
     model = RawMaterialBatches
@@ -1657,6 +2200,39 @@ class RawMaterialBatchArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} raw material batch(es) older than 1 year have been archived.")
         return redirect('rawmaterial-batch')
 
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        deleted_count = RawMaterialBatches.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_batch_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        archived_count = RawMaterialBatches.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class RawMaterialInventoryList(ListView):
     model = RawMaterialInventory
@@ -1770,382 +2346,14 @@ class ProductAttributesView(LoginRequiredMixin, TemplateView):
         context['srp_prices'] = SrpPrices.objects.all().order_by('srp_price')
         return context
 
-
-# Product Type CRUD
-@method_decorator(login_required, name='dispatch')
-class ProductTypeAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        name = request.POST.get('name')
-        if name:
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                ProductTypes.objects.create(name=name, created_by_admin=auth_user)
-                messages.success(request, 'Product Type added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Product Type already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class ProductTypeEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        product_type = get_object_or_404(ProductTypes, pk=pk)
-        name = request.POST.get('name')
-        if name:
-            try:
-                product_type.name = name
-                product_type.save()
-                messages.success(request, 'Product Type updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Product Type name already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class ProductTypeDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        product_type = get_object_or_404(ProductTypes, pk=pk)
-        try:
-            product_type.delete()
-            messages.success(request, 'Product Type deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this Product Type because it is being used by existing products.')
-        return redirect('product-attributes')
-
-
-# Product Variant CRUD
-@method_decorator(login_required, name='dispatch')
-class ProductVariantAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        name = request.POST.get('name')
-        if name:
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                ProductVariants.objects.create(name=name, created_by_admin=auth_user)
-                messages.success(request, 'Product Variant added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Product Variant already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class ProductVariantEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        product_variant = get_object_or_404(ProductVariants, pk=pk)
-        name = request.POST.get('name')
-        if name:
-            try:
-                product_variant.name = name
-                product_variant.save()
-                messages.success(request, 'Product Variant updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Product Variant name already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class ProductVariantDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        product_variant = get_object_or_404(ProductVariants, pk=pk)
-        try:
-            product_variant.delete()
-            messages.success(request, 'Product Variant deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this Product Variant because it is being used by existing products.')
-        return redirect('product-attributes')
-
-
-# Size CRUD
-@method_decorator(login_required, name='dispatch')
-class SizeAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        size_label = request.POST.get('size_label')
-        if size_label:
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                Sizes.objects.create(size_label=size_label, created_by_admin=auth_user)
-                messages.success(request, 'Size added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Size already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SizeEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        size = get_object_or_404(Sizes, pk=pk)
-        size_label = request.POST.get('size_label')
-        if size_label:
-            try:
-                size.size_label = size_label
-                size.save()
-                messages.success(request, 'Size updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Size already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SizeDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        size = get_object_or_404(Sizes, pk=pk)
-        try:
-            size.delete()
-            messages.success(request, 'Size deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this Size because it is being used by existing products.')
-        return redirect('product-attributes')
-
-
-# Size Unit CRUD
-@method_decorator(login_required, name='dispatch')
-class SizeUnitAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        unit_name = request.POST.get('unit_name', '').strip()
-        if unit_name:
-            # Check if already exists (case-insensitive)
-            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exists():
-                messages.error(request, '❌ This Size Unit already exists!')
-                return redirect('product-attributes')
-            
-            try:
-                auth_user = AuthUser.objects.get(id=request.user.id)
-                SizeUnits.objects.create(unit_name=unit_name, created_by_admin=auth_user)
-                messages.success(request, '✅ Size Unit added successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Size Unit already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SizeUnitEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        size_unit = get_object_or_404(SizeUnits, pk=pk)
-        unit_name = request.POST.get('unit_name', '').strip()
-        if unit_name:
-            # Check if another record with same name exists (excluding current)
-            if SizeUnits.objects.filter(unit_name__iexact=unit_name).exclude(pk=pk).exists():
-                messages.error(request, '❌ This Size Unit already exists!')
-                return redirect('product-attributes')
-            
-            try:
-                size_unit.unit_name = unit_name
-                size_unit.save()
-                messages.success(request, '✅ Size Unit updated successfully!')
-            except IntegrityError:
-                messages.error(request, '❌ This Size Unit already exists!')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SizeUnitDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        size_unit = get_object_or_404(SizeUnits, pk=pk)
-        try:
-            size_unit.delete()
-            messages.success(request, 'Size Unit deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this Size Unit because it is being used by existing products.')
-        return redirect('product-attributes')
-
-
-# Unit Price CRUD
-@method_decorator(login_required, name='dispatch')
-class UnitPriceAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        unit_price = request.POST.get('unit_price', '').strip()
-        
-        if not unit_price:
-            messages.error(request, '❌ Please enter a price!')
-            return redirect('product-attributes')
-        
-        try:
-            # Convert to Decimal for validation
-            price_value = Decimal(unit_price)
-            
-            # Validate positive number
-            if price_value <= 0:
-                messages.error(request, '❌ Price must be greater than zero!')
-                return redirect('product-attributes')
-            
-        except (InvalidOperation, ValueError):
-            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
-            return redirect('product-attributes')
-        
-        # Check if already exists
-        if UnitPrices.objects.filter(unit_price=price_value).exists():
-            messages.error(request, f'❌ Unit Price ₱{price_value} already exists!')
-            return redirect('product-attributes')
-        
-        try:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            UnitPrices.objects.create(unit_price=price_value, created_by_admin=auth_user)
-            messages.success(request, f'✅ Unit Price ₱{price_value} added successfully!')
-        except IntegrityError as e:
-            messages.error(request, f'❌ Database error: This Unit Price already exists!')
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-        
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class UnitPriceEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        unit_price_obj = get_object_or_404(UnitPrices, pk=pk)
-        unit_price = request.POST.get('unit_price', '').strip()
-        if unit_price:
-            try:
-                # Convert to Decimal for comparison
-                price_value = Decimal(unit_price)
-                
-                # Validate positive number
-                if price_value <= 0:
-                    messages.error(request, '❌ Price must be greater than zero!')
-                    return redirect('product-attributes')
-                
-                # Check if another record with same price exists (excluding current)
-                if UnitPrices.objects.filter(unit_price=price_value).exclude(pk=pk).exists():
-                    messages.error(request, '❌ This Unit Price already exists!')
-                    return redirect('product-attributes')
-                
-                unit_price_obj.unit_price = price_value
-                unit_price_obj.save()
-                messages.success(request, '✅ Unit Price updated successfully!')
-            except InvalidOperation:
-                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
-            except ValueError:
-                messages.error(request, '❌ Invalid price value!')
-            except IntegrityError as e:
-                messages.error(request, f'❌ Database error: {str(e)}')
-            except Exception as e:
-                messages.error(request, f'❌ Error updating Unit Price: {str(e)}')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class UnitPriceDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        unit_price = get_object_or_404(UnitPrices, pk=pk)
-        
-        # Check if being used by products
-        products_using = Products.objects.filter(unit_price_id=pk)
-        if products_using.exists():
-            count = products_using.count()
-            messages.error(request, f'❌ Cannot delete this Unit Price because it is being used by {count} product(s).')
-            return redirect('product-attributes')
-        
-        try:
-            unit_price.delete()
-            messages.success(request, '✅ Unit Price deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this Unit Price because it is being used by existing products.')
-        except Exception as e:
-            messages.error(request, f'❌ Error deleting Unit Price: {str(e)}')
-        return redirect('product-attributes')
-
-
-# SRP Price CRUD
-@method_decorator(login_required, name='dispatch')
-class SrpPriceAddView(View):
-    def post(self, request):
-        from django.db import IntegrityError
-        srp_price = request.POST.get('srp_price', '').strip()
-        
-        if not srp_price:
-            messages.error(request, '❌ Please enter a price!')
-            return redirect('product-attributes')
-        
-        try:
-            # Convert to Decimal for validation
-            price_value = Decimal(srp_price)
-            
-            # Validate positive number
-            if price_value <= 0:
-                messages.error(request, '❌ Price must be greater than zero!')
-                return redirect('product-attributes')
-            
-        except (InvalidOperation, ValueError):
-            messages.error(request, '❌ Invalid price format! Please enter a valid number.')
-            return redirect('product-attributes')
-        
-        # Check if already exists
-        if SrpPrices.objects.filter(srp_price=price_value).exists():
-            messages.error(request, f'❌ SRP Price ₱{price_value} already exists!')
-            return redirect('product-attributes')
-        
-        try:
-            auth_user = AuthUser.objects.get(id=request.user.id)
-            SrpPrices.objects.create(srp_price=price_value, created_by_admin=auth_user)
-            messages.success(request, f'✅ SRP Price ₱{price_value} added successfully!')
-        except IntegrityError:
-            messages.error(request, f'❌ This SRP Price already exists!')
-        except Exception as e:
-            messages.error(request, f'❌ Error adding SRP Price. Please try again.')
-        
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SrpPriceEditView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError
-        srp_price_obj = get_object_or_404(SrpPrices, pk=pk)
-        srp_price = request.POST.get('srp_price', '').strip()
-        if srp_price:
-            try:
-                # Convert to Decimal for comparison
-                price_value = Decimal(srp_price)
-                
-                # Validate positive number
-                if price_value <= 0:
-                    messages.error(request, '❌ Price must be greater than zero!')
-                    return redirect('product-attributes')
-                
-                # Check if another record with same price exists (excluding current)
-                if SrpPrices.objects.filter(srp_price=price_value).exclude(pk=pk).exists():
-                    messages.error(request, '❌ This SRP Price already exists!')
-                    return redirect('product-attributes')
-                
-                srp_price_obj.srp_price = price_value
-                srp_price_obj.save()
-                messages.success(request, '✅ SRP Price updated successfully!')
-            except InvalidOperation:
-                messages.error(request, '❌ Invalid price format! Please enter a valid number.')
-            except ValueError:
-                messages.error(request, '❌ Invalid price value!')
-            except IntegrityError as e:
-                messages.error(request, f'❌ Database error: {str(e)}')
-            except Exception as e:
-                messages.error(request, f'❌ Error updating SRP Price: {str(e)}')
-        return redirect('product-attributes')
-
-@method_decorator(login_required, name='dispatch')
-class SrpPriceDeleteView(View):
-    def post(self, request, pk):
-        from django.db import IntegrityError, connection
-        srp_price = get_object_or_404(SrpPrices, pk=pk)
-        
-        # Check if being used by products
-        products_using = Products.objects.filter(srp_price_id=pk)
-        if products_using.exists():
-            count = products_using.count()
-            messages.error(request, f'❌ Cannot delete this SRP Price because it is being used by {count} product(s).')
-            return redirect('product-attributes')
-        
-        try:
-            srp_price.delete()
-            messages.success(request, '✅ SRP Price deleted successfully!')
-        except IntegrityError:
-            messages.error(request, '❌ Cannot delete this SRP Price because it is being used by existing products.')
-        except Exception as e:
-            messages.error(request, f'❌ Error deleting SRP Price: {str(e)}')
-        return redirect('product-attributes')
-
+from .attribute_views import (
+    ProductTypeAddView, ProductTypeEditView, ProductTypeDeleteView,
+    ProductVariantAddView, ProductVariantEditView, ProductVariantDeleteView,
+    SizeAddView, SizeEditView, SizeDeleteView,
+    SizeUnitAddView, SizeUnitEditView, SizeUnitDeleteView,
+    UnitPriceAddView, UnitPriceEditView, UnitPriceDeleteView,
+    SrpPriceAddView, SrpPriceEditView, SrpPriceDeleteView
+)
 
 class WithdrawSuccessView(ListView):
     model = Withdrawals
@@ -2193,8 +2401,13 @@ class WithdrawSuccessView(ListView):
                     queryset = queryset.filter(reason=value)
                     break
 
+        # Check for show_all parameter
+        show_all = request.GET.get("show_all", "").strip()
         date_val = request.GET.get("date")
-        if date_val:
+        
+        if show_all == "true":
+            pass
+        elif date_val:
             try:
                 if len(date_val) == 7:  # YYYY-MM
                     year, month = map(int, date_val.split("-"))
@@ -2205,12 +2418,18 @@ class WithdrawSuccessView(ListView):
                 elif len(date_val) == 4:  # YYYY
                     queryset = queryset.filter(date__year=int(date_val))
             except ValueError:
-                pass  
+                pass
+        else:
+            today = timezone.now()
+            queryset = queryset.filter(date__year=today.year, date__month=today.month)
 
         return queryset
 
     def get_context_data(self, **kwargs):
         from django.core.cache import cache
+        from collections import defaultdict
+        from django.core.paginator import Paginator
+        
         context = super().get_context_data(**kwargs)
         
         # Cache admin list for 5 minutes to reduce queries
@@ -2225,6 +2444,62 @@ class WithdrawSuccessView(ListView):
             cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
         
         context["admins"] = admins
+        
+        # Group withdrawals by order_group_id or by timestamp for non-grouped items
+        # Get all withdrawals (not paginated yet)
+        all_withdrawals = self.get_queryset()
+        
+        grouped_withdrawals = defaultdict(list)
+        for withdrawal in all_withdrawals:
+            # Use order_group_id if available, otherwise use a unique key based on timestamp
+            if withdrawal.order_group_id:
+                group_key = f"order_{withdrawal.order_group_id}"
+            else:
+                # For non-grouped withdrawals, create individual groups
+                group_key = f"single_{withdrawal.id}"
+            
+            grouped_withdrawals[group_key].append(withdrawal)
+        
+        # Convert to list of dicts for template
+        withdrawal_groups = []
+        for group_key, withdrawals_list in grouped_withdrawals.items():
+            first_withdrawal = withdrawals_list[0]
+            is_single = group_key.startswith('single_')
+            actual_group_id = first_withdrawal.order_group_id if not is_single else None
+            
+            withdrawal_groups.append({
+                'group_key': group_key,
+                'order_group_id': actual_group_id,
+                'is_single': is_single,
+                'date': first_withdrawal.date,
+                'reason': first_withdrawal.reason,
+                'reason_display': first_withdrawal.get_reason_display(),
+                'item_type': first_withdrawal.item_type,
+                'item_type_display': first_withdrawal.get_item_type_display(),
+                'sales_channel': first_withdrawal.sales_channel,
+                'sales_channel_display': first_withdrawal.get_sales_channel_display() if first_withdrawal.sales_channel else None,
+                'payment_status': first_withdrawal.payment_status,
+                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else None,
+                'customer_name': first_withdrawal.customer_name,
+                'created_by_admin': first_withdrawal.created_by_admin,
+                'item_count': len(withdrawals_list),
+                'withdrawals': withdrawals_list,
+            })
+        
+        # Sort by date (most recent first)
+        withdrawal_groups.sort(key=lambda x: x['date'], reverse=True)
+        
+        # Manual pagination for grouped withdrawals
+        paginator = Paginator(withdrawal_groups, self.paginate_by)
+        page_number = self.request.GET.get('page', 1)
+        page_obj = paginator.get_page(page_number)
+        
+        # Replace the context with grouped data
+        context['withdrawal_groups'] = page_obj
+        context['is_paginated'] = paginator.num_pages > 1
+        context['paginator'] = paginator
+        context['page_obj'] = page_obj
+        
         return context
     
 class WithdrawItemView(View):
@@ -2246,20 +2521,55 @@ class WithdrawItemView(View):
         })
 
     def post(self, request):
+        # Debug logging
+        print("=" * 50)
+        print("WITHDRAWAL POST DATA:")
+        print(f"POST data: {dict(request.POST)}")
+        print("=" * 50)
+        
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
         sales_channel = request.POST.get("sales_channel")
         price_input = request.POST.get("price_input")
+        customer_name = request.POST.get("customer_name")
+        payment_status = request.POST.get("payment_status", "PAID")
+        paid_amount_input = request.POST.get("paid_amount")
+        
+        print(f"Parsed values:")
+        print(f"  item_type: {item_type}")
+        print(f"  reason: {reason}")
+        print(f"  sales_channel: {sales_channel}")
+        print(f"  customer_name: {customer_name}")
+        print(f"  payment_status: {payment_status}")
+        print(f"  price_input: {price_input}")
 
+        # Parse price input
         if price_input in ['UNIT', 'SRP']:
             price_type = price_input
             custom_price = None
         else:
             price_type = None
             try:
-                custom_price = float(price_input)
+                custom_price = float(price_input) if price_input else None
             except (TypeError, ValueError):
                 custom_price = None
+        
+        # Parse paid amount for partial payments
+        paid_amount = None
+        if paid_amount_input:
+            try:
+                paid_amount = Decimal(paid_amount_input)
+            except (TypeError, ValueError, InvalidOperation):
+                paid_amount = None
+
+        # Generate order_group_id for ORDER, CONSIGNMENT, RESELLER
+        order_group_id = None
+        if reason == "SOLD" and sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER']:
+            # Get the max order_group_id and increment
+            max_id = Withdrawals.objects.filter(order_group_id__isnull=False).aggregate(
+                max_id=models.Max('order_group_id')
+            )['max_id']
+            order_group_id = (max_id or 0) + 1
 
         count = 0
 
@@ -2268,7 +2578,7 @@ class WithdrawItemView(View):
                 if key.startswith("product_") and value:
                     try:
                         product_id = key.split("_")[1]
-                        quantity = float(value)
+                        quantity = Decimal(value)  # Use Decimal instead of float
                         if quantity <= 0:
                             continue
                         product = Products.objects.get(id=product_id)
@@ -2295,24 +2605,31 @@ class WithdrawItemView(View):
                             date=timezone.now(),
                             created_by_admin=request.user,
                             sales_channel=sales_channel if reason == "SOLD" else None,
-                            price_type=price_type if reason == "SOLD" and sales_channel != "CONSIGNMENT" else None,
-                            custom_price=custom_price if sales_channel == "CONSIGNMENT" or custom_price else None,
+                            price_type=price_type if reason == "SOLD" and payment_status == "PAID" else None,
+                            custom_price=custom_price if custom_price else None,
                             discount_id=discount_obj.id if discount_obj else None,
                             custom_discount_value=custom_value,
+                            customer_name=customer_name if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else None,
+                            payment_status=payment_status if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else 'PAID',
+                            paid_amount=paid_amount if payment_status == 'PARTIAL' else None,
+                            order_group_id=order_group_id,
                         )
 
                         inv.total_stock -= quantity
                         inv.save()
                         count += 1
                     except Exception as e:
-                        messages.error(request, f"❌ Error withdrawing product: {e}")
+                        import traceback
+                        error_details = traceback.format_exc()
+                        print(f"Withdrawal error: {error_details}")  # Log to console
+                        messages.error(request, f"❌ Error withdrawing product: {str(e)}")
 
         elif item_type == "RAW_MATERIAL":
             for key, value in request.POST.items():
                 if key.startswith("material_") and value:
                     try:
                         material_id = key.split("_")[1]
-                        quantity = float(value)
+                        quantity = Decimal(value)  # Use Decimal instead of float
                         if quantity <= 0:
                             continue
                         material = RawMaterials.objects.get(id=material_id)
@@ -2338,6 +2655,78 @@ class WithdrawItemView(View):
                         messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
+            # For ORDER/CONSIGNMENT/RESELLER with PAID or PARTIAL status, create sales entry
+            print(f"🔍 Checking sales entry creation:")
+            print(f"  reason={reason}, sales_channel={sales_channel}, order_group_id={order_group_id}")
+            print(f"  payment_status={payment_status}")
+            
+            if reason == "SOLD" and sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and order_group_id:
+                if payment_status in ['PAID', 'PARTIAL']:
+                    # Calculate total amount for the order
+                    withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id)
+                    total_sales_amount = Decimal(0)
+                    
+                    if payment_status == 'PARTIAL':
+                        # For partial, use the paid_amount
+                        total_sales_amount = paid_amount if paid_amount else Decimal(0)
+                    else:
+                        # For PAID, calculate from withdrawals
+                        has_custom_price = any(w.custom_price for w in withdrawals)
+                        
+                        if has_custom_price:
+                            # Custom price is the TOTAL for the entire order, not per item
+                            # Just use the custom_price from the first withdrawal
+                            total_sales_amount = Decimal(withdrawals.first().custom_price)
+                        else:
+                            # Unit/SRP price: calculate sum of all items with discounts
+                            for w in withdrawals:
+                                if w.price_type:
+                                    product = Products.objects.get(id=w.item_id)
+                                    base_price = Decimal(0)
+                                    
+                                    if w.price_type == 'UNIT':
+                                        base_price = product.unit_price.unit_price
+                                    elif w.price_type == 'SRP':
+                                        base_price = product.srp_price.srp_price
+                                    
+                                    # Apply discount if exists
+                                    discount_percent = Decimal(0)
+                                    if w.discount_id:
+                                        discount = Discounts.objects.get(id=w.discount_id)
+                                        discount_percent = Decimal(discount.value)
+                                    elif w.custom_discount_value:
+                                        discount_percent = Decimal(w.custom_discount_value)
+                                    
+                                    # Calculate discounted price
+                                    discounted_price = base_price * (1 - (discount_percent / 100))
+                                    item_total = Decimal(w.quantity) * discounted_price
+                                    total_sales_amount += item_total
+                                    
+                                    print(f"  Item: {product}, Qty: {w.quantity}, Base: ₱{base_price}, Discount: {discount_percent}%, Final: ₱{item_total}")
+                    
+                    # Create ONE sales entry for the entire order
+                    print(f"💰 Total sales amount calculated: ₱{total_sales_amount}")
+                    
+                    if total_sales_amount > 0:
+                        from .models import AuthUser
+                        auth_user = AuthUser.objects.get(id=request.user.id)
+                        
+                        sales_entry = Sales.objects.create(
+                            category=f"{sales_channel} - {customer_name}",
+                            amount=total_sales_amount,
+                            date=timezone.now().date(),
+                            description=f"Order #{order_group_id}, Status: {payment_status}",
+                            created_by_admin=auth_user
+                        )
+                        print(f"✅ Sales entry created successfully!")
+                        print(f"   ID: {sales_entry.id}")
+                        print(f"   Order: #{order_group_id}")
+                        print(f"   Amount: ₱{total_sales_amount}")
+                        print(f"   Status: {payment_status}")
+                        print(f"   Description: {sales_entry.description}")
+                    else:
+                        print(f"⚠️ Sales entry NOT created - total_sales_amount is 0")
+            
             messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
             messages.warning(request, "⚠️ No items withdrawn. Please enter quantity for at least one item.")
@@ -2405,11 +2794,50 @@ class WithdrawalsArchiveOldView(View):
         messages.success(request, f"📦 {archived_count} withdrawal(s) older than 1 year have been archived.")
         return redirect('withdrawals')
 
+@require_http_methods(["POST"])
+def withdrawals_bulk_delete(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        deleted_count = Withdrawals.objects.filter(id__in=ids).delete()[0]
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully deleted {deleted_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def withdrawals_bulk_archive(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No withdrawals selected'})
+        
+        archived_count = Withdrawals.objects.filter(id__in=ids).update(is_archived=True)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully archived {archived_count} withdrawal(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
 class WithdrawUpdateView(UpdateView):
     model = Withdrawals
     form_class = WithdrawEditForm
     template_name = "withdraw_edit.html"
     success_url = reverse_lazy("withdrawals")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_raw_material'] = self.object.item_type == 'RAW_MATERIAL'
+        return context
 
     def form_valid(self, form):
         withdrawal = self.get_object()
@@ -2474,7 +2902,68 @@ class WithdrawUpdateView(UpdateView):
             after=after
         )
 
-        messages.success(self.request, "✅ Withdrawal successfully updated.")
+        # Update sales entry if this is a PAID order with Unit/SRP price
+        if (withdrawal.reason == 'SOLD' and 
+            withdrawal.sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+            withdrawal.payment_status == 'PAID' and
+            withdrawal.price_type in ['UNIT', 'SRP'] and
+            withdrawal.order_group_id):
+            
+            # Check if quantity or discount changed
+            quantity_changed = before['quantity'] != after['quantity']
+            discount_changed = (before['discount_id'] != after['discount_id'] or 
+                              before['custom_discount_value'] != after['custom_discount_value'])
+            
+            if quantity_changed or discount_changed:
+                print(f"🔄 Updating sales entry for order #{withdrawal.order_group_id}")
+                
+                # Get all withdrawals in this order
+                order_withdrawals = Withdrawals.objects.filter(order_group_id=withdrawal.order_group_id)
+                
+                # Recalculate total
+                new_total = Decimal(0)
+                for w in order_withdrawals:
+                    if w.price_type:
+                        product = Products.objects.get(id=w.item_id)
+                        base_price = Decimal(0)
+                        
+                        if w.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif w.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        # Apply discount
+                        discount_percent = Decimal(0)
+                        if w.discount_id:
+                            discount = Discounts.objects.get(id=w.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif w.custom_discount_value:
+                            discount_percent = Decimal(w.custom_discount_value)
+                        
+                        discounted_price = base_price * (1 - (discount_percent / 100))
+                        item_total = Decimal(w.quantity) * discounted_price
+                        new_total += item_total
+                
+                # Update the sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{withdrawal.order_group_id}") &
+                    Q(description__icontains="Status: PAID"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    old_amount = sales_entry.amount
+                    sales_entry.amount = new_total
+                    sales_entry.save()
+                    print(f"   ✅ Sales updated: ₱{old_amount} → ₱{new_total}")
+                    messages.success(self.request, f"✅ Withdrawal and sales entry updated. New total: ₱{new_total:,.2f}")
+                else:
+                    print(f"   ⚠️ No sales entry found for order #{withdrawal.order_group_id}")
+                    messages.success(self.request, "✅ Withdrawal successfully updated.")
+            else:
+                messages.success(self.request, "✅ Withdrawal successfully updated.")
+        else:
+            messages.success(self.request, "✅ Withdrawal successfully updated.")
         
         # Return a redirect response instead of the original response
         return redirect(self.get_success_url())
@@ -2502,6 +2991,10 @@ class WithdrawDeleteView(DeleteView):
         }
         
         withdrawal_id = withdrawal.id
+        order_group_id = withdrawal.order_group_id
+        reason = withdrawal.reason
+        sales_channel = withdrawal.sales_channel
+        payment_status = withdrawal.payment_status
         
         # Call parent delete
         response = super().post(request, *args, **kwargs)
@@ -2515,12 +3008,393 @@ class WithdrawDeleteView(DeleteView):
             before=before
         )
         
+        # Update sales entry if this was part of a PAID/PARTIAL order
+        if (reason == 'SOLD' and 
+            sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+            payment_status in ['PAID', 'PARTIAL'] and
+            order_group_id):
+            
+            # Check if there are remaining withdrawals in this order
+            remaining_withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id)
+            
+            if remaining_withdrawals.exists():
+                # Recalculate total for remaining items
+                new_total = Decimal(0)
+                
+                for w in remaining_withdrawals:
+                    if w.custom_price:
+                        new_total = Decimal(w.custom_price)
+                        break
+                    elif w.price_type:
+                        product = Products.objects.get(id=w.item_id)
+                        base_price = Decimal(0)
+                        
+                        if w.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif w.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        discount_percent = Decimal(0)
+                        if w.discount_id:
+                            discount = Discounts.objects.get(id=w.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif w.custom_discount_value:
+                            discount_percent = Decimal(w.custom_discount_value)
+                        
+                        discounted_price = base_price * (1 - (discount_percent / 100))
+                        item_total = Decimal(w.quantity) * discounted_price
+                        new_total += item_total
+                
+                # Update sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.amount = new_total
+                    sales_entry.save()
+                    messages.success(request, f"🗑️ Withdrawal deleted. Sales updated to ₱{new_total:,.2f}")
+                else:
+                    messages.success(request, "🗑️ Withdrawal deleted successfully.")
+            else:
+                # No more withdrawals, delete the sales entry
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.delete()
+                    messages.success(request, "🗑️ Withdrawal and sales entry deleted successfully.")
+                else:
+                    messages.success(request, "🗑️ Withdrawal deleted successfully.")
+        
         return response
 
     def get_success_url(self):
-        messages.success(self.request, "🗑️ Withdrawal deleted successfully.")
-        return super().get_success_url()
+        return reverse_lazy('withdrawals')
+
+
+# Withdrawal Group Actions
+class WithdrawalGroupArchiveView(View):
+    """Archive all withdrawals in a group"""
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id, is_archived=False)
+        count = withdrawals.count()
+        
+        if count > 0:
+            withdrawals.update(is_archived=True)
+            messages.success(request, f"✅ Archived {count} withdrawal(s) from Order #{order_group_id}")
+        else:
+            messages.warning(request, "No withdrawals found to archive.")
+        
+        return redirect('withdrawals')
+
+
+class WithdrawalGroupDeleteView(View):
+    """Delete all withdrawals in a group"""
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(order_group_id=order_group_id, is_archived=False)
+        count = withdrawals.count()
+        
+        if count > 0:
+            # Check if this is a SOLD order with PAID/PARTIAL status
+            first_withdrawal = withdrawals.first()
+            should_delete_sales = (
+                first_withdrawal.reason == 'SOLD' and
+                first_withdrawal.sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and
+                first_withdrawal.payment_status in ['PAID', 'PARTIAL']
+            )
+            
+            # Log each deletion
+            for withdrawal in withdrawals:
+                before = {
+                    'item_type': withdrawal.item_type,
+                    'item_id': withdrawal.item_id,
+                    'quantity': str(withdrawal.quantity),
+                    'reason': withdrawal.reason,
+                    'sales_channel': withdrawal.sales_channel,
+                    'order_group_id': withdrawal.order_group_id,
+                }
+                
+                create_history_log(
+                    admin=request.user,
+                    log_category="Withdrawal Group Deleted",
+                    entity_type="withdrawal",
+                    entity_id=withdrawal.id,
+                    before=before
+                )
+            
+            # Delete all withdrawals in the group
+            withdrawals.delete()
+            
+            # Delete corresponding sales entry if applicable
+            if should_delete_sales:
+                sales_entry = Sales.objects.filter(
+                    Q(description__icontains=f"Order #{order_group_id}"),
+                    is_archived=False
+                ).first()
+                
+                if sales_entry:
+                    sales_entry.delete()
+                    messages.success(request, f"🗑️ Deleted {count} withdrawal(s) and sales entry from Order #{order_group_id}")
+                else:
+                    messages.success(request, f"🗑️ Deleted {count} withdrawal(s) from Order #{order_group_id}")
+            else:
+                messages.success(request, f"🗑️ Deleted {count} withdrawal(s) from Order #{order_group_id}")
+        else:
+            messages.warning(request, "No withdrawals found to delete.")
+        
+        return redirect('withdrawals')
+
+
+class WithdrawalGroupEditView(View):
+    """Edit all withdrawals in a group"""
+    template_name = "withdrawal_group_edit.html"
     
+    def get(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id, 
+            is_archived=False
+        ).select_related('created_by_admin')
+        
+        if not withdrawals.exists():
+            messages.error(request, "Withdrawal group not found.")
+            return redirect('withdrawals')
+        
+        # Get products and discounts for the form
+        products = Products.objects.all().order_by('id').select_related(
+            "product_type", "variant", "size", "size_unit", "productinventory"
+        )
+        discounts = Discounts.objects.all()
+        
+        # Get first withdrawal for common data
+        first_withdrawal = withdrawals.first()
+        
+        context = {
+            'withdrawals': withdrawals,
+            'order_group_id': order_group_id,
+            'products': products,
+            'discounts': discounts,
+            'reason': first_withdrawal.reason,
+            'sales_channel': first_withdrawal.sales_channel,
+            'customer_name': first_withdrawal.customer_name,
+            'payment_status': first_withdrawal.payment_status,
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request, order_group_id):
+        withdrawals = Withdrawals.objects.filter(
+            order_group_id=order_group_id, 
+            is_archived=False
+        )
+        
+        if not withdrawals.exists():
+            messages.error(request, "Withdrawal group not found.")
+            return redirect('withdrawals')
+        
+        try:
+            # Get common fields
+            reason = request.POST.get("reason")
+            sales_channel = request.POST.get("sales_channel")
+            customer_name = request.POST.get("customer_name")
+            payment_status = request.POST.get("payment_status", "PAID")
+            price_or_custom = request.POST.get("price_or_custom", "").strip().upper()
+            paid_amount = request.POST.get("paid_amount")
+            
+            # Determine if it's price type or custom amount
+            price_type = None
+            custom_total_price = None
+            if price_or_custom in ['UNIT', 'SRP']:
+                price_type = price_or_custom
+            elif price_or_custom:
+                try:
+                    custom_total_price = Decimal(price_or_custom)
+                except:
+                    pass  # Invalid input, ignore
+            
+            # Track if any changes were made
+            updated_count = 0
+            
+            # Track items to delete
+            items_to_delete = []
+            
+            # Update each withdrawal in the group
+            for withdrawal in withdrawals:
+                # Check if item should be removed
+                remove_key = f"remove_{withdrawal.id}"
+                if request.POST.get(remove_key) == '1':
+                    items_to_delete.append(withdrawal)
+                    continue
+                
+                # Get the new values for this specific withdrawal
+                item_id_key = f"item_id_{withdrawal.id}"
+                quantity_key = f"quantity_{withdrawal.id}"
+                discount_key = f"discount_{withdrawal.id}"
+                
+                new_item_id = request.POST.get(item_id_key)
+                new_quantity = request.POST.get(quantity_key)
+                discount_val = request.POST.get(discount_key)
+                
+                if new_quantity and new_item_id:
+                    new_quantity = Decimal(new_quantity)
+                    
+                    # Handle pricing based on payment status
+                    if payment_status == 'PAID':
+                        if custom_total_price:
+                            # Custom total price for entire order
+                            withdrawal.price_type = None
+                            withdrawal.custom_price = Decimal(custom_total_price)
+                        elif price_type in ['UNIT', 'SRP']:
+                            # Unit/SRP price type (same for all items)
+                            withdrawal.price_type = price_type
+                            withdrawal.custom_price = None
+                        else:
+                            withdrawal.price_type = None
+                            withdrawal.custom_price = None
+                    elif payment_status == 'PARTIAL':
+                        # Partial payment - store paid amount
+                        withdrawal.price_type = None
+                        withdrawal.custom_price = None
+                        if paid_amount:
+                            withdrawal.paid_amount = Decimal(paid_amount)
+                    else:
+                        # UNPAID - clear pricing
+                        withdrawal.price_type = None
+                        withdrawal.custom_price = None
+                        withdrawal.paid_amount = None
+                    
+                    # Handle discount (only for Unit/SRP, not for custom price)
+                    discount_obj = None
+                    custom_discount = None
+                    if discount_val and withdrawal.price_type:  # Only apply discount if price_type is set
+                        try:
+                            discount_obj = Discounts.objects.get(value=discount_val)
+                        except Discounts.DoesNotExist:
+                            custom_discount = discount_val
+                    else:
+                        # Clear discount if custom price
+                        withdrawal.discount_id = None
+                        withdrawal.custom_discount_value = None
+                    
+                    # Update withdrawal
+                    withdrawal.item_id = int(new_item_id)  # Update item_id
+                    withdrawal.quantity = new_quantity
+                    withdrawal.reason = reason
+                    withdrawal.sales_channel = sales_channel if reason == "SOLD" else None
+                    withdrawal.customer_name = customer_name if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else None
+                    withdrawal.payment_status = payment_status if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else 'PAID'
+                    
+                    if discount_obj or custom_discount:
+                        withdrawal.discount_id = discount_obj.id if discount_obj else None
+                        withdrawal.custom_discount_value = custom_discount
+                    
+                    withdrawal.save()
+                    updated_count += 1
+            
+            # Delete marked items
+            deleted_count = 0
+            for withdrawal in items_to_delete:
+                withdrawal.delete()
+                deleted_count += 1
+            
+            # Handle sales entry based on payment status
+            sales_entry = Sales.objects.filter(
+                Q(description__icontains=f"Order #{order_group_id}"),
+                is_archived=False
+            ).first()
+            
+            if (reason == 'SOLD' and 
+                sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER']):
+                
+                if payment_status == 'UNPAID':
+                    # Delete sales entry if changing to UNPAID
+                    if sales_entry:
+                        sales_entry.delete()
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += ". Sales entry removed (UNPAID)"
+                        messages.success(request, msg)
+                    else:
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        messages.success(request, msg)
+                
+                elif payment_status in ['PAID', 'PARTIAL']:
+                    # Recalculate total based on payment status
+                    new_total = Decimal(0)
+                    
+                    if payment_status == 'PARTIAL':
+                        # Use paid amount for partial payments
+                        if paid_amount:
+                            new_total = Decimal(paid_amount)
+                    elif payment_status == 'PAID':
+                        # Calculate from withdrawals
+                        for w in withdrawals:
+                            if w.custom_price:
+                                # Custom price is the TOTAL for the entire order
+                                new_total = Decimal(w.custom_price)
+                                break  # Stop after first custom price (should only be one)
+                            elif w.price_type:
+                                # Unit/SRP price with discount
+                                product = Products.objects.get(id=w.item_id)
+                                base_price = Decimal(0)
+                                
+                                if w.price_type == 'UNIT':
+                                    base_price = product.unit_price.unit_price
+                                elif w.price_type == 'SRP':
+                                    base_price = product.srp_price.srp_price
+                                
+                                # Apply discount
+                                discount_percent = Decimal(0)
+                                if w.discount_id:
+                                    discount = Discounts.objects.get(id=w.discount_id)
+                                    discount_percent = Decimal(discount.value)
+                                elif w.custom_discount_value:
+                                    discount_percent = Decimal(w.custom_discount_value)
+                                
+                                discounted_price = base_price * (1 - (discount_percent / 100))
+                                item_total = Decimal(w.quantity) * discounted_price
+                                new_total += item_total
+                    
+                    # Update or create sales entry
+                    if sales_entry:
+                        sales_entry.amount = new_total
+                        sales_entry.save()
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += f". Sales updated to ₱{new_total:,.2f}"
+                        messages.success(request, msg)
+                    else:
+                        # Create new sales entry if it doesn't exist
+                        Sales.objects.create(
+                            amount=new_total,
+                            description=f"Order #{order_group_id} - {customer_name or 'N/A'} - Status: {payment_status}",
+                            date=timezone.now().date(),
+                            created_by_admin=request.user
+                        )
+                        msg = f"✅ Updated {updated_count} withdrawal(s)"
+                        if deleted_count > 0:
+                            msg += f", deleted {deleted_count} item(s)"
+                        msg += f". Sales entry created: ₱{new_total:,.2f}"
+                        messages.success(request, msg)
+            else:
+                msg = f"✅ Updated {updated_count} withdrawal(s)"
+                if deleted_count > 0:
+                    msg += f", deleted {deleted_count} item(s)"
+                messages.success(request, msg)
+            
+        except Exception as e:
+            messages.error(request, f"❌ Error updating withdrawals: {str(e)}")
+        
+        return redirect('withdrawals')
+
+
 def get_total_revenue():
     withdrawals = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
     total = 0
@@ -2679,11 +3553,27 @@ def profile_view(request):
     return render(request, "profile.html")
 
 def best_sellers_api(request):
+    from datetime import datetime
     TOP_N = 5
+    
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+
+    now = datetime.now()
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+
+    qs = Withdrawals.objects.filter(item_type="PRODUCT", reason="SOLD")
+  
+    if month and month != 'all':
+        qs = qs.filter(date__year=year, date__month=month)
+    else:
+        qs = qs.filter(date__year=year)
+    
     qs = (
-        Withdrawals.objects
-        .filter(item_type="PRODUCT", reason="SOLD")
-        .values("item_id")
+        qs.values("item_id")
         .annotate(total_sold=Sum("quantity"))
         .order_by("-total_sold")
     )
@@ -2700,7 +3590,6 @@ def best_sellers_api(request):
 
     return JsonResponse({"labels": labels, "data": data})
 
-
 def mark_notification_read(request, pk):
     notif = get_object_or_404(Notifications, pk=pk)
     notif.is_read = True
@@ -2715,11 +3604,21 @@ class StockChangesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return (
-            StockChanges.objects
-            .filter(is_archived=False)
-            .order_by('-date')
-        )
+        queryset = StockChanges.objects.filter(is_archived=False).order_by('-date')
+
+        date_filter = self.request.GET.get("date", "").strip()
+        if date_filter:
+            try:
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(date__year=parsed_date.year, date__month=parsed_date.month)
+            except ValueError:
+                pass
+        else:
+
+            today = timezone.now()
+            queryset = queryset.filter(date__year=today.year, date__month=today.month)
+        
+        return queryset
 
 
 class StockChangesArchiveView(View):
@@ -3294,75 +4193,39 @@ def set_user_inactive(sender, user, request, **kwargs):
 
 
 def check_expirations(request):
-    today = timezone.localdate()
-    next_week = today + timedelta(days=7)
-    next_month = today + timedelta(days=30)
-    messages = []
-
-    product_batches = (
-        ProductBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values(
-            "product__product_type__name",
-            "product__variant__name",
-            "product__size__size_label",
-            "product__size_unit__unit_name",
-            "expiration_date"
-        )
-        .annotate(count=Count("id"))
-    )
-
-    for pb in product_batches:
-        days = (pb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        name = f'{pb["product__product_type__name"]} - {pb["product__variant__name"]} ({pb["product__size__size_label"] or ""} {pb["product__size_unit__unit_name"]})'
-        message = f'{pb["count"]} {name} {status} ({pb["expiration_date"]})'
-        messages.append(message)
-
-    raw_batches = (
-        RawMaterialBatches.objects
-        .filter(expiration_date__lte=next_month, is_archived=False)
-        .values("material__name", "expiration_date")
-        .annotate(count=Count("id"))
-    )
-
-    for rb in raw_batches:
-        days = (rb["expiration_date"] - today).days
-        if days < 0:
-            status = "has expired"
-        elif days == 0:
-            status = "expires today"
-        elif days <= 7:
-            status = "will expire in a week"
-        elif days <= 30:
-            status = "will expire in a month"
-        else:
-            continue
-
-        message = f'{rb["count"]} {rb["material__name"]} {status} ({rb["expiration_date"]})'
-        messages.append(message)
-
-    if messages:
-        Notifications.objects.create(
-            item_type="SYSTEM",
-            item_id=0,
+    """
+    Trigger the expiration check management command.
+    This will create notifications, deduct expired items from inventory,
+    and log them to financial loss.
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    
+    # Capture command output
+    out = StringIO()
+    
+    try:
+        # Call the management command that handles everything properly
+        call_command('check_expirations', stdout=out)
+        output = out.getvalue()
+        
+        # Count notifications created
+        notification_count = Notifications.objects.filter(
             notification_type="EXPIRATION_ALERT",
-            notification_timestamp=timezone.now(),
-            is_read=False,
-        )
-        print("\n".join(messages))
-
-    return JsonResponse({"status": "ok", "notifications_sent": len(messages)})
+            is_read=False
+        ).count()
+        
+        return JsonResponse({
+            "status": "ok",
+            "message": "Expiration check completed successfully",
+            "notifications_created": notification_count,
+            "details": output
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": str(e)
+        }, status=500)
 
 
 @method_decorator(login_required, name='dispatch')

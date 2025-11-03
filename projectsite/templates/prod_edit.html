@@ -5,7 +5,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Products</h4>
+    <h4 class="page-title">
+      <a href="{% url 'products' %}" class="btn btn-link p-0 mr-2" title="Back to Products">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Products
+    </h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">

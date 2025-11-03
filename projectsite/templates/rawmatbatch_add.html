@@ -4,7 +4,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Raw Material Batches</h4>
+    <h4 class="page-title">
+      <a href="{% url 'rawmaterial-batch' %}" class="btn btn-link p-0 mr-2" title="Back to Raw Material Batches">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Raw Material Batches
+    </h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
@@ -24,6 +29,7 @@
                          name="{{ form.received_date.name }}" 
                          class="form-control" 
                          style="max-width: 300px;"
+                         placeholder="Select Received Date"
                          value="{{ form.received_date.value|default:'' }}">
                 </div>
 

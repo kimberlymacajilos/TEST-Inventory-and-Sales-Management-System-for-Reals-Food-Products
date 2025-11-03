@@ -45,6 +45,8 @@ urlpatterns = [
     path('rawmaterials/archive-old/', a.RawMaterialArchiveOldView.as_view(), name='rawmaterials-archive-old'),
     path('rawmaterials/archived/', a.ArchivedRawMaterialsListView.as_view(), name='rawmaterials-archived-list'),
     path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
+    path('rawmaterials/bulk-delete/', a.rawmaterial_bulk_delete, name='rawmaterial-bulk-delete'),
+    path('rawmaterials/bulk-archive/', a.rawmaterial_bulk_archive, name='rawmaterial-bulk-archive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
     path('history/', a.HistoryLogList.as_view(), name='history_log'),  # Added this line to match template reference
@@ -55,6 +57,8 @@ urlpatterns = [
     path('sales/<pk>/delete', a.SalesDeleteView.as_view(), name='sales-delete'),
     path('sales/<int:pk>/archive/', a.SaleArchiveView.as_view(), name='sales-archive'),
     path('sales/archive-old/', a.SaleArchiveOldView.as_view(), name='sales-archive-old'),
+    path('sales/bulk-delete-new/', a.sales_bulk_delete, name='sales-bulk-delete-new'),
+    path('sales/bulk-archive/', a.sales_bulk_archive, name='sales-bulk-archive'),
     path('sales/archived/', a.ArchivedSalesListView.as_view(), name='sales-archived-list'),
     path('sales/<int:pk>/unarchive/', a.SaleUnarchiveView.as_view(), name='sales-unarchive'),
     path('sales/bulk-restore/', a.SaleBulkRestoreView.as_view(), name='sales-bulk-restore'),
@@ -68,6 +72,8 @@ urlpatterns = [
     path('expenses/archive-old/', a.ExpenseArchiveOldView.as_view(), name='expenses-archive-old'),
     path('expenses/archived/', a.ArchivedExpensesListView.as_view(), name='expenses-archived-list'),
     path('expenses/<int:pk>/unarchive/', a.ExpenseUnarchiveView.as_view(), name='expenses-unarchive'),
+    path('expenses/bulk-delete/', a.expenses_bulk_delete, name='expenses-bulk-delete'),
+    path('expenses/bulk-archive/', a.expenses_bulk_archive, name='expenses-bulk-archive'),
 
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch'),
     path('prodbatch/add', a.BulkProductBatchCreateView.as_view(), name='product-batch-add'),
@@ -77,6 +83,8 @@ urlpatterns = [
     path('prodbatch/archived/', a.ArchivedProductBatchListView.as_view(), name='product-batch-archived-list'),
     path('prodbatch/<int:pk>/unarchive/', a.ProductBatchUnarchiveView.as_view(), name='product-batch-unarchive'),
     path('prodbatch/archive-old/', a.ProductBatchArchiveOldView.as_view(), name='product-batch-archive-old'),
+    path('prodbatch/bulk-delete/', a.product_batch_bulk_delete, name='product-batch-bulk-delete'),
+    path('prodbatch/bulk-archive/', a.product_batch_bulk_archive, name='product-batch-bulk-archive'),
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'),
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
@@ -90,6 +98,8 @@ urlpatterns = [
     path('rawmatbatch/archived/', a.ArchivedRawMaterialBatchListView.as_view(), name='rawmaterial-batch-archived-list'),
     path('rawmatbatch/<int:pk>/unarchive/', a.RawMaterialBatchUnarchiveView.as_view(), name='rawmaterial-batch-unarchive'),
     path('rawmatbatch/archive-old/', a.RawMaterialBatchArchiveOldView.as_view(), name='rawmaterial-batch-archive-old'),
+    path('rawmatbatch/bulk-delete/', a.rawmaterial_batch_bulk_delete, name='rawmaterial-batch-bulk-delete'),
+    path('rawmatbatch/bulk-archive/', a.rawmaterial_batch_bulk_archive, name='rawmaterial-batch-bulk-archive'),
 
     path('rawmaterial-inventory/', a.RawMaterialInventoryList.as_view(), name='rawmaterial-inventory'),
 
@@ -141,6 +151,15 @@ urlpatterns = [
     path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
     path('withdrawals/<int:pk>/unarchive/', a.WithdrawalsUnarchiveView.as_view(), name='withdrawals-unarchive'),
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
+    path('withdrawal-order/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-order-detail'),
+    path('withdrawal-order/<int:order_group_id>/update-payment/', a.WithdrawalOrderUpdatePaymentView.as_view(), name='withdrawal-order-update-payment'),
+    path('withdrawal-group/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-group-detail'),
+    path('withdrawal-group/<int:order_group_id>/edit/', a.WithdrawalGroupEditView.as_view(), name='withdrawal-group-edit'),
+    path('withdrawal-group/<int:order_group_id>/archive/', a.WithdrawalGroupArchiveView.as_view(), name='withdrawal-group-archive'),
+    path('withdrawal-group/<int:order_group_id>/delete/', a.WithdrawalGroupDeleteView.as_view(), name='withdrawal-group-delete'),
+
+    path('withdrawals/bulk-delete/', a.withdrawals_bulk_delete, name='withdrawals-bulk-delete'),
+    path('withdrawals/bulk-archive/', a.withdrawals_bulk_archive, name='withdrawals-bulk-archive'),
     path("api/get-stock/", a.get_stock, name="get-stock"),
 
     path("login/", a.login_view, name="login"),
@@ -188,6 +207,8 @@ urlpatterns = [
     path('products/archived/', a.ArchivedProductsListView.as_view(), name='products-archived-list'),
     path('products/<int:pk>/unarchive/', a.ProductUnarchiveView.as_view(), name='product-unarchive'),
     path('products/archive-old/', a.ProductArchiveOldView.as_view(), name='products-archive-old'),
+    path('products/bulk-delete/', a.product_bulk_delete, name='product-bulk-delete'),
+    path('products/bulk-archive/', a.product_bulk_archive, name='product-bulk-archive'),
     path("products/<int:product_id>/recipes/", a.ProductRecipeListView.as_view(), name="recipe-list"),
     path("products/<int:product_id>/recipes/add/", a.ProductRecipeBulkCreateView.as_view(), name="recipe-add"),
     path("recipes/<int:pk>/edit/", a.ProductRecipeUpdateView.as_view(), name="recipe-edit"),

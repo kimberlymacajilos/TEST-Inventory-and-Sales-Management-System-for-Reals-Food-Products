@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Edit Profile{% endblock %}
-
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/profile.css' %}">
 
 <div class="container container-p-y profile-page">
-    <h2 class="font-weight-bold py-3 mb-4">
+    <h4 class="font-weight-bold py-3 mb-4">
+        <a href="{% url 'profile' %}" class="btn btn-link p-0 mr-2" title="Back to Profile">
+            <i class="la la-arrow-left" style="font-size: 24px;"></i>
+        </a>
         Edit Profile
-    </h2>
+    </h4>
 
     <div class="card overflow-hidden">
         <div class="row no-gutters row-bordered row-border-light">
@@ -70,8 +71,8 @@
                             </div>
 
                             <div class="text-right mt-3">
-                                <button type="submit" class="btn btn-outline-primary">Save Changes</button>&nbsp;
-                                <a href="{% url 'profile' %}" class="btn btn-default">Cancel</a>
+                                <button type="submit" class="btn btn-primary btn-rounded">Save Changes</button>&nbsp;
+                                <a href="{% url 'profile' %}" class="btn btn-secondary btn-rounded">Cancel</a>
                             </div>
                         </div>
                     </form>

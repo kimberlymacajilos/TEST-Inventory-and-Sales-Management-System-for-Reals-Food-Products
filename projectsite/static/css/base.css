@@ -473,6 +473,7 @@ html[data-theme="dark"] .sidebar {
   color: var(--text) !important;
   border-right: 1px solid var(--border);
 }
+
 html[data-theme="dark"] .sidebar .nav-item a {
   color: #f1f8f4 !important; 
 }

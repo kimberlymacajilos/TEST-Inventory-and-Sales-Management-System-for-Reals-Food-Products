@@ -32,18 +32,42 @@
 
           <div class="card-body">
             <form class="row mb-3" id="filterForm">
-              <div class="col-md-3">
-                <input type="text" id="searchInput" class="form-control" name= "q" placeholder="Search raw batches..." value="{{ request.GET.q }}"/>
+              <div class="col-md-5">
+                <input type="text" id="searchInput" class="form-control" name= "q" placeholder="Search raw batches..." style="width:350px;" value="{{ request.GET.q }}"/>
               </div>
-              <div class="col-md-3">
-                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
+              <div class="col-md-2">
+                <input type="month" name="date_filter" class="form-control" style="width:180px;" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% else %}2025-11{% endif %}" id="rawDateFilter">
+              </div>
+              <div class="col-md-2">
+                <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                  <i class="la la-list"></i> Show All
+                </button>
+              </div>
+              <div class="col-md-1">
+                <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                  <i class="la la-times"></i>
+                </button>
               </div>
             </form>
+            
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteRawBatch()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveRawBatch()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+            
             <div class="table-responsive">
 
               <table class="table table-striped" id="batchTable">
                 <thead>
                   <tr>
+                    <th scope="col" style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th scope="col">Batch Date</th>
                     <th scope="col">Material</th>
                     <th scope="col">Quantity</th>
@@ -55,6 +79,9 @@
                 <tbody id="batchTableBody">
                   {% for object in page_obj %}
                   <tr>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
                     <td>{{ object.batch_date|date:"Y-m-d" }}</td>
                     <td>{{ object.material }}</td>
                     <td>{{ object.quantity|floatformat:0 }}</td>
@@ -292,7 +319,110 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Handle archive form submission with toast
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteRawBatch() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one batch', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} batch(es)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "rawmaterial-batch-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete batches', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting batches', 'error');
+    });
+}
+
+function bulkArchiveRawBatch() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one batch', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} batch(es)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "rawmaterial-batch-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive batches', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving batches', 'error');
+    });
+}
+
 function handleArchiveSubmit(event, batchName) {
     event.preventDefault();
     const form = event.target;

@@ -4,7 +4,12 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Expenses</h4>
+    <h4 class="page-title">
+      <a href="{% url 'expenses' %}" class="btn btn-link p-0 mr-2" title="Back to Expenses">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Expenses
+    </h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
@@ -20,7 +25,7 @@
                   <!-- Category -->
                   <div class="form-item" style="flex: 1 1 100%;">
                     <label for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
-                    {% render_field form.category class="form-control" %}
+                    {% render_field form.category class="form-control" placeholder="Enter Category" %}
                     {% for error in form.category.errors %}
                       <div class="invalid-feedback d-block">{{ error }}</div>
                     {% endfor %}
@@ -29,7 +34,7 @@
                   <!-- Amount -->
                   <div class="form-item">
                     <label for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
-                    {% render_field form.amount class="form-control" %}
+                    {% render_field form.amount class="form-control" placeholder="Enter Amount" %}
                     {% for error in form.amount.errors %}
                       <div class="invalid-feedback d-block">{{ error }}</div>
                     {% endfor %}
@@ -38,7 +43,7 @@
                   <!-- Date -->
                   <div class="form-item">
                     <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
-                    {% render_field form.date class="form-control" %}
+                    {% render_field form.date class="form-control" placeholder="Select Date" %}
                     {% for error in form.date.errors %}
                       <div class="invalid-feedback d-block">{{ error }}</div>
                     {% endfor %}
@@ -47,7 +52,7 @@
                   <!-- Description -->
                   <div class="form-item" style="flex: 1 1 100%;">
                     <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
-                    {% render_field form.description class="form-control" %}
+                    {% render_field form.description class="form-control" placeholder="Enter Description" %}
                     {% for error in form.description.errors %}
                       <div class="invalid-feedback d-block">{{ error }}</div>
                     {% endfor %}
@@ -56,7 +61,6 @@
 
                 <div class="form-actions btn-row mt-3">
                   <button type="submit" class="btn btn-primary btn-rounded">Save Expense</button>
-                  <a href="{% url 'expenses' %}" class="btn btn-soft">Cancel</a>
                 </div>
               </form>
           </div>
