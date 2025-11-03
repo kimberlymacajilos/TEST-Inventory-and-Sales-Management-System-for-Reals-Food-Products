@@ -95,24 +95,13 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 #    }
 # }
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'reals_local',
-#         'USER': 'postgres',
-#         'PASSWORD': 'admin',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
+        'NAME': 'reals_local',
         'USER': 'postgres',
-        'PASSWORD': 'Inventcaps_2025',
-        'HOST': 'db.bmpwrztfukjnzdubtjox.supabase.co',
+        'PASSWORD': 'root',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }

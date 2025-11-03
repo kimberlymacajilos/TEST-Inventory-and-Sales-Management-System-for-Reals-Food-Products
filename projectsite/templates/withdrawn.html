@@ -54,7 +54,10 @@
                 {% endfor %}
               </select>
               <!-- Month-Year Filter -->
-              <input id="dateFilter" type="month" class="form-control" style="width:180px;" />
+              <input id="dateFilter" type="month" class="form-control" style="width:180px;" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
+                Show All Data
+              </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
               </button>
@@ -701,6 +704,17 @@ function bulkArchiveWithdrawal() {
         console.error('Bulk archive error:', error);
         showToast('An error occurred while archiving withdrawals', 'error');
     });
+}
+
+function toggleShowAll() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('show_all')) {
+    params.delete('show_all');
+  } else {
+    params.set('show_all', '1');
+    params.delete('date_filter');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
 }
 </script>
 {% endblock %}

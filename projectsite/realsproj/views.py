@@ -1067,6 +1067,8 @@ class HistoryLogList(ListView):
             queryset = queryset.filter(log_type__category=log_filter)
 
         # Apply date filter (month-based)
+        show_all = self.request.GET.get('show_all', '').strip()
+        
         if date_str:
             try:
                 # Convert YYYY-MM to start and end dates of the month
@@ -1084,11 +1086,26 @@ class HistoryLogList(ListView):
             except (ValueError, IndexError):
                 # If date format is invalid, skip the date filter
                 pass
+        elif not show_all:
+            today = timezone.now()
+            import calendar
+            last_day = calendar.monthrange(today.year, today.month)[1]
+            
+            start_date = timezone.make_aware(datetime(today.year, today.month, 1))
+            end_date = timezone.make_aware(datetime(today.year, today.month, last_day, 23, 59, 59))
+            
+            queryset = queryset.filter(
+                log_date__gte=start_date,
+                log_date__lte=end_date
+            )
 
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
         
         # Get unique admins and log types for the filter dropdowns
         context['admins'] = HistoryLog.objects.filter(
@@ -1235,17 +1252,18 @@ class SalesList(ListView):
         if category:
             qs = qs.filter(category__iexact=category)
 
-        # --- Month filter (YYYY-MM) ---
-        month = self.request.GET.get("month", "").strip()
-        if month:
+        date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
+        
+        if date_filter:
             try:
-                year_str, month_str = month.split("-")
+                year_str, month_str = date_filter.split("-")
                 year = int(year_str)
                 month_num = int(month_str.lstrip("0"))
                 qs = qs.filter(date__year=year, date__month=month_num)
             except ValueError:
                 pass
-        else:
+        elif not show_all:
             today = timezone.now()
             qs = qs.filter(date__year=today.year, date__month=today.month)
 
@@ -1255,28 +1273,28 @@ class SalesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
+
         # Get the filtered queryset for display (excludes withdrawal sales)
         display_qs = getattr(self, "_full_queryset", Sales.objects.all())
 
-        # For total sales computation, include ALL sales (manual + withdrawal)
-        # Apply same filters (month, category, search) but don't exclude withdrawal sales
-        month = self.request.GET.get("month", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
         category = self.request.GET.get("category", "").strip()
         query = self.request.GET.get("q", "").strip()
         
         total_qs = Sales.objects.filter(is_archived=False).order_by("-date")
         
-        # Apply month filter
-        if month:
+        if date_filter:
             try:
-                year_str, month_str = month.split("-")
+                year_str, month_str = date_filter.split("-")
                 year = int(year_str)
                 month_num = int(month_str.lstrip("0"))
                 total_qs = total_qs.filter(date__year=year, date__month=month_num)
             except ValueError:
                 pass
-        else:
-            today = timezone.now()
+        elif not show_all:
             total_qs = total_qs.filter(date__year=today.year, date__month=today.month)
         
         # Apply category filter (only affects manual sales display, not total)
@@ -1309,24 +1327,21 @@ class SalesList(ListView):
         context['categories'] = categories
 
         # Add withdrawal-based sales grouped by order_group_id
-        month = self.request.GET.get("month", "").strip()
         withdrawal_sales_qs = Withdrawals.objects.filter(
             reason='SOLD',
             is_archived=False,
             sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
         ).select_related("created_by_admin").order_by("-date")
         
-        # Apply same month filter as regular sales
-        if month:
+        if date_filter:
             try:
-                year_str, month_str = month.split("-")
+                year_str, month_str = date_filter.split("-")
                 year = int(year_str)
                 month_num = int(month_str.lstrip("0"))
                 withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
             except ValueError:
                 pass
-        else:
-            today = timezone.now()
+        elif not show_all:
             withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
         
         # Group withdrawals by order_group_id
@@ -1716,17 +1731,18 @@ class ExpensesList(ListView):
         if category:
             qs = qs.filter(category__iexact=category)
 
-        # --- Month filter (YYYY-MM) ---
-        month = self.request.GET.get("month", "").strip()
-        if month:
+        date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
+        
+        if date_filter:
             try:
-                year_str, month_str = month.split("-")
+                year_str, month_str = date_filter.split("-")
                 year = int(year_str)
                 month_num = int(month_str.lstrip("0"))
                 qs = qs.filter(date__year=year, date__month=month_num)
             except ValueError:
                 pass
-        else:
+        elif not show_all:
             # Default: show only current month
             today = timezone.now()
             qs = qs.filter(date__year=today.year, date__month=today.month)
@@ -1736,6 +1752,9 @@ class ExpensesList(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
 
         full_qs = getattr(self, "_full_queryset", Expenses.objects.filter(is_archived=False))
 
@@ -1873,9 +1892,9 @@ class ProductBatchList(ListView):
             .order_by('-id')
         )
 
-        # Unified search field for Product Type, Variant, and Size
         search = self.request.GET.get("search", "").strip()
-        date_created = self.request.GET.get("date_created", "").strip()
+        date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
 
         if search:
             queryset = queryset.filter(
@@ -1884,15 +1903,36 @@ class ProductBatchList(ListView):
                 Q(product__size__size_label__icontains=search)
             )
 
-        if date_created:
+        if date_filter:
             try:
-                parsed_date = datetime.strptime(date_created, "%Y-%m-%d")
-                queryset = queryset.filter(batch_date=parsed_date)
+                parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                queryset = queryset.filter(
+                    batch_date__year=parsed_date.year,
+                    batch_date__month=parsed_date.month
+                )
             except ValueError:
                 pass
+        elif not show_all:
+            # Default: show only current month
+            today = timezone.now()
+            queryset = queryset.filter(
+                batch_date__year=today.year,
+                batch_date__month=today.month
+            )
 
         return queryset
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        today = timezone.now()
+        month_names = ["January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"]
+        context['current_month_display'] = f"{month_names[today.month - 1]} {today.year}"
+        context['current_month_value'] = today.strftime("%Y-%m")
+        return context
+    
+
 class ProductBatchCreateView(CreateView):
     model = ProductBatches
     form_class = ProductBatchForm
@@ -2075,6 +2115,7 @@ class RawMaterialBatchList(ListView):
 
         query = self.request.GET.get("q", "").strip()
         date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
 
         if query:
             queryset = queryset.filter(
@@ -2097,8 +2138,24 @@ class RawMaterialBatchList(ListView):
                 )
             except ValueError:
                 pass
+        elif not show_all:
+            today = timezone.now()
+            queryset = queryset.filter(
+                Q(batch_date__year=today.year, batch_date__month=today.month) |
+                Q(received_date__year=today.year, received_date__month=today.month) |
+                Q(expiration_date__year=today.year, expiration_date__month=today.month)
+            )
 
         return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now()
+        month_names = ["January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"]
+        context['current_month_display'] = f"{month_names[today.month - 1]} {today.year}"
+        context['current_month_value'] = today.strftime("%Y-%m")
+        return context
 
 
 class RawMaterialBatchCreateView(CreateView):
@@ -2731,19 +2788,20 @@ class WithdrawSuccessView(ListView):
                     queryset = queryset.filter(reason=value)
                     break
 
-        date_val = request.GET.get("date")
-        if date_val:
+        date_filter = request.GET.get("date_filter", "").strip()
+        show_all = request.GET.get("show_all", "").strip()
+        
+        if date_filter:
             try:
-                if len(date_val) == 7:  # YYYY-MM
-                    year, month = map(int, date_val.split("-"))
-                    queryset = queryset.filter(date__year=year, date__month=month)
-                elif len(date_val) == 10:  # YYYY-MM-DD
-                    year, month, day = map(int, date_val.split("-"))
-                    queryset = queryset.filter(date__year=year, date__month=month, date__day=day)
-                elif len(date_val) == 4:  # YYYY
-                    queryset = queryset.filter(date__year=int(date_val))
+                year_str, month_str = date_filter.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                queryset = queryset.filter(date__year=year, date__month=month_num)
             except ValueError:
-                pass  
+                pass
+        elif not show_all:
+            today = timezone.now()
+            queryset = queryset.filter(date__year=today.year, date__month=today.month)
 
         return queryset
 
@@ -2753,6 +2811,9 @@ class WithdrawSuccessView(ListView):
         from django.core.paginator import Paginator
         
         context = super().get_context_data(**kwargs)
+        
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
         
         # Cache admin list for 5 minutes to reduce queries
         admins = cache.get('withdrawal_admins_list')
@@ -3746,11 +3807,33 @@ class NotificationsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return (
-            Notifications.objects
-            .filter(is_archived=False)
-            .order_by('-created_at')
-        )
+        qs = Notifications.objects.filter(is_archived=False).order_by('-created_at')
+        
+        # Date filter
+        date_filter = self.request.GET.get('date_filter', '').strip()
+        show_all = self.request.GET.get('show_all', '').strip()
+        
+        if date_filter:
+            try:
+                year_str, month_str = date_filter.split('-')
+                year = int(year_str)
+                month_num = int(month_str.lstrip('0'))
+                qs = qs.filter(created_at__year=year, created_at__month=month_num)
+            except ValueError:
+                pass
+        elif not show_all:
+            # Default to current month
+            today = timezone.now()
+            qs = qs.filter(created_at__year=today.year, created_at__month=today.month)
+        
+        return qs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add current month value for default display
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
+        return context
 
     def get(self, request, *args, **kwargs):
         Notifications.objects.filter(is_read=False).update(is_read=True)
@@ -3926,11 +4009,31 @@ class StockChangesList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return (
-            StockChanges.objects
-            .filter(is_archived=False)
-            .order_by('-date')
-        )
+        qs = StockChanges.objects.filter(is_archived=False).order_by('-date')
+
+        date_filter = self.request.GET.get("date_filter", "").strip()
+        show_all = self.request.GET.get("show_all", "").strip()
+        
+        if date_filter:
+            try:
+                year_str, month_str = date_filter.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                qs = qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        elif not show_all:
+
+            today = timezone.now()
+            qs = qs.filter(date__year=today.year, date__month=today.month)
+        
+        return qs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
+        return context
 
 
 class StockChangesArchiveView(View):
@@ -4548,8 +4651,6 @@ def check_expirations(request):
             "message": str(e)
         }, status=500)
 
-
-@method_decorator(login_required, name='dispatch')
 class BestSellerProductsView(LoginRequiredMixin, TemplateView):
     template_name = "bestseller_products.html"
 
@@ -4559,7 +4660,7 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         now = timezone.now()
 
         filter_date = self.request.GET.get('month')  
-        filter_year_only = self.request.GET.get('year')  
+        show_all = self.request.GET.get('show_all')
         
         filter_type = None 
         
@@ -4577,18 +4678,12 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
                 filter_month = None
                 filter_year = None
 
-        elif filter_year_only:
-            try:
-                current_year = int(filter_year_only)
-                current_month = None
-                filter_month = None
-                filter_year = current_year
-                filter_type = 'year'
-            except (ValueError, TypeError):
-                current_month = now.month
-                current_year = now.year
-                filter_month = None
-                filter_year = None
+        elif show_all:
+            current_month = None
+            current_year = None
+            filter_month = None
+            filter_year = None
+            filter_type = 'all'
 
         else:
             current_month = now.month
@@ -4599,12 +4694,14 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         filters = {
             'item_type': 'PRODUCT',
             'reason': 'SOLD',
-            'is_archived': False,
-            'date__year': current_year
+            'is_archived': False
         }
         
-        if filter_type != 'year':
-            filters['date__month'] = current_month
+        if filter_type != 'all':
+            if current_year:
+                filters['date__year'] = current_year
+            if current_month:
+                filters['date__month'] = current_month
 
         withdrawals = Withdrawals.objects.filter(**filters).values('item_id', 'quantity', 'custom_price')
 
@@ -4700,14 +4797,21 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
         context['filter_year'] = filter_year
         context['filter_type'] = filter_type
         
-        if filter_type == 'year':
+        context['current_month_value'] = now.strftime("%Y-%m")
+        
+        if filter_type == 'all':
             context['current_month_name'] = None
+            context['current_year'] = None
             context['filter_month_name'] = None
             context['filter_month_value'] = ''
-        else:
+        elif current_month and current_year:
             context['current_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
             context['filter_month_name'] = datetime(current_year, current_month, 1).strftime('%B')
             context['filter_month_value'] = f"{current_year}-{current_month:02d}"
+        else:
+            context['current_month_name'] = None
+            context['filter_month_name'] = None
+            context['filter_month_value'] = ''
         
         context['available_years'] = [d.year for d in available_years]
         context['months'] = [
@@ -4789,17 +4893,43 @@ def financial_loss(request):
     """View for displaying financial losses from expired and damaged items"""
     from django.core.paginator import Paginator
 
+    date_filter = request.GET.get('date_filter', '').strip()
+    show_all = request.GET.get('show_all', '').strip()
+    today = timezone.now()
+
     product_withdrawals = Withdrawals.objects.filter(
         item_type='PRODUCT',
         reason__in=['EXPIRED', 'DAMAGED'],
         is_archived=False
     ).select_related('created_by_admin').order_by('-date')
 
+    if date_filter:
+        try:
+            year_str, month_str = date_filter.split('-')
+            year = int(year_str)
+            month_num = int(month_str.lstrip('0'))
+            product_withdrawals = product_withdrawals.filter(date__year=year, date__month=month_num)
+        except ValueError:
+            pass
+    elif not show_all:
+        product_withdrawals = product_withdrawals.filter(date__year=today.year, date__month=today.month)
+
     raw_material_withdrawals = Withdrawals.objects.filter(
         item_type='RAW_MATERIAL',
         reason__in=['EXPIRED', 'DAMAGED'],
         is_archived=False
     ).select_related('created_by_admin').order_by('-date')
+
+    if date_filter:
+        try:
+            year_str, month_str = date_filter.split('-')
+            year = int(year_str)
+            month_num = int(month_str.lstrip('0'))
+            raw_material_withdrawals = raw_material_withdrawals.filter(date__year=year, date__month=month_num)
+        except ValueError:
+            pass
+    elif not show_all:
+        raw_material_withdrawals = raw_material_withdrawals.filter(date__year=today.year, date__month=today.month)
 
     product_loss_data = []
     total_product_loss = Decimal('0.00')
@@ -4870,6 +5000,7 @@ def financial_loss(request):
         'product_loss': total_product_loss,
         'raw_material_loss': total_raw_material_loss,
         'total_loss': total_loss,
+        'current_month_value': today.strftime("%Y-%m"),
     }
     
     return render(request, 'financial_loss.html', context)

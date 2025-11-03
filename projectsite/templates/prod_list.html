@@ -45,23 +45,18 @@
 
                             <!-- Other Filters Row -->
                             <div class="row">
-                                <div class="col-md-6">
-                                    <input type="text" name="search" class="form-control"
+                                <div class="col-auto">
+                                    <input type="text" name="search" class="form-control" style="width: 350px;"
                                         placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <input type="date" name="date_created" class="form-control"
-                                           placeholder="Filter by Date"
-                                           value="{{ request.GET.date_created }}">
-                                </div>
-                                <div class="col-md-3">
+                                <div class="col-auto">
                                     <div class="input-group">
                                         <input type="text" name="barcode" id="barcode-search" class="form-control"
                                             placeholder="🔍 Scan or enter barcode..." value="{{ request.GET.barcode }}">
                                     </div>
                                     <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
                                 </div>
-                                <div class="col-md-1">
+                                <div class="col-auto">
                                     <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                                         <i class="la la-times"></i>
                                     </button>
@@ -633,6 +628,7 @@ function bulkArchive() {
         showToast('An error occurred while archiving products', 'error');
     });
 }
+
 </script>
 
 <div class="modal fade" id="archiveOldProductsModal" tabindex="-1" role="dialog" aria-hidden="true">

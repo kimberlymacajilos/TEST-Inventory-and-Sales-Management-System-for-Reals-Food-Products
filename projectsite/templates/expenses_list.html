@@ -49,15 +49,14 @@
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" />
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
+                Show All Data
+              </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
               </button>
             </div>
-
-            <small class="text-muted mt-0 mb-3 d-block" id="filterInfo">
-              Showing data for <span id="currentMonthDisplay">October 2025</span> (Current Month)
-            </small>
             
             <!-- Expenses Summary -->
             <div class="row mb-1 text-center" id="expensesSummary">
@@ -454,6 +453,17 @@ function bulkArchiveExpense() {
         console.error('Bulk archive error:', error);
         showToast('An error occurred while archiving expenses', 'error');
     });
+}
+
+function toggleShowAll() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('show_all')) {
+    params.delete('show_all');
+  } else {
+    params.set('show_all', '1');
+    params.delete('date_filter');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
 }
 </script>
 
