@@ -14,22 +14,24 @@
             <div>
               <div class="card-title">List of Expenses</div>
             </div>
-            <div>
-              <!-- Actions Dropdown -->
-              <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Actions
-              </button>
-              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
-                <a class="dropdown-item" href="{% url 'expenses-archived-list' %}">Show Archived</a>
-                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldExpenseModal">
-                  Archive Old Data
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  Archive Options
                 </button>
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
+                  <a class="dropdown-item" href="{% url 'expenses-archived-list' %}">Show Archived</a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldExpenseModal">Archive Old Data</a>
+                </div>
               </div>
+
               <!-- Export Button -->
               <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportExpenseModal">
                 <i class="la la-download"></i> Export Expenses
               </button>
-              <!-- Add Button -->
+
+              <!-- Add Expenses button -->
               <a href="{% url 'expenses-add' %}" class="btn btn-success btn-rounded">Add Expenses</a>
             </div>
           </div>
@@ -37,7 +39,7 @@
           <div class="card-body">
 
             <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
@@ -47,8 +49,13 @@
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
             <!-- Expenses Summary -->
@@ -79,11 +86,24 @@
               </div>
             </div>
 
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteExpense()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveExpense()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+
             <!-- Table -->
             <div class="table-responsive">
               <table class="table table-striped" id="expensesTable">
                 <thead>
                   <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th>Category</th>
                     <th>Amount</th>
                     <th>Date</th>
@@ -94,7 +114,10 @@
                 <tbody id="expensesTableBody">
                   {% for object in object_list %}
                   <tr>
-                    <td>{{ object.category|lower|capfirst|slugify|title }}</td>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
+                    <td>{{ object.category }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
                     <td>{{ object.description }}</td>
@@ -325,6 +348,110 @@ function handleDeleteSubmit(event, expenseName) {
     .catch(error => {
         console.error('Delete error:', error);
         showToast('An error occurred while deleting the expense.', 'error');
+    });
+}
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteExpense() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one expense', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} expense(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "expenses-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete expenses', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting expenses', 'error');
+    });
+}
+
+function bulkArchiveExpense() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one expense', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} expense(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "expenses-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive expenses', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving expenses', 'error');
     });
 }
 </script>

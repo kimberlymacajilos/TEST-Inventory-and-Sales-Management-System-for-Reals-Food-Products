@@ -11,8 +11,27 @@ document.addEventListener("DOMContentLoaded", function () {
   const tableBody = document.getElementById("salesTableBody");
   const pagination = document.querySelector(".pagination-container");
   const summaryContainer = document.getElementById("salesSummary");
+  const currentMonthDisplay = document.getElementById("currentMonthDisplay");
 
   let timeout;
+
+  function updateFilterInfo() {
+    const now = new Date();
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    
+    if (dateFilter.value) {
+      const [year, month] = dateFilter.value.split('-');
+      const monthName = monthNames[parseInt(month) - 1];
+      currentMonthDisplay.textContent = `${monthName} ${year}`;
+    } else {
+      const currentMonth = monthNames[now.getMonth()];
+      const currentYear = now.getFullYear();
+      currentMonthDisplay.textContent = `${currentMonth} ${currentYear}`;
+    }
+  }
+
+  updateFilterInfo();
 
   function fetchSales(resetPage = true) {
     clearTimeout(timeout);
@@ -67,7 +86,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Event listeners
   categoryFilter.addEventListener("change", () => fetchSales(true));
-  dateFilter.addEventListener("change", () => fetchSales(true));
+  dateFilter.addEventListener("change", () => {
+    updateFilterInfo();
+    fetchSales(true);
+  });
   
   // Handle pagination clicks
   document.addEventListener("click", function(e) {

@@ -83,7 +83,6 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-
 # DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.postgresql',
@@ -92,13 +91,25 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 #        'PASSWORD': 'Reals_db_123',
 #        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
 #        'PORT': '5432',
+#        'CONN_MAX_AGE': 600, 
 #    }
+# }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'reals_local',
+#         'USER': 'postgres',
+#         'PASSWORD': 'admin',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
 # }
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'reals_local',
+        'NAME': 'postgres',
         'USER': 'postgres',
         'PASSWORD': 'admin',
         'HOST': 'localhost',
@@ -178,8 +189,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "haideeventurillo11@gmail.com"
-EMAIL_HOST_PASSWORD = "jtus xkjd nvaz klug"
+EMAIL_HOST_USER = "inventcaps@gmail.com"
+EMAIL_HOST_PASSWORD = "mwko idqd bjzv ujww"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 MEDIA_URL = '/media/'

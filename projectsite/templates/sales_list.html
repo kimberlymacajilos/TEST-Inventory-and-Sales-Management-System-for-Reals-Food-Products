@@ -14,22 +14,24 @@
             <div>
               <div class="card-title">List of Sales</div>
             </div>
-            <div>
-              <!-- Actions Dropdown -->
-              <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Actions
-              </button>
-              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
-                <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
-                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldSalesModal">
-                  Archive Old Data
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  Archive Options
                 </button>
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
+                  <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldSalesModal">Archive Old Data</a>
+                </div>
               </div>
+
               <!-- Export Button -->
               <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportSalesModal">
                 <i class="la la-download"></i> Export Sales
               </button>
-              <!-- Add Button -->
+
+              <!-- Add Sale button -->
               <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
             </div>
           </div>
@@ -37,7 +39,7 @@
           <div class="card-body">
 
             <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
               <select id="categoryFilter" class="form-control" style="width:150px;">
                 <option value="">All Categories</option>
@@ -47,8 +49,13 @@
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
-
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
             <!-- Sales Summary -->
@@ -79,11 +86,24 @@
               </div>
             </div>
 
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteSale()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveSale()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+
             <!-- Table -->
             <div class="table-responsive">
               <table class="table table-striped" id="salesTable">
                 <thead>
                   <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+                    </th>
                     <th>Category</th>
                     <th>Amount</th>
                     <th>Date</th>
@@ -97,10 +117,13 @@
                       data-sale-category="{{ object.category }}" 
                       data-sale-amount="{{ object.amount }}"
                       data-sale-date="{{ object.date|date:'Y-m-d' }}">
-                    <td>{{ object.category|lower|capfirst|slugify|title }}</td>
+                    <td>
+                        <input type="checkbox" class="row-checkbox" value="{{ object.id }}" onchange="updateBulkButtons()">
+                    </td>
+                    <td>{{ object.category }}</td>
                     <td>₱{{ object.amount }}</td>
                     <td>{{ object.date|date:"Y-m-d" }}</td>
-                    <td>{{ object.description }}</td>
+                    <td class="description-cell">{{ object.description }}</td>
                     <td>
                       <a href="{% url 'sales-edit' object.id %}" class="text-primary" title="Edit">
                         <i class="la la-edit la-lg"></i>
@@ -132,53 +155,53 @@
           </div>
         </div>
 
-        <!-- Withdrawal-Based Sales Table -->
+        <!-- Withdrawal-Based Sales Table (Orders) -->
         <div class="card mt-4">
           <div class="card-header">
-            <div class="card-title">Sales from Withdrawals (SOLD Items)</div>
+            <div class="card-title">Sales from Withdrawals (Orders, Consignment, Reseller)</div>
           </div>
           <div class="card-body">
             <div class="table-responsive">
               <table class="table table-striped">
                 <thead>
                   <tr>
-                    <th>Item</th>
-                    <th>Quantity</th>
+                    <th>Customer/Store</th>
                     <th>Sales Channel</th>
-                    <th>Price Type</th>
-                    <th>Custom Price</th>
-                    <th>Discount</th>
+                    <th>Items</th>
+                    <th>Payment Status</th>
                     <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for withdrawal in withdrawal_sales %}
+                  {% for order in withdrawal_orders %}
                   <tr>
-                    <td>{{ withdrawal.get_item_display }}</td>
-                    <td>{{ withdrawal.quantity|floatformat:2 }}</td>
-                    <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
-                    <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
+                    <td>{{ order.customer_name|default:"N/A" }}</td>
+                    <td>{{ order.sales_channel }}</td>
+                    <td>{{ order.item_count }} item(s)</td>
                     <td>
-                      {% if withdrawal.custom_price %}
-                        ₱{{ withdrawal.custom_price|floatformat:2 }}
+                      <span class="badge 
+                        {% if order.payment_status == 'PAID' %}badge-success
+                        {% elif order.payment_status == 'UNPAID' %}badge-danger
+                        {% elif order.payment_status == 'PARTIAL' %}badge-warning
+                        {% else %}badge-secondary{% endif %}">
+                        {{ order.payment_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ order.date|date:"Y-m-d H:i" }}</td>
+                    <td>
+                      {% if not order.is_single %}
+                      <a href="{% url 'withdrawal-order-detail' order.actual_group_id %}" class="btn btn-sm btn-primary" title="View Details">
+                        <i class="la la-eye"></i> View Details
+                      </a>
                       {% else %}
-                        -
+                      <span class="text-muted">N/A (Legacy)</span>
                       {% endif %}
                     </td>
-                    <td>
-                      {% if withdrawal.custom_discount_value %}
-                        {{ withdrawal.custom_discount_value }}%
-                      {% elif withdrawal.discount %}
-                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value }}%)
-                      {% else %}
-                        -
-                      {% endif %}
-                    </td>
-                    <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
                   </tr>
                   {% empty %}
                   <tr>
-                    <td colspan="8" class="text-center text-muted">No withdrawal-based sales found for this period</td>
+                    <td colspan="6" class="text-center text-muted">No withdrawal-based orders found for this period</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -406,6 +429,167 @@ function handleDeleteSubmit(event, saleName) {
         showToast('An error occurred while deleting the sale.', 'error');
     });
 }
+
+// Show/hide paid amount field based on payment status selection
+$(document).on('change', '.payment-status-select', function() {
+    const modal = $(this).closest('.modal');
+    const partialField = modal.find('.partial-amount-field');
+    
+    if ($(this).val() === 'PARTIAL') {
+        partialField.show();
+        partialField.find('input').attr('required', true);
+    } else {
+        partialField.hide();
+        partialField.find('input').attr('required', false);
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+  const descriptionCells = document.querySelectorAll('.description-cell');
+  descriptionCells.forEach(cell => {
+    let text = cell.textContent.trim();
+    
+    // Remove Withdrawal ID and Channel parts
+    text = text.replace(/Withdrawal ID:\s*\d+,?\s*/gi, '');
+    text = text.replace(/Channel:\s*\w+,?\s*/gi, '');
+    text = text.replace(/PriceType:\s*([A-Z_]+)/gi, function(match, priceType) {
+      let formatted = priceType.toLowerCase().replace(/_/g, ' ');
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      return 'Price Type: ' + formatted;
+    });
+
+    text = text.replace(/,?\s*Discount:\s*0(\.0+)?%,?\s*/gi, '');
+    text = text.replace(/Discount:\s*([\d.]+)%/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Discount: ' + num.toFixed(2) + '%';
+    });
+
+    text = text.replace(/BasePrice:\s*([\d.]+)/gi, function(match, value) {
+      let num = parseFloat(value);
+      return 'Base Price: ₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/₱\s*([\d,]+\.\d{3,})/g, function(match, value) {
+      let num = parseFloat(value.replace(/,/g, ''));
+      return '₱' + num.toFixed(2);
+    });
+
+    text = text.replace(/(\bQuantity:\s*)([\d,]+)\.0+\b/gi, function(match, label, value) {
+      return label + value;
+    });
+    
+    // Clean up extra commas and spaces
+    text = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').replace(/,\s*$/, '');
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    cell.textContent = text;
+  });
+});
+
+// Bulk selection functions
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+}
+
+function getSelectedIds() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-delete-new" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to delete sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        showToast('An error occurred while deleting sales', 'error');
+    });
+}
+
+function bulkArchiveSale() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) {
+        showToast('Please select at least one sale', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} sale(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "sales-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Failed to archive sales', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        showToast('An error occurred while archiving sales', 'error');
+    });
+}
+
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

@@ -17,13 +17,19 @@
             <form method="get" action="" id="filterForm">
               <!-- Search -->
               <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <div class="input-group">
-                    <input type="text" id="searchInput" name="q"
+                    <input type="text" id="searchInput" name="search"
                       class="form-control"
-                      value="{{ request.GET.q }}"
-                      placeholder="Search product inventory...">
+                      value="{{ request.GET.search }}"
+                      style="width:350px;"
+                      placeholder="Search Product Type, Variant, or Size...">
                   </div>
+                </div>
+                <div class="col-md-1">
+                  <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                    <i class="la la-times"></i>
+                  </button>
                 </div>
               </div>
 
@@ -52,8 +58,8 @@
                   {% for object in product_inventory %}
                   <tr>
                     <td>{{ object.product }}</td>
-                    <td>{{ object.total_stock }}</td>
-                    <td>{{ object.restock_threshold }}</td>
+                    <td>{{ object.total_stock|floatformat:0 }}</td>
+                    <td>{{ object.restock_threshold|floatformat:0 }}</td>
                     <td>
                       {% if object.total_stock == 0 %}
                         <span class="badge bg-danger">Out of Stock</span>
@@ -103,9 +109,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Update or remove search query
       if (searchInput.value) {
-        params.set("q", searchInput.value);
+        params.set("search", searchInput.value);
       } else {
-        params.delete("q");
+        params.delete("search");
       }
       
       // Update or remove status filter

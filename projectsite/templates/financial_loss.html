@@ -23,32 +23,38 @@
           <div class="card-body">
             <!-- Date Filter -->
             <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
-              <input type="month" id="dateFilter" class="form-control" style="width:160px;" placeholder="Select month" />
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
+              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                <i class="la la-list"></i> Show All
+              </button>
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
             <!-- Summary Cards -->
             <div class="row mb-4 text-center">
               <div class="col-md-4">
-                <div class="card bg-danger text-white">
+                <div class="card">
                   <div class="card-body">
-                    <h5 class="card-title">Total Financial Loss</h5>
-                    <h3 id="totalLoss">₱{{ total_loss|floatformat:2|intcomma }}</h3>
+                    <h5 class="card-title text-muted">Total Financial Loss</h5>
+                    <h3 id="totalLoss" class="text-danger">₱{{ total_loss|floatformat:2|intcomma }}</h3>
                   </div>
                 </div>
               </div>
               <div class="col-md-4">
-                <div class="card bg-warning text-white">
+                <div class="card">
                   <div class="card-body">
-                    <h5 class="card-title">Product Loss</h5>
-                    <h3 id="productLoss">₱{{ product_loss|floatformat:2|intcomma }}</h3>
+                    <h5 class="card-title text-muted">Product Loss</h5>
+                    <h3 id="productLoss" class="text-warning">₱{{ product_loss|floatformat:2|intcomma }}</h3>
                   </div>
                 </div>
               </div>
               <div class="col-md-4">
-                <div class="card bg-info text-white">
+                <div class="card">
                   <div class="card-body">
-                    <h5 class="card-title">Raw Material Loss</h5>
-                    <h3 id="rawMaterialLoss">₱{{ raw_material_loss|floatformat:2|intcomma }}</h3>
+                    <h5 class="card-title text-muted">Raw Material Loss</h5>
+                    <h3 id="rawMaterialLoss" class="text-info">₱{{ raw_material_loss|floatformat:2|intcomma }}</h3>
                   </div>
                 </div>
               </div>
@@ -90,6 +96,78 @@
                 </tbody>
               </table>
             </div>
+            
+            <!-- Products Pagination -->
+            {% if product_is_paginated %}
+            <nav aria-label="Page navigation" class="mt-4">
+              <ul class="pagination justify-content-center">
+                {% if product_page_obj.number > 1 %}
+                <li class="page-item">
+                  <a class="page-link" href="?product_page=1{% if request.GET.raw_material_page %}&raw_material_page={{ request.GET.raw_material_page }}{% endif %}" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;&laquo;</span>
+                </li>
+                {% endif %}
+
+                {% if product_page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?product_page={{ product_page_obj.previous_page_number }}{% if request.GET.raw_material_page %}&raw_material_page={{ request.GET.raw_material_page }}{% endif %}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;</span>
+                </li>
+                {% endif %}
+
+                {% for page_num in product_paginator.page_range %}
+                  {% if product_page_obj.number == page_num %}
+                  <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                  </li>
+                  {% elif page_num > product_page_obj.number|add:'-3' and page_num < product_page_obj.number|add:'3' %}
+                  <li class="page-item">
+                    <a class="page-link" href="?product_page={{ page_num }}{% if request.GET.raw_material_page %}&raw_material_page={{ request.GET.raw_material_page }}{% endif %}">
+                      {{ page_num }}
+                    </a>
+                  </li>
+                  {% endif %}
+                {% endfor %}
+
+                {% if product_page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?product_page={{ product_page_obj.next_page_number }}{% if request.GET.raw_material_page %}&raw_material_page={{ request.GET.raw_material_page }}{% endif %}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;</span>
+                </li>
+                {% endif %}
+
+                {% if product_page_obj.number != product_paginator.num_pages %}
+                <li class="page-item">
+                  <a class="page-link" href="?product_page={{ product_paginator.num_pages }}{% if request.GET.raw_material_page %}&raw_material_page={{ request.GET.raw_material_page }}{% endif %}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;&raquo;</span>
+                </li>
+                {% endif %}
+              </ul>
+              <div class="text-center text-muted">
+                Page {{ product_page_obj.number }} of {{ product_paginator.num_pages }}
+              </div>
+            </nav>
+            {% endif %}
 
             <!-- Raw Materials Loss Section -->
             <h5 class="mt-5 mb-3">Raw Materials - Expired & Damaged</h5>
@@ -127,6 +205,78 @@
                 </tbody>
               </table>
             </div>
+            
+            <!-- Raw Materials Pagination -->
+            {% if raw_material_is_paginated %}
+            <nav aria-label="Page navigation" class="mt-4">
+              <ul class="pagination justify-content-center">
+                {% if raw_material_page_obj.number > 1 %}
+                <li class="page-item">
+                  <a class="page-link" href="?raw_material_page=1{% if request.GET.product_page %}&product_page={{ request.GET.product_page }}{% endif %}" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;&laquo;</span>
+                </li>
+                {% endif %}
+
+                {% if raw_material_page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?raw_material_page={{ raw_material_page_obj.previous_page_number }}{% if request.GET.product_page %}&product_page={{ request.GET.product_page }}{% endif %}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;</span>
+                </li>
+                {% endif %}
+
+                {% for page_num in raw_material_paginator.page_range %}
+                  {% if raw_material_page_obj.number == page_num %}
+                  <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                  </li>
+                  {% elif page_num > raw_material_page_obj.number|add:'-3' and page_num < raw_material_page_obj.number|add:'3' %}
+                  <li class="page-item">
+                    <a class="page-link" href="?raw_material_page={{ page_num }}{% if request.GET.product_page %}&product_page={{ request.GET.product_page }}{% endif %}">
+                      {{ page_num }}
+                    </a>
+                  </li>
+                  {% endif %}
+                {% endfor %}
+
+                {% if raw_material_page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?raw_material_page={{ raw_material_page_obj.next_page_number }}{% if request.GET.product_page %}&product_page={{ request.GET.product_page }}{% endif %}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;</span>
+                </li>
+                {% endif %}
+
+                {% if raw_material_page_obj.number != raw_material_paginator.num_pages %}
+                <li class="page-item">
+                  <a class="page-link" href="?raw_material_page={{ raw_material_paginator.num_pages }}{% if request.GET.product_page %}&product_page={{ request.GET.product_page }}{% endif %}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;&raquo;</span>
+                </li>
+                {% endif %}
+              </ul>
+              <div class="text-center text-muted">
+                Page {{ raw_material_page_obj.number }} of {{ raw_material_paginator.num_pages }}
+              </div>
+            </nav>
+            {% endif %}
           </div>
         </div>
       </div>

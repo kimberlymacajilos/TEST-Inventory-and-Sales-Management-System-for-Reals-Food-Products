@@ -1,15 +1,25 @@
 {% extends 'base.html' %} {% load static %} {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Sales</h4>
+        <h4 class="page-title">
+            <a href="{% url 'withdrawals' %}" class="btn btn-link p-0 mr-2" title="Back to Withdrawals">
+                <i class="la la-arrow-left" style="font-size: 24px;"></i>
+            </a>
+            Withdrawals
+        </h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">Edit Withdraw Item</div>
+                        <div class="card-title">Edit withdrawn Item
+                            {% if is_raw_material %}
+                                <span class="badge badge-info ml-2">Raw Material</span>
+                            {% else %}
+                                <span class="badge badge-success ml-2">Product</span>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
                     <div class="card-body">
                         <form action="" method="post" novalidate>
                             {% csrf_token %} {% include 'includes/form.html' %}
@@ -18,13 +28,10 @@
                                 <option value="UNIT">Unit Price</option>
                                 <option value="SRP">Suggested Retail Price</option>
                             </datalist>
-                            <div class="form-group">
-                                <div class="col-md-12 col-sm-3">
-                                    <button type="submit" class="btn btn-primary btn-rounded">Submit</button>
-                                </div>
+                            <div class="form-actions btn-row mt-3">
+                                <button type="submit" class="btn btn-primary btn-rounded">Update</button>
                             </div>
                         </form>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -35,25 +42,154 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const salesChannelField = document.querySelector('[name="sales_channel"]');
+    const customerNameField = document.querySelector('[name="customer_name"]');
+    const paymentStatusField = document.querySelector('[name="payment_status"]');
+    const paidAmountField = document.querySelector('[name="paid_amount"]');
     const priceField = document.querySelector('[name="price_type_or_custom"]');
-    const form = priceField.closest("form");
+    const discountField = document.querySelector('[name="discount"]');
+    const customDiscountField = document.querySelector('[name="custom_discount_value"]');
+    const reasonField = document.querySelector('[name="reason"]');
+    const form = priceField ? priceField.closest("form") : document.querySelector("form");
+    
+    // Check if this is a raw material withdrawal
+    const isRawMaterial = {{ is_raw_material|yesno:"true,false" }};
+
+    // Function to hide/show a field's parent container
+    function setFieldVisibility(field, visible) {
+        if (!field) return;
+        let container = field.closest('.field.item') || 
+                      field.closest('.field') || 
+                      field.closest('.form-group');
+        if (container) {
+            container.style.display = visible ? 'block' : 'none';
+        }
+    }
+
+    // Function to update field visibility based on current selections
+    function updateFieldVisibility() {
+        const reason = reasonField ? reasonField.value : "";
+        const salesChannel = salesChannelField ? salesChannelField.value : "";
+        const paymentStatus = paymentStatusField ? paymentStatusField.value : "";
+        
+        // Raw material logic
+        if (isRawMaterial) {
+            setFieldVisibility(salesChannelField, false);
+            setFieldVisibility(customerNameField, false);
+            setFieldVisibility(paymentStatusField, false);
+            setFieldVisibility(paidAmountField, false);
+            setFieldVisibility(priceField, false);
+            setFieldVisibility(discountField, false);
+            setFieldVisibility(customDiscountField, false);
+            return;
+        }
+        
+        // Product logic
+        if (reason !== 'SOLD') {
+            // Not sold - hide all sales-related fields
+            setFieldVisibility(salesChannelField, false);
+            setFieldVisibility(customerNameField, false);
+            setFieldVisibility(paymentStatusField, false);
+            setFieldVisibility(paidAmountField, false);
+            setFieldVisibility(priceField, false);
+            setFieldVisibility(discountField, false);
+            setFieldVisibility(customDiscountField, false);
+            return;
+        }
+        
+        // Reason is SOLD
+        setFieldVisibility(salesChannelField, true);
+        
+        // Check sales channel
+        const isOrderChannel = ['ORDER', 'CONSIGNMENT', 'RESELLER'].includes(salesChannel);
+        
+        if (isOrderChannel) {
+            // ORDER/CONSIGNMENT/RESELLER
+            setFieldVisibility(customerNameField, true);
+            setFieldVisibility(paymentStatusField, true);
+            
+            // Check payment status
+            if (paymentStatus === 'PAID') {
+                setFieldVisibility(priceField, true);
+                setFieldVisibility(paidAmountField, false);
+                
+                // Check if custom price or unit/srp
+                const priceValue = priceField ? priceField.value.trim().toUpperCase() : "";
+                const isCustomPrice = priceValue && priceValue !== 'UNIT' && priceValue !== 'SRP';
+                setFieldVisibility(discountField, !isCustomPrice);
+                setFieldVisibility(customDiscountField, !isCustomPrice);
+            } else if (paymentStatus === 'PARTIAL') {
+                setFieldVisibility(priceField, false);
+                setFieldVisibility(paidAmountField, true);
+                setFieldVisibility(discountField, false);
+                setFieldVisibility(customDiscountField, false);
+            } else if (paymentStatus === 'UNPAID') {
+                setFieldVisibility(priceField, false);
+                setFieldVisibility(paidAmountField, false);
+                setFieldVisibility(discountField, false);
+                setFieldVisibility(customDiscountField, false);
+            }
+        } else {
+            // PHYSICAL_STORE or other channels
+            setFieldVisibility(customerNameField, false);
+            setFieldVisibility(paymentStatusField, false);
+            setFieldVisibility(paidAmountField, false);
+            setFieldVisibility(priceField, true);
+            
+            // Check if custom price
+            const priceValue = priceField ? priceField.value.trim().toUpperCase() : "";
+            const isCustomPrice = priceValue && priceValue !== 'UNIT' && priceValue !== 'SRP';
+            setFieldVisibility(discountField, !isCustomPrice);
+            setFieldVisibility(customDiscountField, !isCustomPrice);
+        }
+    }
+
+    // Add event listeners
+    if (reasonField) reasonField.addEventListener('change', updateFieldVisibility);
+    if (salesChannelField) salesChannelField.addEventListener('change', updateFieldVisibility);
+    if (paymentStatusField) paymentStatusField.addEventListener('change', updateFieldVisibility);
+    if (priceField) priceField.addEventListener('input', updateFieldVisibility);
+    
+    // Initial update
+    updateFieldVisibility();
 
     function isNumeric(value) {
         return !isNaN(value) && value.trim() !== "";
     }
 
     form.addEventListener("submit", function (e) {
-        const selectedChannel = salesChannelField.value.trim().toUpperCase();
-        const priceValue = priceField.value.trim().toUpperCase();
+        // Skip validation for raw materials
+        if (isRawMaterial) {
+            return true;
+        }
         
-        if (
-            priceValue === "" ||
-            (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")
-        ) {
-            e.preventDefault();
-            alert("Please enter a valid price or select UNIT/SRP.");
-            priceField.focus();
-            return false;
+        const reasonValue = reasonField ? reasonField.value : "";
+        
+        // Only validate price if reason is SOLD
+        if (reasonValue === "SOLD") {
+            const paymentStatus = paymentStatusField ? paymentStatusField.value : "";
+            const salesChannel = salesChannelField ? salesChannelField.value : "";
+            
+            // Validate based on payment status
+            if (paymentStatus === 'PAID') {
+                const priceValue = priceField ? priceField.value.trim().toUpperCase() : "";
+                if (
+                    priceValue === "" ||
+                    (!isNumeric(priceValue) && priceValue !== "UNIT" && priceValue !== "SRP")
+                ) {
+                    e.preventDefault();
+                    alert("Please enter a valid price or select UNIT/SRP.");
+                    if (priceField) priceField.focus();
+                    return false;
+                }
+            } else if (paymentStatus === 'PARTIAL') {
+                const paidAmount = paidAmountField ? paidAmountField.value : "";
+                if (!paidAmount || parseFloat(paidAmount) <= 0) {
+                    e.preventDefault();
+                    alert("Please enter a valid paid amount for partial payment.");
+                    if (paidAmountField) paidAmountField.focus();
+                    return false;
+                }
+            }
         }
     });
 });
