@@ -7,12 +7,12 @@
       <div class="row">
         <div class="col-md-12">
           <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <div>
-                <div class="card-title">List of Notifications</div>
-              </div>
+            <div class="card-header">
+              <div class="card-title">List of Notifications</div>
+            </div>
 
-              <div class="d-flex align-items-center" style="gap:0.5rem;">
+            <div class="card-body">
+              <div class="d-flex align-items-center mb-3" style="gap:0.5rem;">
                 <input type="month" id="dateFilter" name="date_filter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
                 <button type="button" class="btn btn-info" onclick="toggleShowAll()">
                   Show All Data
@@ -21,9 +21,6 @@
                   <i class="la la-times"></i>
                 </button>
               </div>
-            </div>
-
-            <div class="card-body">
               <div class="table-responsive">
                 <table class="table table-striped" id="inventoryTable">
                   <thead>
