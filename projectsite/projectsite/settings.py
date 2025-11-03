@@ -83,36 +83,25 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'postgres',
-#        'USER': 'postgres',
-#        'PASSWORD': 'Reals_db_123',
-#        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
-#        'PORT': '5432',
-#        'CONN_MAX_AGE': 600, 
-#    }
-# }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'reals_local',
-#         'USER': 'postgres',
-#         'PASSWORD': 'admin',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
+#DATABASES = {
+#  'default': {
+#      'ENGINE': 'django.db.backends.postgresql',
+#      'NAME': 'postgres',
+#      'USER': 'postgres',
+#      'PASSWORD': 'Reals_db_123',
+#      'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
+#      'PORT': '5432',
+#      'CONN_MAX_AGE': 600, 
+#  }
+#}
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
+        'NAME': 'reals_local_updated',
         'USER': 'postgres',
-        'PASSWORD': 'Inventcaps_2025',
-        'HOST': 'db.bmpwrztfukjnzdubtjox.supabase.co',
+        'PASSWORD': 'admin',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }
