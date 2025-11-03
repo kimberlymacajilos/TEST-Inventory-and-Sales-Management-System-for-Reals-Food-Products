@@ -28,6 +28,7 @@ from realsproj.forms import (
     HistoryLogForm,
     SalesForm,
     ExpensesForm,
+    SalesExpensesForm,
     ProductBatchForm,
     ProductInventoryForm,
     RawMaterialBatchForm,
@@ -1867,6 +1868,60 @@ class ExpensesDeleteView(DeleteView):
     def get_success_url(self):
         messages.success(self.request, "🗑️ Expense deleted successfully.")
         return super().get_success_url()
+
+
+class SalesExpensesCreateView(View):
+    """View for creating both sales and expenses together"""
+    template_name = 'sales_expenses_add.html'
+    
+    def get(self, request):
+        form = SalesExpensesForm()
+        return render(request, self.template_name, {'form': form})
+    
+    @transaction.atomic
+    def post(self, request):
+        form = SalesExpensesForm(request.POST)
+        
+        if form.is_valid():
+            try:
+                auth_user = AuthUser.objects.get(id=request.user.id)
+                
+                # Create Sales record
+                sales = Sales.objects.create(
+                    category=form.cleaned_data['sales_category'],
+                    amount=form.cleaned_data['sales_amount'],
+                    date=form.cleaned_data['date'],
+                    description=form.cleaned_data['sales_description'] or '',
+                    created_by_admin=auth_user,
+                    is_archived=False
+                )
+                
+                # Create Expenses record with "Sales-related expenses" as category
+                expenses = Expenses.objects.create(
+                    category=f"Expenses for {form.cleaned_data['sales_category']}",
+                    amount=form.cleaned_data['total_expenses'],
+                    date=form.cleaned_data['date'],
+                    description=form.cleaned_data['expenses_description'] or 'Auto-generated from sales entry',
+                    created_by_admin=auth_user,
+                    is_archived=False
+                )
+                
+                # Calculate profit
+                profit = form.cleaned_data['sales_amount'] - form.cleaned_data['total_expenses']
+                
+                messages.success(
+                    request, 
+                    f"✅ Sales & Expenses recorded successfully! Net Profit: ₱{profit:,.2f}"
+                )
+                return redirect('sales')
+                
+            except Exception as e:
+                transaction.set_rollback(True)
+                messages.error(request, f"Failed to create sales & expenses: {e}")
+                return render(request, self.template_name, {'form': form})
+        else:
+            messages.error(request, "Please correct the errors below.")
+            return render(request, self.template_name, {'form': form})
 
 
 class ProductBatchList(ListView):

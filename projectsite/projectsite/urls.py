@@ -53,10 +53,11 @@ urlpatterns = [
     path('rawmaterials/bulk-archive/', a.rawmaterial_bulk_archive, name='rawmaterial-bulk-archive'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
-    path('history/', a.HistoryLogList.as_view(), name='history_log'),  # Added this line to match template reference
+    path('history/', a.HistoryLogList.as_view(), name='history_log'),  
 
     path('sales/', a.SalesList.as_view(), name='sales'),
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
+    path('sales/expenses/add', a.SalesExpensesCreateView.as_view(), name='sales-expenses-add'),
     path('sales/<pk>', a.SalesUpdateView.as_view(), name='sales-edit'),
     path('sales/<pk>/delete', a.SalesDeleteView.as_view(), name='sales-delete'),
     path('sales/<int:pk>/archive/', a.SaleArchiveView.as_view(), name='sales-archive'),

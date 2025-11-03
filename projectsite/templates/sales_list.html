@@ -31,8 +31,23 @@
                 <i class="la la-download"></i> Export Sales
               </button>
 
-              <!-- Add Sale button -->
-              <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
+              <!-- Add dropdown button with 3 options -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-success btn-rounded dropdown-toggle" type="button" id="addDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <i class="la la-plus"></i> Add
+                </button>
+                <div class="dropdown-menu" aria-labelledby="addDropdown">
+                  <a class="dropdown-item" href="{% url 'sales-add' %}">
+                    <i class="la la-dollar"></i> Add Sales
+                  </a>
+                  <a class="dropdown-item" href="{% url 'expenses-add' %}">
+                    <i class="la la-credit-card"></i> Add Expenses
+                  </a>
+                  <a class="dropdown-item" href="{% url 'sales-expenses-add' %}">
+                    <i class="la la-calculator"></i> Add Sales & Expenses
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
