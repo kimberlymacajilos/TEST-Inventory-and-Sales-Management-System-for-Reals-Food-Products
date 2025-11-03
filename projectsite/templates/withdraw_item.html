@@ -52,7 +52,34 @@
               </select>
             </div>
 
-            <!-- Price -->
+            <!-- Customer/Store Name (for ORDER, CONSIGNMENT, RESELLER) -->
+            <div class="form-group" id="customer_name_wrapper" style="display:none;">
+              <label for="customer_name">Customer/Store Name <span class="text-danger">*</span></label>
+              <input type="text" name="customer_name" id="customer_name" 
+                     class="form-control" 
+                     placeholder="Enter customer or store name">
+            </div>
+
+            <!-- Payment Status (for ORDER, CONSIGNMENT, RESELLER) -->
+            <div class="form-group" id="payment_status_wrapper" style="display:none;">
+              <label for="payment_status">Payment Status <span class="text-danger">*</span></label>
+              <select name="payment_status" id="payment_status" class="form-control">
+                <option value="PAID">Paid</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="PARTIAL">Partial Payment</option>
+              </select>
+            </div>
+
+            <!-- Paid Amount (for PARTIAL payment) -->
+            <div class="form-group" id="paid_amount_wrapper" style="display:none;">
+              <label for="paid_amount">Paid Amount <span class="text-danger">*</span></label>
+              <input type="number" step="0.01" min="0" name="paid_amount" id="paid_amount" 
+                     class="form-control" 
+                     placeholder="Enter amount paid">
+              <small class="form-text text-muted">Enter the partial payment amount received.</small>
+            </div>
+
+            <!-- Price (shown for PAID status) -->
             <div class="form-group" id="price_input_wrapper">
               <label for="price_input">Price</label>
               <input list="priceOptions" name="price_input" id="price_input" 
@@ -197,10 +224,38 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  typeSelect.addEventListener("change", toggleItemTables);
+  function updateReasonOptions() {
+    const itemType = typeSelect.value;
+    const soldOption = reasonField.querySelector('option[value="SOLD"]');
+    
+    if (itemType === "RAW_MATERIAL") {
+      // Hide SOLD option for raw materials
+      if (soldOption) {
+        soldOption.style.display = "none";
+        soldOption.disabled = true;
+      }
+      // If SOLD was selected, reset to empty
+      if (reasonField.value === "SOLD") {
+        reasonField.value = "";
+        toggleSections();
+      }
+    } else {
+      // Show SOLD option for products
+      if (soldOption) {
+        soldOption.style.display = "block";
+        soldOption.disabled = false;
+      }
+    }
+  }
+
+  typeSelect.addEventListener("change", function() {
+    toggleItemTables();
+    updateReasonOptions();
+  });
   reasonField.addEventListener("change", toggleSections);
 
   toggleItemTables();
+  updateReasonOptions();
   toggleSections();
 
   // Real-time stock validation
@@ -274,6 +329,60 @@ document.addEventListener("DOMContentLoaded", function() {
       e.stopImmediatePropagation();
       alert(`Cannot submit! Please fix ${validationErrors.size} validation error(s) first.`);
       return false;
+    }
+  });
+
+  // Handle sales channel change to show/hide customer name and payment status
+  const customerNameWrapper = document.getElementById('customer_name_wrapper');
+  const paymentStatusWrapper = document.getElementById('payment_status_wrapper');
+  const paidAmountWrapper = document.getElementById('paid_amount_wrapper');
+  const priceInputWrapper = document.getElementById('price_input_wrapper');
+  const paymentStatusSelect = document.getElementById('payment_status');
+  
+  salesChannel.addEventListener('change', function() {
+    const channel = this.value;
+    
+    // Show customer name and payment status for ORDER, CONSIGNMENT, RESELLER
+    if (channel === 'ORDER' || channel === 'CONSIGNMENT' || channel === 'RESELLER') {
+      customerNameWrapper.style.display = 'block';
+      paymentStatusWrapper.style.display = 'block';
+      document.getElementById('customer_name').required = true;
+      
+      // Trigger payment status change to show/hide relevant fields
+      paymentStatusSelect.dispatchEvent(new Event('change'));
+    } else {
+      customerNameWrapper.style.display = 'none';
+      paymentStatusWrapper.style.display = 'none';
+      paidAmountWrapper.style.display = 'none';
+      priceInputWrapper.style.display = 'block';
+      document.getElementById('customer_name').required = false;
+      document.getElementById('paid_amount').required = false;
+      priceInput.required = true;
+    }
+  });
+  
+  // Handle payment status change
+  paymentStatusSelect.addEventListener('change', function() {
+    const status = this.value;
+    
+    if (status === 'PAID') {
+      // Show price input, hide paid amount
+      priceInputWrapper.style.display = 'block';
+      paidAmountWrapper.style.display = 'none';
+      priceInput.required = true;
+      document.getElementById('paid_amount').required = false;
+    } else if (status === 'PARTIAL') {
+      // Show only paid amount, hide price input
+      priceInputWrapper.style.display = 'none';
+      paidAmountWrapper.style.display = 'block';
+      priceInput.required = false;
+      document.getElementById('paid_amount').required = true;
+    } else if (status === 'UNPAID') {
+      // Hide both price input and paid amount
+      priceInputWrapper.style.display = 'none';
+      paidAmountWrapper.style.display = 'none';
+      priceInput.required = false;
+      document.getElementById('paid_amount').required = false;
     }
   });
 

@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Edit Withdrawal Group - Order #{{ order_group_id }}</h4>
+    
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Edit Multiple Items</div>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              
+              <!-- Common Fields -->
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Reason <span class="text-danger">*</span></label>
+                    <select name="reason" class="form-control" required>
+                      <option value="SOLD" {% if reason == 'SOLD' %}selected{% endif %}>Sold</option>
+                      <option value="EXPIRED" {% if reason == 'EXPIRED' %}selected{% endif %}>Expired</option>
+                      <option value="DAMAGED" {% if reason == 'DAMAGED' %}selected{% endif %}>Damaged</option>
+                      <option value="RETURNED" {% if reason == 'RETURNED' %}selected{% endif %}>Returned</option>
+                      <option value="OTHERS" {% if reason == 'OTHERS' %}selected{% endif %}>Others</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Sales Channel</label>
+                    <select name="sales_channel" class="form-control">
+                      <option value="">-</option>
+                      <option value="ORDER" {% if sales_channel == 'ORDER' %}selected{% endif %}>Order</option>
+                      <option value="CONSIGNMENT" {% if sales_channel == 'CONSIGNMENT' %}selected{% endif %}>Consignment</option>
+                      <option value="RESELLER" {% if sales_channel == 'RESELLER' %}selected{% endif %}>Reseller</option>
+                      <option value="PHYSICAL_STORE" {% if sales_channel == 'PHYSICAL_STORE' %}selected{% endif %}>Physical Store</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row mb-4">
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" name="customer_name" class="form-control" value="{{ customer_name|default:'' }}">
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label>Payment Status</label>
+                    <select name="payment_status" class="form-control" id="paymentStatusSelect">
+                      <option value="PAID" {% if payment_status == 'PAID' %}selected{% endif %}>Paid</option>
+                      <option value="UNPAID" {% if payment_status == 'UNPAID' %}selected{% endif %}>Unpaid</option>
+                      <option value="PARTIAL" {% if payment_status == 'PARTIAL' %}selected{% endif %}>Partial</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="form-group price-field" style="display: none;">
+                    <label>Price Type or Custom Total Price</label>
+                    <input type="text" 
+                           name="price_or_custom" 
+                           class="form-control" 
+                           id="priceOrCustomInput"
+                           list="priceTypeList"
+                           value="{% if withdrawals.0.price_type %}{{ withdrawals.0.price_type }}{% elif withdrawals.0.custom_price %}{{ withdrawals.0.custom_price }}{% endif %}"
+                           placeholder="Type custom amount or select UNIT/SRP">
+                    <datalist id="priceTypeList">
+                      <option value="UNIT">Unit Price</option>
+                      <option value="SRP">SRP Price</option>
+                    </datalist>
+                    <small class="text-muted">Select UNIT/SRP for calculated pricing, or type custom total amount for entire order</small>
+                  </div>
+                  
+                  <div class="form-group paid-amount-field" style="display: none;">
+                    <label>Paid Amount <span class="text-danger">*</span></label>
+                    <input type="number" name="paid_amount" class="form-control" step="0.01" min="0" placeholder="Enter paid amount" value="{{ withdrawals.0.paid_amount|default:'' }}">
+                    <small class="text-muted">Amount already paid</small>
+                  </div>
+                </div>
+              </div>
+              
+              <hr>
+              
+              <!-- Items Table -->
+              <h5 class="mb-3">Items in this Order</h5>
+              <div class="table-responsive">
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Quantity <span class="text-danger">*</span></th>
+                      <th class="discount-column">Discount (%)</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="items-table-body">
+                    {% for withdrawal in withdrawals %}
+                    <tr data-withdrawal-id="{{ withdrawal.id }}" class="item-row">
+                      <td>
+                        <select name="item_id_{{ withdrawal.id }}" class="form-control item-select" required>
+                          {% for product in products %}
+                            <option value="{{ product.id }}" {% if product.id == withdrawal.item_id %}selected{% endif %}>
+                              {{ product }}
+                            </option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" 
+                               name="quantity_{{ withdrawal.id }}" 
+                               class="form-control" 
+                               value="{{ withdrawal.quantity }}" 
+                               step="0.01" 
+                               min="0.01" 
+                               required>
+                      </td>
+                      <td class="discount-column">
+                        <input type="text" 
+                               name="discount_{{ withdrawal.id }}" 
+                               class="form-control discount-input" 
+                               data-withdrawal-id="{{ withdrawal.id }}"
+                               list="discountList_{{ withdrawal.id }}"
+                               value="{% if withdrawal.discount_id %}{{ withdrawal.discount.value }}{% elif withdrawal.custom_discount_value %}{{ withdrawal.custom_discount_value }}{% endif %}"
+                               placeholder="Type or select">
+                        <datalist id="discountList_{{ withdrawal.id }}">
+                          {% for discount in discounts %}
+                            <option value="{{ discount.value }}">{{ discount.value }}%</option>
+                          {% endfor %}
+                        </datalist>
+                      </td>
+                      <td>
+                        <button type="button" class="btn btn-danger btn-sm remove-item-btn" data-withdrawal-id="{{ withdrawal.id }}">
+                          <i class="la la-trash"></i> Remove
+                        </button>
+                        <input type="hidden" name="remove_{{ withdrawal.id }}" class="remove-flag" value="0">
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div class="alert alert-info mt-3">
+                <i class="la la-info-circle"></i>
+                <strong>Note:</strong> Changes to quantities and discounts will automatically update the sales entry if this is a PAID order.
+              </div>
+              
+              <div class="form-group mt-4">
+                <button type="submit" class="btn btn-success">
+                  <i class="la la-save"></i> Save Changes
+                </button>
+                <a href="{% url 'withdrawals' %}" class="btn btn-secondary">
+                  <i class="la la-times"></i> Cancel
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Item Confirmation Modal -->
+<div class="modal fade" id="removeItemModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Remove Item</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to remove this item?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmRemoveBtn">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Undo Remove Confirmation Modal -->
+<div class="modal fade" id="undoRemoveModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Undo</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Do you want to restore this item?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmUndoBtn">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reasonSelect = document.querySelector('select[name="reason"]');
+    const salesChannelSelect = document.querySelector('select[name="sales_channel"]');
+    const paymentStatusSelect = document.querySelector('select[name="payment_status"]');
+    
+    // Modal handling
+    let currentRemoveButton = null;
+    let currentRow = null;
+    let currentRemoveFlag = null;
+    
+    // Handle remove item button
+    document.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const isUndo = this.classList.contains('btn-warning');
+            
+            if (isUndo) {
+                // Show undo modal
+                currentRemoveButton = this;
+                currentRow = this.closest('tr');
+                currentRemoveFlag = currentRow.querySelector('.remove-flag');
+                $('#undoRemoveModal').modal('show');
+            } else {
+                // Show remove modal
+                currentRemoveButton = this;
+                currentRow = this.closest('tr');
+                currentRemoveFlag = currentRow.querySelector('.remove-flag');
+                $('#removeItemModal').modal('show');
+            }
+        });
+    });
+    
+    // Confirm remove
+    document.getElementById('confirmRemoveBtn').addEventListener('click', function() {
+        if (currentRemoveButton && currentRow && currentRemoveFlag) {
+            // Mark for removal
+            currentRemoveFlag.value = '1';
+            currentRow.style.opacity = '0.5';
+            currentRow.style.textDecoration = 'line-through';
+            currentRemoveButton.innerHTML = '<i class="la la-undo"></i> Undo';
+            currentRemoveButton.classList.remove('btn-danger');
+            currentRemoveButton.classList.add('btn-warning');
+        }
+        $('#removeItemModal').modal('hide');
+    });
+    
+    // Confirm undo
+    document.getElementById('confirmUndoBtn').addEventListener('click', function() {
+        if (currentRemoveButton && currentRow && currentRemoveFlag) {
+            // Restore item
+            currentRemoveFlag.value = '0';
+            currentRow.style.opacity = '1';
+            currentRow.style.textDecoration = 'none';
+            currentRemoveButton.innerHTML = '<i class="la la-trash"></i> Remove';
+            currentRemoveButton.classList.remove('btn-warning');
+            currentRemoveButton.classList.add('btn-danger');
+        }
+        $('#undoRemoveModal').modal('hide');
+    });
+    
+    // Handle price input and discount interaction
+    document.querySelectorAll('.price-input').forEach(priceInput => {
+        const withdrawalId = priceInput.dataset.withdrawalId;
+        const discountInput = document.querySelector(`.discount-input[data-withdrawal-id="${withdrawalId}"]`);
+        
+        priceInput.addEventListener('input', function() {
+            const value = this.value.trim().toUpperCase();
+            
+            // Check if it's UNIT or SRP (enable discount)
+            if (value === 'UNIT' || value === 'SRP') {
+                discountInput.disabled = false;
+            } 
+            // Check if it's a number (custom price - disable discount)
+            else if (!isNaN(value) && value !== '') {
+                discountInput.value = '';
+                discountInput.disabled = true;
+            }
+            // Empty or invalid (enable discount)
+            else {
+                discountInput.disabled = false;
+            }
+        });
+        
+        // Initialize state on page load
+        const initialValue = priceInput.value.trim().toUpperCase();
+        if (initialValue && initialValue !== 'UNIT' && initialValue !== 'SRP' && !isNaN(initialValue)) {
+            // Custom price - disable discount
+            discountInput.disabled = true;
+        }
+    });
+    
+    // Handle visibility of fields based on payment status
+    function updateFieldVisibility() {
+        const reason = reasonSelect.value;
+        const salesChannel = salesChannelSelect.value;
+        const paymentStatus = document.getElementById('paymentStatusSelect').value;
+        
+        const priceField = document.querySelector('.price-field');
+        const discountColumns = document.querySelectorAll('.discount-column');
+        const paidAmountField = document.querySelector('.paid-amount-field');
+        
+        // Show/hide based on payment status
+        if (reason === 'SOLD' && 
+            ['ORDER', 'CONSIGNMENT', 'RESELLER'].includes(salesChannel)) {
+            
+            if (paymentStatus === 'PAID') {
+                // PAID: Show price field + discount column
+                priceField.style.display = 'block';
+                discountColumns.forEach(col => col.style.display = '');
+                paidAmountField.style.display = 'none';
+                updateDiscountState();  // Check if discount should be enabled
+            } else if (paymentStatus === 'PARTIAL') {
+                // PARTIAL: Show paid amount only
+                paidAmountField.style.display = 'block';
+                priceField.style.display = 'none';
+                discountColumns.forEach(col => col.style.display = 'none');
+            } else if (paymentStatus === 'UNPAID') {
+                // UNPAID: Hide all pricing fields
+                paidAmountField.style.display = 'none';
+                priceField.style.display = 'none';
+                discountColumns.forEach(col => col.style.display = 'none');
+            }
+        } else {
+            // Not ORDER/CONSIGNMENT/RESELLER - hide all
+            paidAmountField.style.display = 'none';
+            priceField.style.display = 'none';
+            discountColumns.forEach(col => col.style.display = 'none');
+        }
+    }
+    
+    // Handle discount enable/disable based on price input
+    const priceOrCustomInput = document.getElementById('priceOrCustomInput');
+    const discountInputs = document.querySelectorAll('.discount-input');
+    
+    function updateDiscountState() {
+        if (!priceOrCustomInput) return;
+        
+        const value = priceOrCustomInput.value.trim().toUpperCase();
+        const isUnitOrSrp = (value === 'UNIT' || value === 'SRP');
+        
+        // Enable discount only if UNIT or SRP is selected
+        discountInputs.forEach(input => {
+            input.disabled = !isUnitOrSrp;
+            if (!isUnitOrSrp) {
+                input.value = '';  // Clear discount if custom price
+            }
+        });
+    }
+    
+    if (priceOrCustomInput) {
+        priceOrCustomInput.addEventListener('input', updateDiscountState);
+    }
+    
+    // Add event listeners
+    reasonSelect.addEventListener('change', updateFieldVisibility);
+    salesChannelSelect.addEventListener('change', updateFieldVisibility);
+    document.getElementById('paymentStatusSelect').addEventListener('change', updateFieldVisibility);
+    
+    // Initialize on page load
+    updateFieldVisibility();
+});
+</script>
+{% endblock %}

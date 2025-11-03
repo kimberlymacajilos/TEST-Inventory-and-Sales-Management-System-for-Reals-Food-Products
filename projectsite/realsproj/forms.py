@@ -269,11 +269,34 @@ class WithdrawEditForm(forms.ModelForm):
         ('RETURNED', 'Returned'),
         ('OTHERS', 'Others'),
     ]
+    PAYMENT_STATUS_CHOICES = [
+        ('PAID', 'Paid'),
+        ('UNPAID', 'Unpaid'),
+        ('PARTIAL', 'Partial'),
+    ]
 
     item_id = forms.ChoiceField(choices=[], required=True, label="Item")
     quantity = forms.DecimalField(min_value=0.01, required=True, decimal_places=2)
     reason = forms.ChoiceField(choices=REASON_CHOICES, required=True)
     sales_channel = forms.ChoiceField(choices=SALES_CHANNEL_CHOICES, required=False)
+    customer_name = forms.CharField(
+        required=False,
+        label="Customer/Store Name",
+        widget=forms.TextInput(attrs={"placeholder": "Enter customer or store name"})
+    )
+    payment_status = forms.ChoiceField(
+        choices=PAYMENT_STATUS_CHOICES,
+        required=False,
+        initial='PAID',
+        label="Payment Status"
+    )
+    paid_amount = forms.DecimalField(
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        label="Paid Amount",
+        widget=forms.NumberInput(attrs={"placeholder": "Enter amount paid"})
+    )
 
     price_type_or_custom = forms.CharField(
         required=False,
@@ -302,22 +325,52 @@ class WithdrawEditForm(forms.ModelForm):
     class Meta:
         model = Withdrawals
         fields = [
-            'item_id', 'quantity', 'reason', 'sales_channel',
-            'price_type_or_custom', 'discount', 'custom_discount_value',
+            'item_id', 'quantity', 'reason', 'sales_channel', 'customer_name',
+            'payment_status', 'paid_amount', 'price_type_or_custom', 
+            'discount', 'custom_discount_value',
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        products = [(p.id, str(p)) for p in Products.objects.all()]
-        materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
-        self.fields['item_id'].choices = products + materials
+        if self.instance.pk:
+            if self.instance.item_type == 'RAW_MATERIAL':
+                materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
+                self.fields['item_id'].choices = materials
+                self.fields['item_id'].initial = self.instance.item_id
+                self.fields['reason'].choices = [
+                    ('EXPIRED', 'Expired'),
+                    ('DAMAGED', 'Damaged'),
+                    ('RETURNED', 'Returned'),
+                    ('OTHERS', 'Others'),
+                ]
+                self.fields['price_type_or_custom'].required = False
+                self.fields['sales_channel'].required = False
+                self.fields['discount'].required = False
+                self.fields['custom_discount_value'].required = False
+            else:
+                products = [(p.id, str(p)) for p in Products.objects.all()]
+                self.fields['item_id'].choices = products
+                self.fields['item_id'].initial = self.instance.item_id
+        else:
+            products = [(p.id, str(p)) for p in Products.objects.all()]
+            materials = [(m.id, str(m)) for m in RawMaterials.objects.all()]
+            self.fields['item_id'].choices = products + materials
 
         if self.instance.pk:
+            # Set initial values for price
             if self.instance.price_type:
                 self.fields['price_type_or_custom'].initial = self.instance.price_type
             elif self.instance.custom_price:
                 self.fields['price_type_or_custom'].initial = str(self.instance.custom_price)
+            
+            # Set initial values for new fields
+            if self.instance.customer_name:
+                self.fields['customer_name'].initial = self.instance.customer_name
+            if self.instance.payment_status:
+                self.fields['payment_status'].initial = self.instance.payment_status
+            if self.instance.paid_amount:
+                self.fields['paid_amount'].initial = self.instance.paid_amount
 
     def clean(self):
         cleaned_data = super().clean()
@@ -325,30 +378,36 @@ class WithdrawEditForm(forms.ModelForm):
         sales_channel = cleaned_data.get("sales_channel")
         price_input = cleaned_data.get("price_type_or_custom")
 
-        discount = cleaned_data.get("discount")
-        custom_discount = cleaned_data.get("custom_discount_value")
-        if discount and custom_discount:
-            self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
+        is_raw_material = self.instance.pk and self.instance.item_type == 'RAW_MATERIAL'
+        if is_raw_material and reason == "SOLD":
+            self.add_error("reason", "Raw materials cannot be marked as SOLD.")
+            return cleaned_data
 
-        if reason == "SOLD":
-            if not sales_channel:
-                self.add_error("sales_channel", "This field is required when reason is SOLD.")
-            if not price_input:
-                self.add_error("price_type_or_custom", "Please select a price type or enter a custom price.")
-                return cleaned_data
+        if not is_raw_material:
+            discount = cleaned_data.get("discount")
+            custom_discount = cleaned_data.get("custom_discount_value")
+            if discount and custom_discount:
+                self.add_error("custom_discount_value", "You cannot select and enter a discount at the same time.")
 
-            price_upper = str(price_input).upper().strip()
+            if reason == "SOLD":
+                if not sales_channel:
+                    self.add_error("sales_channel", "This field is required when reason is SOLD.")
+                if not price_input:
+                    self.add_error("price_type_or_custom", "Please select a price type or enter a custom price.")
+                    return cleaned_data
 
-            try:
-                custom_price = Decimal(price_input)
-                cleaned_data["custom_price"] = custom_price
-                cleaned_data["price_type"] = None
-            except (TypeError, ValueError, InvalidOperation):
-                if price_upper not in dict(self.PRICE_TYPE_CHOICES):
-                    self.add_error("price_type_or_custom", "Enter a numeric price or select UNIT or SRP as price type.")
-                else:
-                    cleaned_data["price_type"] = price_upper
-                    cleaned_data["custom_price"] = None
+                price_upper = str(price_input).upper().strip()
+
+                try:
+                    custom_price = Decimal(price_input)
+                    cleaned_data["custom_price"] = custom_price
+                    cleaned_data["price_type"] = None
+                except (TypeError, ValueError, InvalidOperation):
+                    if price_upper not in dict(self.PRICE_TYPE_CHOICES):
+                        self.add_error("price_type_or_custom", "Enter a numeric price or select UNIT or SRP as price type.")
+                    else:
+                        cleaned_data["price_type"] = price_upper
+                        cleaned_data["custom_price"] = None
 
         return cleaned_data
 

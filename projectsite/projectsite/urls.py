@@ -155,6 +155,13 @@ urlpatterns = [
     path('withdrawals/archived/', a.ArchivedWithdrawalsListView.as_view(), name='withdrawals-archived-list'),
     path('withdrawals/<int:pk>/unarchive/', a.WithdrawalsUnarchiveView.as_view(), name='withdrawals-unarchive'),
     path('withdrawals/archive-old/', a.WithdrawalsArchiveOldView.as_view(), name='withdrawals-archive-old'),
+    path('withdrawal-order/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-order-detail'),
+    path('withdrawal-order/<int:order_group_id>/update-payment/', a.WithdrawalOrderUpdatePaymentView.as_view(), name='withdrawal-order-update-payment'),
+    path('withdrawal-group/<int:order_group_id>/', a.WithdrawalOrderDetailView.as_view(), name='withdrawal-group-detail'),
+    path('withdrawal-group/<int:order_group_id>/edit/', a.WithdrawalGroupEditView.as_view(), name='withdrawal-group-edit'),
+    path('withdrawal-group/<int:order_group_id>/archive/', a.WithdrawalGroupArchiveView.as_view(), name='withdrawal-group-archive'),
+    path('withdrawal-group/<int:order_group_id>/delete/', a.WithdrawalGroupDeleteView.as_view(), name='withdrawal-group-delete'),
+
     path('withdrawals/bulk-delete/', a.withdrawals_bulk_delete, name='withdrawals-bulk-delete'),
     path('withdrawals/bulk-archive/', a.withdrawals_bulk_archive, name='withdrawals-bulk-archive'),
     path("api/get-stock/", a.get_stock, name="get-stock"),

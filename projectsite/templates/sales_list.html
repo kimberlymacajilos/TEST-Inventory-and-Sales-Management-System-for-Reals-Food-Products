@@ -14,22 +14,24 @@
             <div>
               <div class="card-title">List of Sales</div>
             </div>
-            <div>
-              <!-- Actions Dropdown -->
-              <button class="btn btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Actions
-              </button>
-              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="actionsDropdown">
-                <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
-                <button type="button" class="dropdown-item" data-toggle="modal" data-target="#archiveOldSalesModal">
-                  Archive Old Data
+            <div class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Dropdown for archive actions -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-secondary btn-rounded dropdown-toggle" type="button" id="actionsDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  Archive Options
                 </button>
+                <div class="dropdown-menu" aria-labelledby="actionsDropdown">
+                  <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldSalesModal">Archive Old Data</a>
+                </div>
               </div>
+
               <!-- Export Button -->
               <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportSalesModal">
                 <i class="la la-download"></i> Export Sales
               </button>
-              <!-- Add Button -->
+
+              <!-- Add Sale button -->
               <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
             </div>
           </div>
@@ -154,53 +156,53 @@
           </div>
         </div>
 
-        <!-- Withdrawal-Based Sales Table -->
+        <!-- Withdrawal-Based Sales Table (Orders) -->
         <div class="card mt-4">
           <div class="card-header">
-            <div class="card-title">Sales from Withdrawals (SOLD Items)</div>
+            <div class="card-title">Sales from Withdrawals (Orders, Consignment, Reseller)</div>
           </div>
           <div class="card-body">
             <div class="table-responsive">
               <table class="table table-striped">
                 <thead>
                   <tr>
-                    <th>Item</th>
-                    <th>Quantity</th>
+                    <th>Customer/Store</th>
                     <th>Sales Channel</th>
-                    <th>Price Type</th>
-                    <th>Custom Price</th>
-                    <th>Discount</th>
+                    <th>Items</th>
+                    <th>Payment Status</th>
                     <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for withdrawal in withdrawal_sales %}
+                  {% for order in withdrawal_orders %}
                   <tr>
-                    <td>{{ withdrawal.get_item_display }}</td>
-                    <td>{{ withdrawal.quantity|floatformat:0 }}</td>
-                    <td>{{ withdrawal.get_sales_channel_display|default:"-" }}</td>
-                    <td>{{ withdrawal.get_price_type_display|default:"-" }}</td>
+                    <td>{{ order.customer_name|default:"N/A" }}</td>
+                    <td>{{ order.sales_channel }}</td>
+                    <td>{{ order.item_count }} item(s)</td>
                     <td>
-                      {% if withdrawal.custom_price %}
-                        ₱{{ withdrawal.custom_price|floatformat:2 }}
+                      <span class="badge 
+                        {% if order.payment_status == 'PAID' %}badge-success
+                        {% elif order.payment_status == 'UNPAID' %}badge-danger
+                        {% elif order.payment_status == 'PARTIAL' %}badge-warning
+                        {% else %}badge-secondary{% endif %}">
+                        {{ order.payment_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ order.date|date:"Y-m-d H:i" }}</td>
+                    <td>
+                      {% if not order.is_single %}
+                      <a href="{% url 'withdrawal-order-detail' order.actual_group_id %}" class="btn btn-sm btn-primary" title="View Details">
+                        <i class="la la-eye"></i> View Details
+                      </a>
                       {% else %}
-                        -
+                      <span class="text-muted">N/A (Legacy)</span>
                       {% endif %}
                     </td>
-                    <td>
-                      {% if withdrawal.custom_discount_value %}
-                        {{ withdrawal.custom_discount_value|floatformat:2 }}%
-                      {% elif withdrawal.discount %}
-                        {{ withdrawal.discount.name }} ({{ withdrawal.discount.value|floatformat:2 }}%)
-                      {% else %}
-                        -
-                      {% endif %}
-                    </td>
-                    <td>{{ withdrawal.date|date:"Y-m-d H:i" }}</td>
                   </tr>
                   {% empty %}
                   <tr>
-                    <td colspan="8" class="text-center text-muted">No withdrawal-based sales found for this period</td>
+                    <td colspan="6" class="text-center text-muted">No withdrawal-based orders found for this period</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -428,6 +430,20 @@ function handleDeleteSubmit(event, saleName) {
         showToast('An error occurred while deleting the sale.', 'error');
     });
 }
+
+// Show/hide paid amount field based on payment status selection
+$(document).on('change', '.payment-status-select', function() {
+    const modal = $(this).closest('.modal');
+    const partialField = modal.find('.partial-amount-field');
+    
+    if ($(this).val() === 'PARTIAL') {
+        partialField.show();
+        partialField.find('input').attr('required', true);
+    } else {
+        partialField.hide();
+        partialField.find('input').attr('required', false);
+    }
+});
 
 document.addEventListener("DOMContentLoaded", function() {
   const descriptionCells = document.querySelectorAll('.description-cell');
