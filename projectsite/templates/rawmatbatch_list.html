@@ -31,22 +31,32 @@
           </div>
 
           <div class="card-body">
-            <div class="d-flex align-items-center mb-3" style="gap:0.5rem;" id="filterForm">
-              <input type="text" id="searchInput" class="form-control" name="q" placeholder="Search raw batches..." style="width:350px;" value="{{ request.GET.q }}"/>
-              <input type="month" name="date_filter" class="form-control" style="width:180px;" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% else %}2025-11{% endif %}" id="rawDateFilter">
-              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
-                <i class="la la-list"></i> Show All
-              </button>
-              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
-                <i class="la la-times"></i>
-              </button>
-            </div>
+            <form class="row mb-3" id="filterForm">
+              <div class="col-auto">
+                <input type="text" id="searchInput" class="form-control" name= "q" placeholder="Search raw batches..." value="{{ request.GET.q }}" style="width: 350px;"/>
+              </div>
+              <div class="col-auto">
+                <input type="month" name="date_filter" class="form-control" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" id="rawDateFilter" style="width: 180px;">
+              </div>
+              <div class="col-auto">
+                <button type="button" id="showAllBtn" class="btn btn-info" onclick="toggleShowAll()">
+                  Show All Data
+                </button>
+              </div>
+              <div class="col-auto">
+                <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                  <i class="la la-times"></i>
+                </button>
+              </div>
+            </form>
             
             <!-- Bulk Action Buttons -->
             <div class="mb-3">
+              {% if user.is_superuser %}
                 <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteRawBatch()">
                     <i class="la la-trash"></i> Delete Selected
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveRawBatch()">
                     <i class="la la-archive"></i> Archive Selected
                 </button>
@@ -87,10 +97,12 @@
                       <a href="#" data-toggle="modal" data-target="#archiveRawBatchModal{{ object.id }}" style="color: orange;" title="Archive">
                         <i class="la la-archive la-lg"></i>
                       </a>
+                      {% if user.is_superuser %}
                       &nbsp;&nbsp;
                       <a href="#" data-toggle="modal" data-target="#deleteRawBatchModal{{ object.id }}" style="color: red;" title="Delete">
                         <i class="la la-trash la-lg"></i>
                       </a>
+                      {% endif %}
                     </td>
                   </tr>
                   {% empty %}
@@ -255,6 +267,12 @@ document.addEventListener('DOMContentLoaded', function() {
         params.set("date_filter", dateFilter.value);
       }
       
+      // Preserve show_all parameter
+      const showAll = new URLSearchParams(window.location.search).get('show_all');
+      if (showAll) {
+        params.set("show_all", showAll);
+      }
+      
       // Keep page number unless resetting
       if (!resetPage) {
         const currentPage = new URLSearchParams(window.location.search).get('page');
@@ -341,6 +359,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+function toggleShowAll() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('show_all')) {
+    params.delete('show_all');
+  } else {
+    params.set('show_all', '1');
+    params.delete('date_filter');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
+}
 
 // Bulk selection functions
 function toggleSelectAll(checkbox) {

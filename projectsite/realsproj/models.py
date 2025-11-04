@@ -584,6 +584,7 @@ class ProductBatches(models.Model):
     created_by_admin = models.ForeignKey('AuthUser', models.DO_NOTHING)
     deduct_raw_material = models.BooleanField(default=True)
     is_archived = models.BooleanField(default=False)
+    is_expired = models.BooleanField(blank=True, null=True)
 
     expiration_date = models.GeneratedField( 
         expression="manufactured_date + interval '1 year'",
@@ -687,6 +688,7 @@ class RawMaterialBatches(models.Model):
     expiration_date = models.DateField(blank=True, null=True)
     created_by_admin = models.ForeignKey(AuthUser, models.DO_NOTHING)
     is_archived = models.BooleanField(default=False)
+    is_expired = models.BooleanField(blank=True, null=True)
 
     class Meta:
         managed = False

@@ -632,6 +632,12 @@ class StockChangesForm(ModelForm):
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
+    user_type = forms.ChoiceField(
+        choices=[('', 'Select User Type'), ('staff', 'Staff')],
+        required=True,
+        label="User Type",
+        help_text="Administrator accounts can only be created by existing admins."
+    )
 
     class Meta:
         model = User
@@ -653,6 +659,17 @@ class CustomUserCreationForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
+
+        user.is_active = False
+        
+        user_type = self.cleaned_data.get('user_type')
+        if user_type == 'staff':
+            user.is_staff = True
+            user.is_superuser = False
+        else:
+            user.is_staff = False
+            user.is_superuser = False
+
         if commit:
             user.save()
         return user

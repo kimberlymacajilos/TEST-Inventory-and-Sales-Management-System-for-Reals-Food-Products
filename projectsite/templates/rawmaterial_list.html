@@ -31,13 +31,10 @@
                     <div class="card-body">
                         <!-- Search -->
                         <form class="row mb-3" id="filterForm">
-                            <div class="col-md-6">
-                                <input type="text" id="searchInput" name= "q" class="form-control" style="width:350px;" placeholder="Search raw materials..." value="{{ request.GET.q }}">
+                            <div class="col-auto">
+                                <input type="text" id="searchInput" name= "q" class="form-control" placeholder="Search raw materials..." value="{{ request.GET.q }}" style="width: 350px;">
                             </div>
-                            <div class="col-md-3">
-                                <input type="month" name="date_filter" class="form-control" value="{{ request.GET.date_filter }}" id="rawDateFilter">
-                            </div>
-                            <div class="col-md-1">
+                            <div class="col-auto">
                                 <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                                     <i class="la la-times"></i>
                                 </button>
@@ -46,9 +43,11 @@
                         
                         <!-- Bulk Action Buttons -->
                         <div class="mb-3">
+                            {% if user.is_superuser %}
                             <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteRawMaterial()">
                                 <i class="la la-trash"></i> Delete Selected
                             </button>
+                            {% endif %}
                             <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveRawMaterial()">
                                 <i class="la la-archive"></i> Archive Selected
                             </button>
@@ -89,10 +88,12 @@
                                             <a href="#" data-toggle="modal" data-target="#archiveRawMaterialModal{{ object.id }}" class="text-warning" title="Archive">
                                                 <i class="la la-archive la-lg"></i>
                                             </a>
+                                            {% if user.is_superuser %}
                                             &nbsp;&nbsp;
                                             <a href="#" data-toggle="modal" data-target="#deleteRawMaterialModal{{ object.id }}" class="text-danger" title="Delete">
                                                 <i class="la la-trash la-lg"></i>
                                             </a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% empty %}
@@ -233,11 +234,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   const searchInput = document.getElementById('searchInput');
-  const dateFilter = document.getElementById('rawDateFilter');
   const tableBody = document.getElementById('rawMaterialsTable');
   const pagination = document.querySelector('.pagination-container');
+  const modalsContainer = document.querySelector('#rawMaterialModalsContainer');
   
   let timeout;
+  const debounceTime = 600;
   
   function fetchRawMaterials(resetPage = true) {
     clearTimeout(timeout);
@@ -251,12 +253,6 @@ document.addEventListener('DOMContentLoaded', function() {
         params.delete("q");
       }
       
-      // Update or remove date filter
-      if (dateFilter.value) {
-        params.set("date_filter", dateFilter.value);
-      } else {
-        params.delete("date_filter");
-      }
       
       // Reset to page 1 when filters change
       if (resetPage) {
@@ -292,12 +288,11 @@ document.addEventListener('DOMContentLoaded', function() {
           $('body').css('padding-right', '');
         })
         .catch(err => console.error("Error fetching raw materials:", err));
-    }, 300);
+    }, debounceTime);
   }
   
   // Event listeners
   searchInput.addEventListener('keyup', () => fetchRawMaterials(true));
-  dateFilter.addEventListener('change', () => fetchRawMaterials(true));
   
   // Handle pagination clicks
   document.addEventListener('click', function(e) {
@@ -522,5 +517,6 @@ function handleDeleteSubmit(event, materialName) {
         showToast('An error occurred while deleting the raw material.', 'error');
     });
 }
+
 </script>
 {% endblock %}
