@@ -101,10 +101,22 @@ class ProductsForm(forms.ModelForm):
 
     def clean_size(self):
         name = self.cleaned_data['size'].strip()
-        obj, created = Sizes.objects.get_or_create(
-            size_label=name,
-            defaults={'created_by_admin': self.created_by_admin}
-        )
+        if not name:
+            return None
+        
+        # Try to get existing size (case-insensitive)
+        try:
+            obj = Sizes.objects.get(size_label__iexact=name)
+        except Sizes.DoesNotExist:
+            # Create new if doesn't exist
+            obj = Sizes.objects.create(
+                size_label=name,
+                created_by_admin=self.created_by_admin
+            )
+        except Sizes.MultipleObjectsReturned:
+            # If duplicates exist, use the first one
+            obj = Sizes.objects.filter(size_label__iexact=name).first()
+        
         return obj
 
     def clean_unit_price(self):
@@ -162,6 +174,53 @@ class ExpensesForm(ModelForm):
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
 
+class SalesExpensesForm(forms.Form):
+    """Combined form for adding sales with expenses"""
+    # Sales fields
+    sales_category = forms.CharField(
+        max_length=255,
+        label='Sales Category',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Sales Category'})
+    )
+    sales_amount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        label='Sales Amount',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter Sales Amount'})
+    )
+    date = forms.DateField(
+        label='Date',
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+    sales_description = forms.CharField(
+        required=False,
+        label='Sales Description',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter Sales Description', 'rows': 3})
+    )
+    
+    # Expenses field
+    total_expenses = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        label='Total Expenses',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter Total Expenses'})
+    )
+    expenses_description = forms.CharField(
+        required=False,
+        label='Expenses Description',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter Expenses Description (Optional)', 'rows': 3})
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        sales_amount = cleaned_data.get('sales_amount')
+        total_expenses = cleaned_data.get('total_expenses')
+        
+        if sales_amount and total_expenses:
+            if total_expenses > sales_amount:
+                self.add_error('total_expenses', 'Expenses cannot exceed sales amount.')
+        
+        return cleaned_data
 
 class ProductBatchForm(ModelForm):
     deduct_raw_material = forms.BooleanField(
