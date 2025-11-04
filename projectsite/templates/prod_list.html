@@ -45,11 +45,11 @@
 
                             <!-- Other Filters Row -->
                             <div class="row">
-                                <div class="col-md-6">
-                                    <input type="text" name="search" class="form-control"
-                                        style="width:350px;" placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
+                                <div class="col-auto">
+                                    <input type="text" name="search" class="form-control" style="width: 350px;"
+                                        placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-auto">
                                     <input type="month" name="date_created" class="form-control"
                                            placeholder="Filter by Month"
                                            value="{{ request.GET.date_created }}">
@@ -61,7 +61,7 @@
                                     </div>
                                     <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
                                 </div>
-                                <div class="col-md-1">
+                                <div class="col-auto">
                                     <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                                         <i class="la la-times"></i>
                                     </button>
@@ -117,10 +117,12 @@
                                         <a href="#" data-toggle="modal" data-target="#archiveProductModal{{ object.id }}" class="text-warning" title="Archive">
                                             <i class="la la-archive la-lg"></i>
                                         </a>
+                                        {% if user.is_superuser %}
                                         &nbsp;&nbsp;
                                         <a href="#" data-toggle="modal" data-target="#deleteProductModal{{ object.id }}" class="text-danger" title="Delete">
                                             <i class="la la-trash la-lg"></i>
                                         </a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -647,6 +649,7 @@ function confirmBulkArchive() {
         showToast('An error occurred while archiving products', 'error');
     });
 }
+
 </script>
 
 <!-- Bulk Delete Confirmation Modal -->

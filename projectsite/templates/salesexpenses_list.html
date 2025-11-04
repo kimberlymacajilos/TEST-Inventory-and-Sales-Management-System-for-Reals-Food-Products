@@ -67,17 +67,17 @@
             <!-- Filters moved here -->
             <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
               <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:150px;">
+              <select id="categoryFilter" class="form-control" style="width:180px;">
                 <option value="">All Categories</option>
-                  {% for cat_value, cat_display in categories %}
-                    <option value="{{ cat_value }}" {% if request.GET.category == cat_value %}selected{% endif %}>
-                      {{ cat_display }}
+                  {% for cat  in categories %}
+                    <option value="{{ cat }}" {% if request.GET.category == cat_value %}selected{% endif %}>
+                      {{ cat }}
                     </option>
                   {% endfor %}
               </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="2025-11" />
-              <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
-                <i class="la la-list"></i> Show All
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
+                Show All Data
               </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
@@ -85,37 +85,47 @@
             </div>
 
             <!-- Sales & Expenses Summary -->
-            <div class="row mb-1 text-center" id="salesSummary">
-              <div class="col-12 col-sm-6 col-md-3 mb-3 d-flex">
-                <div class="card w-100">
-                  <div class="card-body d-flex flex-column justify-content-center">
+            <div class="row mb-3 text-center" id="salesSummary">
+              <!-- Manual Sales Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Manual Sales</h5>
+                    <h3 class="text-primary">₱{{ manual_sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
+                    <small class="text-muted">{{ manual_sales_summary.sales_count|default:0 }} record(s)</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Withdrawal Sales Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Withdrawal Sales</h5>
+                    <h3 class="text-info">₱{{ withdrawal_sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
+                    <small class="text-muted">{{ withdrawal_sales_summary.sales_count|default:0 }} record(s)</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Total Sales Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
                     <h5 class="card-title">Total Sales</h5>
                     <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
-                    <!-- <small class="text-muted">Includes withdrawal sales</small> -->
+                    <small class="text-muted">{{ sales_summary.sales_count|default:0 }} record(s)</small>
                   </div>
                 </div>
               </div>
-              <div class="col-12 col-sm-6 col-md-3 mb-3 d-flex">
-                <div class="card w-100">
-                  <div class="card-body d-flex flex-column justify-content-center">
+              
+              <!-- Total Expenses Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
                     <h5 class="card-title">Total Expenses</h5>
                     <h3 class="text-danger">₱{{ expenses_summary.total_expenses|floatformat:2|intcomma|default:"0.00" }}</h3>
-                  </div>
-                </div>
-              </div>
-              <div class="col-12 col-sm-6 col-md-3 mb-3 d-flex">
-                <div class="card w-100">
-                  <div class="card-body d-flex flex-column justify-content-center">
-                    <h5 class="card-title">Number of Sales</h5>
-                    <h3 class="text-info">{{ sales_summary.sales_count|default:0 }}</h3>
-                  </div>
-                </div>
-              </div>
-              <div class="col-12 col-sm-6 col-md-3 mb-3 d-flex">
-                <div class="card w-100">
-                  <div class="card-body d-flex flex-column justify-content-center">
-                    <h5 class="card-title">Number of Expenses</h5>
-                    <h3 class="text-warning">{{ expenses_summary.expenses_count|default:0 }}</h3>
+                    <small class="text-muted">{{ expenses_summary.expenses_count|default:0 }} record(s)</small>
                   </div>
                 </div>
               </div>
@@ -819,6 +829,17 @@ function confirmBulkArchiveSales() {
         console.error('Bulk archive error:', error);
         showToast('An error occurred while archiving sales', 'error');
     });
+}
+
+function toggleShowAll() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('show_all')) {
+    params.delete('show_all');
+  } else {
+    params.set('show_all', '1');
+    params.delete('date_filter');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
 }
 
 </script>
