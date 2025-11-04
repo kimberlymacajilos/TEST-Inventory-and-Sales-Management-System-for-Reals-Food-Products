@@ -4,7 +4,7 @@
 {% block content %}
 <div class="content">
   <div class="container-fluid">
-    <h4 class="page-title">Sales</h4>
+    <h4 class="page-title">Sales & Expenses</h4>
     <div class="row">
       <div class="col-md-12">
         <div class="card">
@@ -13,6 +13,7 @@
           <div class="card-header d-flex justify-content-between align-items-center">
             <div>
               <div class="card-title">List of Sales</div>
+              <!-- <small class="text-muted">Manual sales entries (excludes withdrawal-based sales)</small> -->
             </div>
             <div class="d-flex align-items-center" style="gap:0.5rem;">
               <!-- Dropdown for archive actions -->
@@ -21,18 +22,43 @@
                   Archive Options
                 </button>
                 <div class="dropdown-menu" aria-labelledby="actionsDropdown">
-                  <a class="dropdown-item" href="{% url 'sales-archived-list' %}">Show Archived</a>
+                  <a class="dropdown-item" href="{% url 'salesexpense-archive' %}">Show Archived</a>
                   <a class="dropdown-item" href="#" data-toggle="modal" data-target="#archiveOldSalesModal">Archive Old Data</a>
                 </div>
               </div>
 
-              <!-- Export Button -->
-              <button type="button" class="btn btn-outline-primary btn-rounded" data-toggle="modal" data-target="#exportSalesModal">
-                <i class="la la-download"></i> Export Sales
-              </button>
+              <!-- Export Dropdown -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-outline-primary btn-rounded dropdown-toggle" type="button" id="exportDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <i class="la la-download"></i> Export
+                </button>
+                <div class="dropdown-menu" aria-labelledby="exportDropdown">
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#exportSalesModal">
+                    <i class="la la-dollar"></i> Export Sales
+                  </a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#exportExpensesModal">
+                    <i class="la la-credit-card"></i> Export Expenses
+                  </a>
+                </div>
+              </div>
 
-              <!-- Add Sale button -->
-              <a href="{% url 'sales-add' %}" class="btn btn-success btn-rounded">Add Sale</a>
+              <!-- Add dropdown button with 3 options -->
+              <div class="dropdown d-inline">
+                <button class="btn btn-success btn-rounded dropdown-toggle" type="button" id="addDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <i class="la la-plus"></i> Add
+                </button>
+                <div class="dropdown-menu" aria-labelledby="addDropdown">
+                  <a class="dropdown-item" href="{% url 'sales-add' %}">
+                    <i class="la la-dollar"></i> Add Sales
+                  </a>
+                  <a class="dropdown-item" href="{% url 'expenses-add' %}">
+                    <i class="la la-credit-card"></i> Add Expenses
+                  </a>
+                  <a class="dropdown-item" href="{% url 'sales-expenses-add' %}">
+                    <i class="la la-calculator"></i> Add Sales & Expenses
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -58,29 +84,38 @@
               </button>
             </div>
 
-            <!-- Sales Summary -->
+            <!-- Sales & Expenses Summary -->
             <div class="row mb-1 text-center" id="salesSummary">
-              <div class="col-md-4">
+              <div class="col-md-3">
                 <div class="card">
                   <div class="card-body">
                     <h5 class="card-title">Total Sales</h5>
-                    <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma }}</h3>
+                    <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
+                    <!-- <small class="text-muted">Includes withdrawal sales</small> -->
                   </div>
                 </div>
               </div>
-              <div class="col-md-4">
+              <div class="col-md-3">
                 <div class="card">
                   <div class="card-body">
-                    <h5 class="card-title">Average Sale</h5>
-                    <h3 class="text-primary">₱{{ sales_summary.average_sales|floatformat:2|intcomma }}</h3>
+                    <h5 class="card-title">Total Expenses</h5>
+                    <h3 class="text-danger">₱{{ expenses_summary.total_expenses|floatformat:2|intcomma|default:"0.00" }}</h3>
                   </div>
                 </div>
               </div>
-              <div class="col-md-4">
+              <div class="col-md-3">
                 <div class="card">
                   <div class="card-body">
                     <h5 class="card-title">Number of Sales</h5>
-                    <h3 class="text-info">{{ sales_summary.sales_count }}</h3>
+                    <h3 class="text-info">{{ sales_summary.sales_count|default:0 }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Number of Expenses</h5>
+                    <h3 class="text-warning">{{ expenses_summary.expenses_count|default:0 }}</h3>
                   </div>
                 </div>
               </div>
@@ -155,53 +190,63 @@
           </div>
         </div>
 
-        <!-- Withdrawal-Based Sales Table (Orders) -->
+        <!-- Expenses Table -->
         <div class="card mt-4">
           <div class="card-header">
-            <div class="card-title">Sales from Withdrawals (Orders, Consignment, Reseller)</div>
+            <div class="card-title">Expenses Records</div>
           </div>
           <div class="card-body">
+            <!-- Bulk Action Buttons -->
+            <div class="mb-3">
+                <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteExpenseBtn" style="display:none;" onclick="bulkDeleteExpense()">
+                    <i class="la la-trash"></i> Delete Selected
+                </button>
+                <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveExpenseBtn" style="display:none;" onclick="bulkArchiveExpense()">
+                    <i class="la la-archive"></i> Archive Selected
+                </button>
+            </div>
+
             <div class="table-responsive">
-              <table class="table table-striped">
+              <table class="table table-striped" id="expensesTable">
                 <thead>
                   <tr>
-                    <th>Customer/Store</th>
-                    <th>Sales Channel</th>
-                    <th>Items</th>
-                    <th>Payment Status</th>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAllExpenses" onclick="toggleSelectAllExpenses(this)">
+                    </th>
+                    <th>Category</th>
+                    <th>Amount</th>
                     <th>Date</th>
+                    <th>Description</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for order in withdrawal_orders %}
+                  {% for expense in expenses_list %}
                   <tr>
-                    <td>{{ order.customer_name|default:"N/A" }}</td>
-                    <td>{{ order.sales_channel }}</td>
-                    <td>{{ order.item_count }} item(s)</td>
                     <td>
-                      <span class="badge 
-                        {% if order.payment_status == 'PAID' %}badge-success
-                        {% elif order.payment_status == 'UNPAID' %}badge-danger
-                        {% elif order.payment_status == 'PARTIAL' %}badge-warning
-                        {% else %}badge-secondary{% endif %}">
-                        {{ order.payment_status_display }}
-                      </span>
+                        <input type="checkbox" class="expense-checkbox" value="{{ expense.id }}" onchange="updateBulkExpenseButtons()">
                     </td>
-                    <td>{{ order.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ expense.category }}</td>
+                    <td class="text-danger"><strong>₱{{ expense.amount|floatformat:2|intcomma }}</strong></td>
+                    <td>{{ expense.date|date:"Y-m-d" }}</td>
+                    <td>{{ expense.description|truncatewords:10 }}</td>
                     <td>
-                      {% if not order.is_single %}
-                      <a href="{% url 'withdrawal-order-detail' order.actual_group_id %}" class="btn btn-sm btn-primary" title="View Details">
-                        <i class="la la-eye"></i> View Details
+                      <a href="{% url 'expenses-edit' expense.id %}" class="text-primary" title="Edit">
+                        <i class="la la-edit la-lg"></i>
                       </a>
-                      {% else %}
-                      <span class="text-muted">N/A (Legacy)</span>
-                      {% endif %}
+                      &nbsp;&nbsp;
+                      <a href="#" data-toggle="modal" data-target="#archiveExpenseModal{{ expense.id }}" class="text-warning" title="Archive">
+                        <i class="la la-archive la-lg"></i>
+                      </a>
+                      &nbsp;&nbsp;
+                      <a href="#" data-toggle="modal" data-target="#deleteExpenseModal{{ expense.id }}" class="text-danger" title="Delete">
+                        <i class="la la-trash la-lg"></i>
+                      </a>
                     </td>
                   </tr>
                   {% empty %}
                   <tr>
-                    <td colspan="6" class="text-center text-muted">No withdrawal-based orders found for this period</td>
+                    <td colspan="6" class="text-center text-muted">No expenses records found</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -209,7 +254,6 @@
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -221,7 +265,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Confirm Archive</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
           <span>&times;</span>
         </button>
       </div>
@@ -231,8 +275,8 @@
       <div class="modal-footer">
         <form id="archiveSaleForm" method="post" action="">
           {% csrf_token %}
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success">Archive</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Archive</button>
         </form>
       </div>
     </div>
@@ -245,7 +289,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Confirm Delete</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
           <span>&times;</span>
         </button>
       </div>
@@ -255,6 +299,52 @@
       <div class="modal-footer">
         <form id="deleteSaleForm" method="post" action="">
           {% csrf_token %}
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expenses Modals -->
+{% for expense in expenses_list %}
+<!-- Archive Expense Modal -->
+<div class="modal fade" id="archiveExpenseModal{{ expense.id }}" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Archive</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        Archive expense: <strong>{{ expense.category }} - ₱{{ expense.amount }}</strong>?
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="{% url 'expenses-archive' expense.id %}">
+          {% csrf_token %}
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Archive</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Expense Modal -->
+<div class="modal fade" id="deleteExpenseModal{{ expense.id }}" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Delete</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        Delete expense: <strong>{{ expense.category }} - ₱{{ expense.amount }}</strong>?
+      </div>
+      <div class="modal-footer">
+        <form method="post" action="{% url 'expenses-delete' expense.id %}">
+          {% csrf_token %}
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-danger">Delete</button>
         </form>
@@ -262,6 +352,7 @@
     </div>
   </div>
 </div>
+{% endfor %}
 
 <!-- Archive Old Sales Modal -->
 <div class="modal fade" id="archiveOldSalesModal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -341,7 +432,65 @@ document.getElementById("salesFilterType").addEventListener("change", function()
     start.type = "month"; end.type = "month"; endDiv.style.display = "block";
   }
 });
+</script>
 
+<!-- Export Expenses Modal -->
+<div class="modal fade" id="exportExpensesModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <form method="get" action="{% url 'export_expenses' %}">
+        <div class="modal-header">
+          <h5 class="modal-title">Export Expenses Data</h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <label>Filter Type</label>
+          <select name="filter" class="form-control mb-3" id="expensesFilterType" required>
+            <option value="date">By Date</option>
+            <option value="month">By Month</option>
+            <option value="year">By Year</option>
+            <option value="range">Custom Range</option>
+          </select> 
+          <div id="expensesStartInput">
+            <label>Start</label>
+            <input type="date" name="start" class="form-control mb-3" required>
+          </div>
+          <div id="expensesEndInput" style="display:none;">
+            <label>End</label>
+            <input type="date" name="end" class="form-control mb-3">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Export CSV</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById("expensesFilterType").addEventListener("change", function() {
+  const start = document.querySelector("#expensesStartInput input");
+  const endDiv = document.getElementById("expensesEndInput");
+  const end = document.querySelector("#expensesEndInput input");
+
+  if (this.value === "date") {
+    start.type = "date"; endDiv.style.display = "none";
+  } 
+  else if (this.value === "month") {
+    start.type = "month"; endDiv.style.display = "none";
+  } 
+  else if (this.value === "year") {
+    start.type = "number"; start.min = "2000"; start.max = "2100"; start.placeholder = "Enter Year"; endDiv.style.display = "none";
+  } 
+  else if (this.value === "range") {
+    start.type = "month"; end.type = "month"; endDiv.style.display = "block";
+  }
+});
+</script>
+
+<script>
 // Open Archive Modal with dynamic data
 function openArchiveModal(saleId, category, amount) {
     const form = document.getElementById('archiveSaleForm');
@@ -590,6 +739,114 @@ function bulkArchiveSale() {
     });
 }
 
+</script>
+
+<script>
+// Bulk Expense Functions
+function toggleSelectAllExpenses(checkbox) {
+    const checkboxes = document.querySelectorAll('.expense-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateBulkExpenseButtons();
+}
+
+function updateBulkExpenseButtons() {
+    const checkedBoxes = document.querySelectorAll('.expense-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteExpenseBtn');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveExpenseBtn');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkArchiveBtn.style.display = 'inline-block';
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        bulkArchiveBtn.style.display = 'none';
+    }
+    
+    const allCheckboxes = document.querySelectorAll('.expense-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllExpenses');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length;
+    }
+}
+
+function getSelectedExpenseIds() {
+    const checkedBoxes = document.querySelectorAll('.expense-checkbox:checked');
+    return Array.from(checkedBoxes).map(cb => cb.value);
+}
+
+function bulkDeleteExpense() {
+    const selectedIds = getSelectedExpenseIds();
+    if (selectedIds.length === 0) {
+        alert('Please select at least one expense');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} expense(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "expenses-bulk-delete" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert(data.message || 'Failed to delete expenses');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk delete error:', error);
+        alert('An error occurred while deleting expenses');
+    });
+}
+
+function bulkArchiveExpense() {
+    const selectedIds = getSelectedExpenseIds();
+    if (selectedIds.length === 0) {
+        alert('Please select at least one expense');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to archive ${selectedIds.length} expense(s)?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('ids', selectedIds.join(','));
+    
+    fetch('{% url "expenses-bulk-archive" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert(data.message || 'Failed to archive expenses');
+        }
+    })
+    .catch(error => {
+        console.error('Bulk archive error:', error);
+        alert('An error occurred while archiving expenses');
+    });
+}
 </script>
 
 <script src="{% static 'js/sales_search.js' %}"></script>

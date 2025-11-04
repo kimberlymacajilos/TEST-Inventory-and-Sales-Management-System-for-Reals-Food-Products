@@ -226,11 +226,11 @@
                             <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
                                <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
                             </li>
-                            <li class="{% if request.resolver_match.url_name == 'sales' %}active{% endif %}">
-                                <a href="{% url 'sales' %}"><span class="sub-item">Sales</span></a>
+                            <li class="{% if request.resolver_match.url_name == 'salesexpenses' %}active{% endif %}">
+                                <a href="{% url 'salesexpenses' %}"><span class="sub-item">Sales & Expenses</span></a>
                             </li>
-                            <li class="{% if request.resolver_match.url_name == 'expenses' %}active{% endif %}">
-                                <a href="{% url 'expenses' %}"><span class="sub-item">Expenses</span></a>
+                            <li class="{% if request.resolver_match.url_name == 'withdrawalSales' %}active{% endif %}">
+                                <a href="{% url 'withdrawalSales' %}"><span class="sub-item">Withdrawal Sales</span></a>
                             </li>
                             <li class="{% if request.resolver_match.url_name == 'financial-loss' %}active{% endif %}">
                                 <a href="{% url 'financial-loss' %}"><span class="sub-item">Financial Loss</span></a>
