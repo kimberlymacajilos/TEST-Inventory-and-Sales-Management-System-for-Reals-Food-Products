@@ -418,8 +418,7 @@ class ProductsList(ListView):
             queryset = queryset.filter(
                 Q(product_type__name__icontains=search) |
                 Q(variant__name__icontains=search) |
-                Q(size__size_label__icontains=search) |
-                Q(description__icontains=search)
+                Q(size__size_label__icontains=search)
             )
         
         date_created = self.request.GET.get("date_created")
@@ -563,6 +562,23 @@ def product_bulk_archive(request):
         return JsonResponse({
             'success': True,
             'message': f'Successfully archived {archived_count} product(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def product_bulk_restore(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No products selected'})
+        
+        restored_count = Products.objects.filter(id__in=ids).update(is_archived=False)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully restored {restored_count} product(s)'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
@@ -920,6 +936,23 @@ def rawmaterial_bulk_archive(request):
         return JsonResponse({
             'success': True,
             'message': f'Successfully archived {archived_count} raw material(s)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_http_methods(["POST"])
+def rawmaterial_bulk_restore(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No raw materials selected'})
+        
+        restored_count = RawMaterials.objects.filter(id__in=ids).update(is_archived=False)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully restored {restored_count} raw material(s)'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
@@ -2129,7 +2162,23 @@ def product_batch_bulk_archive(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
-    
+
+@require_http_methods(["POST"])
+def product_batch_bulk_restore(request):
+    try:
+        ids = request.POST.get('ids', '').split(',')
+        ids = [int(id.strip()) for id in ids if id.strip()]
+        
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No batches selected'})
+        
+        restored_count = ProductBatches.objects.filter(id__in=ids).update(is_archived=False)
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully restored {restored_count} batch(es)'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 class ProductInventoryList(ListView):
     model = ProductInventory

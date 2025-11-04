@@ -30,28 +30,23 @@
                     <!-- Body -->
                     <div class="card-body">
                         <!-- Search + Filter -->
-                        <form class="row mb-3" id="filterForm" method="get">
-                            <div class="col-md-6">
-                                <input type="text" id="batchSearchInput" name="search" class="form-control"
-                                    style="width:350px;"
-                                    placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="month" name="date_created" class="form-control"
-                                    style="width:180px;"
-                                    placeholder="Filter by Month"
-                                    value="{% if request.GET.date_created %}{{ request.GET.date_created }}{% else %}2025-11{% endif %}" id="dateFilter">
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
-                                    <i class="la la-list"></i> Show All
-                                </button>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
-                                    <i class="la la-times"></i>
-                                </button>
-                            </div>
+                        <form class="mb-3 d-flex align-items-center" id="filterForm" method="get" style="gap:0.5rem;">
+                            <input type="text" id="batchSearchInput" name="search" class="form-control"
+                                style="width:350px;"
+                                placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
+                            
+                            <input type="month" name="date_created" class="form-control"
+                                style="width:180px;"
+                                placeholder="Filter by Month"
+                                value="{% if request.GET.date_created %}{{ request.GET.date_created }}{% else %}2025-11{% endif %}" id="dateFilter">
+                            
+                            <button type="button" onclick="window.location.href='?show_all=true'" class="btn btn-info" title="Show all data">
+                                <i class="la la-list"></i> Show All
+                            </button>
+                            
+                            <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                                <i class="la la-times"></i>
+                            </button>
                         </form>
 
                         <!-- Bulk Action Buttons -->
@@ -128,14 +123,11 @@
 <div id="batchModalsContainer">
 {% for object in page_obj %}
 <!-- Archive Modal -->
-<div class="modal fade" id="archiveBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="archiveBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Confirm Archive</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span>&times;</span>
-                </button>
             </div>
             <div class="modal-body">
                 Are you sure you want to archive the batch for
@@ -144,7 +136,7 @@
             <div class="modal-footer">
                 <form method="post" action="{% url 'product-batch-archive' object.id %}" onsubmit="handleArchiveSubmit(event, '{{ object.product }} ({{ object.batch_date|date:"Y-m-d" }})' )">
                     {% csrf_token %}
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="$('#archiveBatchModal{{ object.id }}').modal('hide')">Cancel</button>
                     <button type="submit" class="btn btn-warning">Archive</button>
                 </form>
             </div>
@@ -153,14 +145,11 @@
 </div>
 
 <!-- Delete Modal -->
-<div class="modal fade" id="deleteBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="deleteBatchModal{{ object.id }}" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span>&times;</span>
-                </button>
             </div>
             <div class="modal-body">
                 Are you sure you want to delete the batch for
@@ -169,7 +158,7 @@
             <div class="modal-footer">
                 <form method="post" action="{% url 'product-batch-delete' object.id %}" onsubmit="handleDeleteSubmit(event, '{{ object.product }} ({{ object.batch_date|date:"Y-m-d" }})' )">
                     {% csrf_token %}
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="$('#deleteBatchModal{{ object.id }}').modal('hide')">Cancel</button>
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>
@@ -180,14 +169,11 @@
 </div>
 
 <!-- Archive Old Batches Modal -->
-<div class="modal fade" id="archiveOldBatchesModal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="archiveOldBatchesModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Archive Old Product Batches</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span>&times;</span>
-                </button>
             </div>
             <div class="modal-body">
                 Are you sure you want to archive all product batches older than 1 year?
@@ -197,12 +183,52 @@
             <div class="modal-footer">
                 <form method="post" action="{% url 'product-batch-archive-old' %}">
                     {% csrf_token %}
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="$('#archiveOldBatchesModal').modal('hide')">Cancel</button>
                     <button type="submit" class="btn btn-warning">Yes, Archive Old Data</button>
                 </form>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Bulk Delete Confirmation Modal -->
+<div class="modal fade" id="bulkDeleteBatchModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Bulk Delete</h5>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete <strong id="bulkDeleteCount">0</strong> batch(es)?
+        <br><br>
+        <strong class="text-danger">⚠️ Warning:</strong> This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="$('#bulkDeleteBatchModal').modal('hide')">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="confirmBulkDeleteBatch()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Archive Confirmation Modal -->
+<div class="modal fade" id="bulkArchiveBatchModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Bulk Archive</h5>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to archive <strong id="bulkArchiveCount">0</strong> batch(es)?
+        <br><br>
+        <small class="text-muted">You can restore archived batches later from the Archive Options menu.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="$('#bulkArchiveBatchModal').modal('hide')">Cancel</button>
+        <button type="button" class="btn btn-warning" onclick="confirmBulkArchiveBatch()">Archive</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -360,13 +386,20 @@ function bulkDeleteProdBatch() {
         return;
     }
     
-    if (!confirm(`Are you sure you want to delete ${selectedIds.length} batch(es)?`)) {
-        return;
-    }
+    // Update modal message and show it
+    document.getElementById('bulkDeleteCount').textContent = selectedIds.length;
+    $('#bulkDeleteBatchModal').modal('show');
+}
+
+function confirmBulkDeleteBatch() {
+    const selectedIds = getSelectedIds();
     
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     formData.append('ids', selectedIds.join(','));
+    
+    // Hide modal
+    $('#bulkDeleteBatchModal').modal('hide');
     
     fetch('{% url "product-batch-bulk-delete" %}', {
         method: 'POST',
@@ -397,13 +430,20 @@ function bulkArchiveProdBatch() {
         return;
     }
     
-    if (!confirm(`Are you sure you want to archive ${selectedIds.length} batch(es)?`)) {
-        return;
-    }
+    // Update modal message and show it
+    document.getElementById('bulkArchiveCount').textContent = selectedIds.length;
+    $('#bulkArchiveBatchModal').modal('show');
+}
+
+function confirmBulkArchiveBatch() {
+    const selectedIds = getSelectedIds();
     
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     formData.append('ids', selectedIds.join(','));
+    
+    // Hide modal
+    $('#bulkArchiveBatchModal').modal('hide');
     
     fetch('{% url "product-batch-bulk-archive" %}', {
         method: 'POST',
