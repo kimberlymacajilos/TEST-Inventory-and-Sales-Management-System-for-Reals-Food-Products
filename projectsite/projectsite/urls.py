@@ -55,7 +55,7 @@ urlpatterns = [
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
     path('history/', a.HistoryLogList.as_view(), name='history_log'),  
 
-    path('sales/', a.SalesList.as_view(), name='sales'),
+    path('salesexpenses/', a.SalesExpensesList.as_view(), name='salesexpenses'),
     path('sales/add', a.SalesCreateView.as_view(), name='sales-add'),
     path('sales/expenses/add', a.SalesExpensesCreateView.as_view(), name='sales-expenses-add'),
     path('sales/<pk>', a.SalesUpdateView.as_view(), name='sales-edit'),
@@ -68,8 +68,8 @@ urlpatterns = [
     path('sales/<int:pk>/unarchive/', a.SaleUnarchiveView.as_view(), name='sales-unarchive'),
     path('sales/bulk-restore/', a.SaleBulkRestoreView.as_view(), name='sales-bulk-restore'),
     path('sales/bulk-delete/', a.SaleBulkDeleteView.as_view(), name='sales-bulk-delete'),
+    path('salesexpenses/archive/', a.ArchivedSalesExpensesCombinedView.as_view(), name='salesexpense-archive'),
 
-    path('expenses/', a.ExpensesList.as_view(), name='expenses'),
     path('expenses/add', a.ExpensesCreateView.as_view(), name='expenses-add'),
     path('expenses/<pk>', a.ExpensesUpdateView.as_view(), name='expenses-edit'),
     path('expenses/<pk>/delete', a.ExpensesDeleteView.as_view(), name='expenses-delete'),
@@ -148,6 +148,7 @@ urlpatterns = [
     path('product-attributes/srp-price/<int:pk>/edit/', a.SrpPriceEditView.as_view(), name='srp-price-edit'),
     path('product-attributes/srp-price/<int:pk>/delete/', a.SrpPriceDeleteView.as_view(), name='srp-price-delete'),
 
+    path('withdrawalsales/', a.WithdrawalSalesList.as_view(), name='withdrawalSales'),
     path('withdrawals/', a.WithdrawSuccessView.as_view(), name='withdrawals'),
     path('withdraw/<int:pk>/edit/', a.WithdrawUpdateView.as_view(), name='withdraw-edit'),
     path("withdraw-item/<pk>/delete", a.WithdrawDeleteView.as_view(), name="withdraw-delete"),

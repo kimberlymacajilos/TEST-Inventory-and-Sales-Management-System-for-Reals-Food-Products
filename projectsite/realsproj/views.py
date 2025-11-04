@@ -1142,12 +1142,36 @@ class ArchivedSalesListView(ListView):
     def get_queryset(self):
         return Sales.objects.filter(is_archived=True).order_by('-date')
 
+class ArchivedSalesExpensesCombinedView(TemplateView):
+    """Combined view for archived sales and expenses with filtering"""
+    template_name = 'archived_sales_expenses.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get filter type from query params
+        filter_type = self.request.GET.get('type', '')
+        
+        # Fetch archived sales
+        if not filter_type or filter_type == 'sales':
+            context['archived_sales'] = Sales.objects.filter(is_archived=True).order_by('-date')
+        else:
+            context['archived_sales'] = []
+        
+        # Fetch archived expenses
+        if not filter_type or filter_type == 'expenses':
+            context['archived_expenses'] = Expenses.objects.filter(is_archived=True).order_by('-date')
+        else:
+            context['archived_expenses'] = []
+        
+        return context
+
 class SaleUnarchiveView(View):
     def post(self, request, pk):
         sale = get_object_or_404(Sales, pk=pk)
         sale.is_archived = False
         sale.save()
-        return redirect('sales-archived-list')
+        return redirect('salesexpense-archive')
 
 @require_http_methods(["POST"])
 def sales_bulk_delete(request):
@@ -1213,10 +1237,10 @@ class SaleBulkDeleteView(View):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
 
-class SalesList(ListView):
+class SalesExpensesList(ListView):
     model = Sales
     context_object_name = 'sales'
-    template_name = "sales_list.html"
+    template_name = "salesexpenses_list.html"
     paginate_by = 10
 
     def get_queryset(self):
@@ -1307,6 +1331,36 @@ class SalesList(ListView):
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
+        
+        # Add expenses summary for combined display
+        expenses_qs = Expenses.objects.filter(is_archived=False)
+        # Apply same month filter
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                expenses_qs = expenses_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            expenses_qs = expenses_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context["expenses_summary"] = expenses_qs.aggregate(
+            total_expenses=Sum("amount"),
+            average_expenses=Avg("amount"),
+            expenses_count=Count("id"),
+        )
+        
+        # Calculate net profit
+        total_sales = context["sales_summary"]["total_sales"] or 0
+        total_expenses = context["expenses_summary"]["total_expenses"] or 0
+        context["net_profit"] = total_sales - total_expenses
+        
+        # Add expenses list for display (limit to recent 10)
+        context["expenses_list"] = expenses_qs.order_by("-date")[:10]
+        
         # Format categories for display (exclude withdrawal-based sales)
         raw_categories = Sales.objects.filter(
             is_archived=False
@@ -1698,83 +1752,108 @@ class WithdrawalOrderUpdatePaymentView(View):
         return redirect('sales')
 
 
-class ExpensesList(ListView):
-    model = Expenses
-    context_object_name = 'expenses'
-    template_name = "expenses_list.html"
-    paginate_by = 10
-
+class WithdrawalSalesList(ListView):
+    """View for displaying sales generated from withdrawals with grouped orders"""
+    model = Withdrawals
+    context_object_name = 'withdrawal_orders'
+    template_name = 'withdrawal_sales_list.html'
+    paginate_by = 20
+    
     def get_queryset(self):
-        # Start with active (non-archived) records
-        qs = Expenses.objects.filter(is_archived=False).select_related("created_by_admin").order_by("-date")
-
-        # --- Search query ---
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            qs = qs.filter(
-                Q(category__icontains=query) |
-                Q(amount__icontains=query) |
-                Q(date__icontains=query) |
-                Q(description__icontains=query) |
-                Q(created_by_admin__username__icontains=query)
-            )
-
-        # --- Category filter ---
-        category = self.request.GET.get("category", "").strip()
-        if category:
-            qs = qs.filter(category__iexact=category)
-
-        # --- Month filter (YYYY-MM) ---
+        # Get withdrawals that are sold through orders/consignment/reseller
+        qs = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False,
+            sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
+        ).select_related("created_by_admin").order_by("-date")
+        
+        # Apply filters
         show_all = self.request.GET.get("show_all", "").strip()
         month = self.request.GET.get("month", "").strip()
+        channel = self.request.GET.get("channel", "").strip()
         
-        if show_all == "true":
-            pass
-        elif month:
-            try:
-                year_str, month_str = month.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                qs = qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        else:
-            # Default: show only current month
-            today = timezone.now()
-            qs = qs.filter(date__year=today.year, date__month=today.month)
-
+        # Month filter
+        if show_all != "true":
+            if month:
+                try:
+                    year_str, month_str = month.split("-")
+                    year = int(year_str)
+                    month_num = int(month_str.lstrip("0"))
+                    qs = qs.filter(date__year=year, date__month=month_num)
+                except ValueError:
+                    pass
+            else:
+                # Default: show only current month
+                today = timezone.now()
+                qs = qs.filter(date__year=today.year, date__month=today.month)
+        
+        # Channel filter
+        if channel:
+            qs = qs.filter(sales_channel=channel)
+        
         self._full_queryset = qs
-        return qs
-
+        
+        # Group by order_group_id
+        from collections import defaultdict
+        grouped_orders = defaultdict(list)
+        for withdrawal in qs:
+            if withdrawal.order_group_id:
+                grouped_orders[withdrawal.order_group_id].append(withdrawal)
+            else:
+                # For withdrawals without order_group_id, treat each as individual
+                grouped_orders[f"single_{withdrawal.id}"].append(withdrawal)
+        
+        # Convert to list of dicts for template
+        withdrawal_orders = []
+        for group_id, withdrawals in grouped_orders.items():
+            first_withdrawal = withdrawals[0]
+            # Check if this is a real order group or a single withdrawal
+            is_single = isinstance(group_id, str) and group_id.startswith('single_')
+            actual_group_id = group_id if not is_single else None
+            
+            withdrawal_orders.append({
+                'group_id': group_id,
+                'actual_group_id': actual_group_id,
+                'is_single': is_single,
+                'customer_name': first_withdrawal.customer_name,
+                'sales_channel': first_withdrawal.get_sales_channel_display(),
+                'payment_status': first_withdrawal.payment_status,
+                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else 'N/A',
+                'paid_amount': first_withdrawal.paid_amount,
+                'date': first_withdrawal.date,
+                'item_count': len(withdrawals),
+                'withdrawals': withdrawals,
+            })
+        
+        return sorted(withdrawal_orders, key=lambda x: x['date'], reverse=True)
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        full_qs = getattr(self, "_full_queryset", Expenses.objects.filter(is_archived=False))
-
-        context["expenses_summary"] = full_qs.aggregate(
-            total_expenses=Sum("amount"),
-            average_expenses=Avg("amount"),
-            expenses_count=Count("id"),
-        )
-
-        categories = Expenses.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
-        context["categories"] = categories
-
+        
+        # Get unique sales channels for filter
+        channels = Withdrawals.objects.filter(
+            reason='SOLD',
+            is_archived=False,
+            sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
+        ).values_list('sales_channel', flat=True).distinct()
+        context["channels"] = channels
+        
         return context
-    
+
+
 class ExpenseArchiveView(View):
     def post(self, request, pk):
         expense = get_object_or_404(Expenses, pk=pk)
         expense.is_archived = True
         expense.save()
-        return redirect('expenses')
+        return redirect('sales')
 
 class ExpenseArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
-        messages.success(request, "📦 Old expenses archived successfully.")
-        return redirect('expenses')
+        messages.success(request, " Old expenses archived successfully.")
+        return redirect('sales')
 
 @require_http_methods(["POST"])
 def expenses_bulk_delete(request):
@@ -1824,7 +1903,7 @@ class ExpenseUnarchiveView(View):
         expense = get_object_or_404(Expenses, pk=pk)
         expense.is_archived = False
         expense.save()
-        return redirect('expenses-archived-list')
+        return redirect('salesexpense-archive')
 
 class ExpensesCreateView(CreateView):
     model = Expenses
@@ -1913,10 +1992,9 @@ class SalesExpensesCreateView(View):
                     request, 
                     f"✅ Sales & Expenses recorded successfully! Net Profit: ₱{profit:,.2f}"
                 )
-                return redirect('sales')
+                return redirect('salesexpenses')
                 
             except Exception as e:
-                transaction.set_rollback(True)
                 messages.error(request, f"Failed to create sales & expenses: {e}")
                 return render(request, self.template_name, {'form': form})
         else:
