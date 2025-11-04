@@ -4035,7 +4035,7 @@ class NotificationsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Notifications.objects.filter(is_archived=False).order_by('-created_at')
+        qs = Notifications.objects.filter(is_archived=False).order_by('-notification_timestamp')
         
         # Date filter
         date_filter = self.request.GET.get('date_filter', '').strip()
