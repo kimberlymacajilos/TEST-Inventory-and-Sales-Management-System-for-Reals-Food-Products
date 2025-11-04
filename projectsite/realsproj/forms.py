@@ -573,6 +573,12 @@ class StockChangesForm(ModelForm):
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Password")
+    user_type = forms.ChoiceField(
+        choices=[('', 'Select User Type'), ('staff', 'Staff')],
+        required=True,
+        label="User Type",
+        help_text="Administrator accounts can only be created by existing admins."
+    )
 
     class Meta:
         model = User
@@ -580,8 +586,20 @@ class CustomUserCreationForm(forms.ModelForm):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
+        
+        # Check if email is currently in use by an active or pending user
         if User.objects.filter(email=email).exists():
             raise ValidationError("This email address is already in use.")
+        
+        # Check if email belongs to a deactivated user (stored in last_name field)
+        deactivated_user = User.objects.filter(
+            last_name=f"ORIGINAL_EMAIL:{email}",
+            username__startswith='inactive_user_'
+        ).first()
+        
+        if deactivated_user:
+            raise ValidationError("This email address belongs to a deactivated account. Please contact the administrator to reactivate it or use a different email.")
+        
         return email
 
     def clean_password2(self):
@@ -594,6 +612,19 @@ class CustomUserCreationForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password1"])
+        
+        # Set user as inactive by default - requires admin approval
+        user.is_active = False
+        
+        # Set user role based on user_type selection (only staff allowed in public registration)
+        user_type = self.cleaned_data.get('user_type')
+        if user_type == 'staff':
+            user.is_staff = True
+            user.is_superuser = False
+        else:
+            user.is_staff = False
+            user.is_superuser = False
+        
         if commit:
             user.save()
         return user

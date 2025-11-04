@@ -117,10 +117,12 @@
                                         <a href="#" data-toggle="modal" data-target="#archiveProductModal{{ object.id }}" class="text-warning" title="Archive">
                                             <i class="la la-archive la-lg"></i>
                                         </a>
+                                        {% if user.is_superuser %}
                                         &nbsp;&nbsp;
                                         <a href="#" data-toggle="modal" data-target="#deleteProductModal{{ object.id }}" class="text-danger" title="Delete">
                                             <i class="la la-trash la-lg"></i>
                                         </a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}

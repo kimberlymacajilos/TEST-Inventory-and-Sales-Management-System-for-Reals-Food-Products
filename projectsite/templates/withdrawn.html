@@ -65,9 +65,11 @@
             
             <!-- Bulk Action Buttons -->
             <div class="mb-3">
+                {% if user.is_superuser %}
                 <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteWithdrawal()">
                     <i class="la la-trash"></i> Delete Selected
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveWithdrawal()">
                     <i class="la la-archive"></i> Archive Selected
                 </button>
@@ -131,10 +133,12 @@
                         <a href="#" data-toggle="modal" data-target="#archiveWithdrawalModal{{ group.withdrawals.0.id }}" style="color: orange;" title="Archive">
                           <i class="la la-archive la-lg"></i>
                         </a>
+                        {% if user.is_superuser %}
                         &nbsp;&nbsp;
                         <a href="#" data-toggle="modal" data-target="#deleteWithdrawModal{{ group.withdrawals.0.id }}" class="text-danger" title="Delete">
                           <i class="la la-trash la-lg"></i>
                         </a>
+                        {% endif %}
                       {% else %}
                         <a href="{% url 'withdrawal-group-edit' group.order_group_id %}" title="Edit Group" class="text-primary">
                           <i class="la la-edit la-lg"></i>
@@ -143,10 +147,12 @@
                         <a href="#" data-toggle="modal" data-target="#archiveGroupModal{{ group.group_key }}" style="color: orange;" title="Archive Group">
                           <i class="la la-archive la-lg"></i>
                         </a>
+                        {% if user.is_superuser %}
                         &nbsp;&nbsp;
                         <a href="#" data-toggle="modal" data-target="#deleteGroupModal{{ group.group_key }}" class="text-danger" title="Delete Group">
                           <i class="la la-trash la-lg"></i>
                         </a>
+                        {% endif %}
                       {% endif %}
                     </td>
                   </tr>

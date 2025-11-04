@@ -20,7 +20,6 @@ from realsproj import views as a
 from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, include
 from django.contrib.auth.forms import AuthenticationForm
-from realsproj.views import profile_view, edit_profile
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -199,8 +198,18 @@ urlpatterns = [
     path("revenue-x-recent_sales", a.HomePageView.as_view(), name="home"),
     path("product-inventory/", a.ProductInventoryList.as_view(), name="product_inventory_list"),    
 
-    path('profile/', profile_view, name='profile'),
+    path('profile/', a.profile_view, name='profile'),
     path('profile/edit/', a.edit_profile, name='edit_profile'),
+    
+    # User Management
+    path('user-management/', a.user_management, name='user-management'),
+    path('user/create-admin/', a.create_admin_user, name='create-admin-user'),
+    path('user/<int:user_id>/approve/', a.approve_user, name='approve-user'),
+    path('user/<int:user_id>/reject/', a.reject_user, name='reject-user'),
+    path('user/<int:user_id>/toggle-role/', a.toggle_user_role, name='toggle-user-role'),
+    path('user/<int:user_id>/deactivate/', a.deactivate_user, name='deactivate-user'),
+    path('user/<int:user_id>/reactivate/', a.reactivate_user, name='reactivate-user'),
+    path('user/<int:user_id>/delete/', a.delete_user, name='delete-user'),
 
     path('products/', a.ProductsList.as_view(), name='product-list'),
     path('products/<int:pk>/archive/', a.ProductArchiveView.as_view(), name='product-archive'),
