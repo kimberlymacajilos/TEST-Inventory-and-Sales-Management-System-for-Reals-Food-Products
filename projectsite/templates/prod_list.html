@@ -103,7 +103,7 @@
                                     <td>{{ object.product_type.name }} - {{ object.variant.name }} ({{ object.size.size_label }} {{ object.size_unit.unit_name }})</td>
                                     <td>{{ object.unit_price.unit_price }}</td>
                                     <td>{{ object.srp_price.srp_price }}</td>
-                                    <td>{{ object.date_created|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ object.date_created|date:"Y-m-d g:i A" }}</td>
                                     <td>
                                         <a href="#" data-toggle="modal" data-target="#viewProductModal{{ object.id }}" class="text-secondary" title="View">
                                             <i class="la la-eye la-lg"></i>
