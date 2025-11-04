@@ -101,10 +101,22 @@ class ProductsForm(forms.ModelForm):
 
     def clean_size(self):
         name = self.cleaned_data['size'].strip()
-        obj, created = Sizes.objects.get_or_create(
-            size_label=name,
-            defaults={'created_by_admin': self.created_by_admin}
-        )
+        if not name:
+            return None
+        
+        # Try to get existing size (case-insensitive)
+        try:
+            obj = Sizes.objects.get(size_label__iexact=name)
+        except Sizes.DoesNotExist:
+            # Create new if doesn't exist
+            obj = Sizes.objects.create(
+                size_label=name,
+                created_by_admin=self.created_by_admin
+            )
+        except Sizes.MultipleObjectsReturned:
+            # If duplicates exist, use the first one
+            obj = Sizes.objects.filter(size_label__iexact=name).first()
+        
         return obj
 
     def clean_unit_price(self):

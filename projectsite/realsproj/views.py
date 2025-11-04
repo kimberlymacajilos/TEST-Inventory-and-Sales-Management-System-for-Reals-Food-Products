@@ -599,28 +599,9 @@ class ProductCreateView(CreateView):
                 request.POST['size_unit'] = unit_obj.id
             except SizeUnits.DoesNotExist:
                 pass
-
-        unit_price_val = request.POST.get('unit_price')
-        if unit_price_val:
-            try:
-                price_obj, created = UnitPrices.objects.get_or_create(
-                    unit_price=unit_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['unit_price'] = price_obj.id
-            except Exception:
-                pass
-
-        srp_price_val = request.POST.get('srp_price')
-        if srp_price_val:
-            try:
-                price_obj, created = SrpPrices.objects.get_or_create(
-                    srp_price=srp_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['srp_price'] = price_obj.id
-            except Exception:
-                pass
+        
+        # Note: unit_price and srp_price are handled by forms.py clean methods
+        # No need to process them here to avoid double conversion
         
         return super().post(request, *args, **kwargs)
 
