@@ -49,6 +49,16 @@ class Command(BaseCommand):
                 
                 if qty <= 0:
                     continue
+                
+                notification_exists = Notifications.objects.filter(
+                    item_type="PRODUCT",
+                    item_id=batch.id,
+                    notification_type="EXPIRATION_ALERT"
+                ).exists()
+                
+                if notification_exists:
+
+                    continue
 
                 batch.is_expired = True
                 batch.save(update_fields=['is_expired'])
@@ -69,14 +79,12 @@ class Command(BaseCommand):
                     created_by_admin=system_user
                 )
 
-                Notifications.objects.get_or_create(
+                Notifications.objects.create(
                     item_type="PRODUCT",
                     item_id=batch.id,
                     notification_type="EXPIRATION_ALERT",
-                    defaults={
-                        'notification_timestamp': timezone.now(),
-                        'is_read': False,
-                    }
+                    notification_timestamp=timezone.now(),
+                    is_read=False
                 )
                 
                 expired_products_count += 1
@@ -101,6 +109,16 @@ class Command(BaseCommand):
                 if qty <= 0:
                     continue
                 
+                notification_exists = Notifications.objects.filter(
+                    item_type="RAW_MATERIAL",
+                    item_id=batch.id,
+                    notification_type="EXPIRATION_ALERT"
+                ).exists()
+                
+                if notification_exists:
+
+                    continue
+                
                 batch.is_expired = True
                 batch.save(update_fields=['is_expired'])
                 
@@ -120,14 +138,12 @@ class Command(BaseCommand):
                     created_by_admin=system_user
                 )
                 
-                Notifications.objects.get_or_create(
+                Notifications.objects.create(
                     item_type="RAW_MATERIAL",
                     item_id=batch.id,
                     notification_type="EXPIRATION_ALERT",
-                    defaults={
-                        'notification_timestamp': timezone.now(),
-                        'is_read': False,
-                    }
+                    notification_timestamp=timezone.now(),
+                    is_read=False
                 )
                 
                 expired_materials_count += 1
