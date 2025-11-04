@@ -1291,8 +1291,7 @@ class SalesExpensesList(ListView):
         else:
             today = timezone.now()
             total_qs = total_qs.filter(date__year=today.year, date__month=today.month)
-        
-        # Apply category filter (only affects manual sales display, not total)
+         # Apply category filter (only affects manual sales display, not total)
         if category:
             total_qs = total_qs.filter(category__iexact=category)
         
@@ -1305,13 +1304,79 @@ class SalesExpensesList(ListView):
                 Q(description__icontains=query) |
                 Q(created_by_admin__username__icontains=query)
             )
-
-        # Calculate summary from ALL sales (including withdrawals)
-        context["sales_summary"] = total_qs.aggregate(
+        
+        # Calculate MANUAL sales summary (excludes withdrawal sales)
+        manual_sales_qs = Sales.objects.filter(is_archived=False).exclude(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).order_by("-date")
+        
+        # Apply same filters to manual sales
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                manual_sales_qs = manual_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            manual_sales_qs = manual_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        if category:
+            manual_sales_qs = manual_sales_qs.filter(category__iexact=category)
+        
+        if query:
+            manual_sales_qs = manual_sales_qs.filter(
+                Q(category__icontains=query) |
+                Q(amount__icontains=query) |
+                Q(date__icontains=query) |
+                Q(description__icontains=query) |
+                Q(created_by_admin__username__icontains=query)
+            )
+        
+        context["manual_sales_summary"] = manual_sales_qs.aggregate(
             total_sales=Sum("amount"),
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
+        
+        # Calculate WITHDRAWAL sales summary (only from Sales table with "Order #")
+        withdrawal_sales_qs = Sales.objects.filter(
+            is_archived=False
+        ).filter(
+            Q(description__icontains="Order #") | Q(description__icontains="order #")
+        ).order_by("-date")
+        
+        # Apply same month filter
+        if month:
+            try:
+                year_str, month_str = month.split("-")
+                year = int(year_str)
+                month_num = int(month_str.lstrip("0"))
+                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
+            except ValueError:
+                pass
+        else:
+            today = timezone.now()
+            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
+        
+        context["withdrawal_sales_summary"] = withdrawal_sales_qs.aggregate(
+            total_sales=Sum("amount"),
+            average_sales=Avg("amount"),
+            sales_count=Count("id"),
+        )
+        
+        # Calculate TOTAL sales summary (manual + withdrawal)
+        manual_total = context["manual_sales_summary"]["total_sales"] or 0
+        withdrawal_total = context["withdrawal_sales_summary"]["total_sales"] or 0
+        manual_count = context["manual_sales_summary"]["sales_count"] or 0
+        withdrawal_count = context["withdrawal_sales_summary"]["sales_count"] or 0
+        
+        context["sales_summary"] = {
+            'total_sales': manual_total + withdrawal_total,
+            'sales_count': manual_count + withdrawal_count,
+        }
         
         # Add expenses summary for combined display
         expenses_qs = Expenses.objects.filter(is_archived=False)

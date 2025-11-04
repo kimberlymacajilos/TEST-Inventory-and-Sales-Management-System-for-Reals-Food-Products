@@ -85,37 +85,47 @@
             </div>
 
             <!-- Sales & Expenses Summary -->
-            <div class="row mb-1 text-center" id="salesSummary">
+            <div class="row mb-3 text-center" id="salesSummary">
+              <!-- Manual Sales Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Manual Sales</h5>
+                    <h3 class="text-primary">₱{{ manual_sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
+                    <small class="text-muted">{{ manual_sales_summary.sales_count|default:0 }} record(s)</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Withdrawal Sales Card -->
+              <div class="col-md-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Withdrawal Sales</h5>
+                    <h3 class="text-info">₱{{ withdrawal_sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
+                    <small class="text-muted">{{ withdrawal_sales_summary.sales_count|default:0 }} record(s)</small>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Total Sales Card -->
               <div class="col-md-3">
                 <div class="card">
                   <div class="card-body">
                     <h5 class="card-title">Total Sales</h5>
                     <h3 class="text-success">₱{{ sales_summary.total_sales|floatformat:2|intcomma|default:"0.00" }}</h3>
-                    <!-- <small class="text-muted">Includes withdrawal sales</small> -->
+                    <small class="text-muted">{{ sales_summary.sales_count|default:0 }} record(s)</small>
                   </div>
                 </div>
               </div>
+              
+              <!-- Total Expenses Card -->
               <div class="col-md-3">
                 <div class="card">
                   <div class="card-body">
                     <h5 class="card-title">Total Expenses</h5>
                     <h3 class="text-danger">₱{{ expenses_summary.total_expenses|floatformat:2|intcomma|default:"0.00" }}</h3>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="card">
-                  <div class="card-body">
-                    <h5 class="card-title">Number of Sales</h5>
-                    <h3 class="text-info">{{ sales_summary.sales_count|default:0 }}</h3>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="card">
-                  <div class="card-body">
-                    <h5 class="card-title">Number of Expenses</h5>
-                    <h3 class="text-warning">{{ expenses_summary.expenses_count|default:0 }}</h3>
+                    <small class="text-muted">{{ expenses_summary.expenses_count|default:0 }} record(s)</small>
                   </div>
                 </div>
               </div>
