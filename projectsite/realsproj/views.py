@@ -274,6 +274,7 @@ def revenue_change_api(request):
 
 
 def monthly_report(request):
+
     sales = (
         Sales.objects.annotate(month=TruncMonth("date"))
         .values("month")
@@ -326,8 +327,11 @@ def monthly_report(request):
         "summary": summary,
     })
 
-
+@login_required
 def monthly_report_export(request):
+    if not request.user.is_superuser:
+        messages.error(request, "❌ You don't have permission to export financial reports.")
+        return redirect('home')
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="financial_report.csv"'
     response.write(u'\ufeff'.encode('utf8'))
@@ -1030,9 +1034,17 @@ class RawMaterialsUpdateView(UpdateView):
 
 
 
-class RawMaterialsDeleteView(DeleteView):
+class RawMaterialsDeleteView(LoginRequiredMixin, DeleteView):
     model = RawMaterials
     success_url = reverse_lazy('rawmaterials')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Restrict to superusers only
+        if not request.user.is_superuser:
+            messages.error(request, "❌ You don't have permission to delete raw materials.")
+            return redirect('rawmaterials-list')
+        return super().dispatch(request, *args, **kwargs)
+
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Raw Material deleted successfully.")
@@ -1222,11 +1234,18 @@ class SaleBulkDeleteView(View):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
 
-class SalesList(ListView):
+class SalesList(LoginRequiredMixin, ListView):
     model = Sales
     context_object_name = 'sales'
     template_name = "sales_list.html"
     paginate_by = 10
+
+    def dispatch(self, request, *args, **kwargs):
+        # Restrict to superusers only
+        if not request.user.is_superuser:
+            messages.error(request, " You don't have permission to access sales records.")
+            return redirect('home')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         # Exclude withdrawal-based sales (they have their own table below)
@@ -1273,110 +1292,16 @@ class SalesList(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        today = timezone.now()
-        context['current_month_value'] = today.strftime("%Y-%m")
+        full_qs = getattr(self, "_full_queryset", Sales.objects.filter(is_archived=False))
 
-        # Get the filtered queryset for display (excludes withdrawal sales)
-        display_qs = getattr(self, "_full_queryset", Sales.objects.all())
-
-        date_filter = self.request.GET.get("date_filter", "").strip()
-        show_all = self.request.GET.get("show_all", "").strip()
-        category = self.request.GET.get("category", "").strip()
-        query = self.request.GET.get("q", "").strip()
-        
-        total_qs = Sales.objects.filter(is_archived=False).order_by("-date")
-        
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                total_qs = total_qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
-            total_qs = total_qs.filter(date__year=today.year, date__month=today.month)
-        
-        # Apply category filter (only affects manual sales display, not total)
-        if category:
-            total_qs = total_qs.filter(category__iexact=category)
-        
-        # Apply search filter
-        if query:
-            total_qs = total_qs.filter(
-                Q(category__icontains=query) |
-                Q(amount__icontains=query) |
-                Q(date__icontains=query) |
-                Q(description__icontains=query) |
-                Q(created_by_admin__username__icontains=query)
-            )
-
-        # Calculate summary from ALL sales (including withdrawals)
-        context["sales_summary"] = total_qs.aggregate(
+        context['sales_summary'] = full_qs.aggregate(
             total_sales=Sum("amount"),
             average_sales=Avg("amount"),
             sales_count=Count("id"),
         )
-        # Format categories for display (exclude withdrawal-based sales)
-        raw_categories = Sales.objects.filter(
-            is_archived=False
-        ).exclude(
-            Q(description__icontains="Order #") | Q(description__icontains="order #")
-        ).values_list('category', flat=True).distinct()
-        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
-        context['categories'] = categories
 
-        # Add withdrawal-based sales grouped by order_group_id
-        withdrawal_sales_qs = Withdrawals.objects.filter(
-            reason='SOLD',
-            is_archived=False,
-            sales_channel__in=['ORDER', 'CONSIGNMENT', 'RESELLER']
-        ).select_related("created_by_admin").order_by("-date")
-        
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
-            withdrawal_sales_qs = withdrawal_sales_qs.filter(date__year=today.year, date__month=today.month)
-        
-        # Group withdrawals by order_group_id
-        from collections import defaultdict
-        grouped_orders = defaultdict(list)
-        for withdrawal in withdrawal_sales_qs:
-            if withdrawal.order_group_id:
-                grouped_orders[withdrawal.order_group_id].append(withdrawal)
-            else:
-                # For withdrawals without order_group_id, treat each as individual
-                grouped_orders[f"single_{withdrawal.id}"].append(withdrawal)
-        
-        # Convert to list of dicts for template
-        withdrawal_orders = []
-        for group_id, withdrawals in grouped_orders.items():
-            first_withdrawal = withdrawals[0]
-            # Check if this is a real order group or a single withdrawal
-            is_single = isinstance(group_id, str) and group_id.startswith('single_')
-            actual_group_id = group_id if not is_single else None
-            
-            withdrawal_orders.append({
-                'group_id': group_id,
-                'actual_group_id': actual_group_id,
-                'is_single': is_single,
-                'customer_name': first_withdrawal.customer_name,
-                'sales_channel': first_withdrawal.get_sales_channel_display(),
-                'payment_status': first_withdrawal.payment_status,
-                'payment_status_display': first_withdrawal.get_payment_status_display() if first_withdrawal.payment_status else 'N/A',
-                'paid_amount': first_withdrawal.paid_amount,
-                'date': first_withdrawal.date,
-                'item_count': len(withdrawals),
-                'withdrawals': withdrawals,
-            })
-        
-        context['withdrawal_orders'] = sorted(withdrawal_orders, key=lambda x: x['date'], reverse=True)
+        categories = Sales.objects.filter(is_archived=False).values_list('category', flat=True).distinct()
+        context["categories"] = categories
 
         return context
 
@@ -1418,6 +1343,13 @@ class SalesUpdateView(UpdateView):
 class SalesDeleteView(DeleteView):
     model = Sales
     success_url = reverse_lazy('sales')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Restrict to superusers only
+        if not request.user.is_superuser:
+            messages.error(request, "❌ You don't have permission to delete sales records.")
+            return redirect('sales')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Sale deleted successfully.")
@@ -1868,9 +1800,16 @@ class ExpensesUpdateView(UpdateView):
         messages.success(self.request, "✏️ Expense updated successfully.")
         return response
 
-class ExpensesDeleteView(DeleteView):
+class ExpensesDeleteView(LoginRequiredMixin, DeleteView):
     model = Expenses
     success_url = reverse_lazy('expenses')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, "❌ You don't have permission to delete expense records.")
+            return redirect('expenses')
+        return super().dispatch(request, *args, **kwargs)
+
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Expense deleted successfully.")
@@ -1959,6 +1898,13 @@ class ProductBatchUpdateView(UpdateView):
 class ProductBatchDeleteView(DeleteView):
     model = ProductBatches
     success_url = reverse_lazy("product-batch")
+
+    def dispatch(self, request, *args, **kwargs):
+        # Restrict to superusers only
+        if not request.user.is_superuser:
+            messages.error(request, "❌ You don't have permission to delete product batches.")
+            return redirect('product-batch')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         messages.success(self.request, "🗑️ Product Batch deleted successfully.")
@@ -2175,9 +2121,15 @@ class RawMaterialBatchUpdateView(UpdateView):
         form.instance.created_by_admin = auth_user
         return super().form_valid(form)
     
-class RawMaterialBatchDeleteView(DeleteView):
+class RawMaterialBatchDeleteView(LoginRequiredMixin, DeleteView):
     model = RawMaterialBatches
     success_url = reverse_lazy('rawmaterial-batch')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, "❌ You don't have permission to delete product batches.")
+            return redirect('rawmaterial-batch')
+        return super().dispatch(request, *args, **kwargs)
 
 
 class RawMaterialBatchArchiveView(View):
@@ -4339,7 +4291,7 @@ def login_view(request):
                                 recipient_list=[email_to],
                                 fail_silently=False,
                             )
-                        except Exception as email_error:
+                        except Exception:
                             pass
                         
                         LoginAttempt.objects.create(
@@ -4387,7 +4339,7 @@ def register(request):
         if form.is_valid():
             user = form.save()  
             login(request, user)
-            messages.success(request, 'Your account has been created successfully! You can now log in.')
+            messages.success(request, 'Your account has been created successfully! Please wait for an admin approval before you can login.')
             return redirect('login')  
         else:
             messages.error(request, 'There were errors in your form. Please check the fields and try again.')
@@ -4396,10 +4348,323 @@ def register(request):
 
     return render(request, 'registration/register.html', {'form': form})
 
-@login_required
-def profile_view(request):
-    return render(request, 'profile.html') 
+def user_management(request):
+    """Admin page to manage pending user registrations"""
+    if not request.user.is_superuser:
+        messages.error(request, "You don't have permission to access this page.")
+        return redirect('home')
+    
+    # Get all inactive users (pending approval) - exclude rejected/deleted users
+    from django.db.models import Q
+    pending_users = User.objects.filter(
+        is_active=False
+    ).exclude(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_') | Q(username__startswith='inactive_user_')
+    ).order_by('-date_joined')
+    
+    # Get all active users - exclude deleted/inactive users
+    active_users = User.objects.filter(
+        is_active=True
+    ).exclude(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_') | Q(username__startswith='inactive_user_')
+    ).order_by('-date_joined')
+    
+    # Get inactive users (deactivated by admin)
+    inactive_users = User.objects.filter(
+        username__startswith='inactive_user_'
+    ).order_by('-date_joined')
+    
+    # Get deleted users (soft deleted)
+    deleted_users = User.objects.filter(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_')
+    ).order_by('-date_joined')
+    
+    context = {
+        'pending_users': pending_users,
+        'active_users': active_users,
+        'inactive_users': inactive_users,
+        'deleted_users': deleted_users,
+    }
+    return render(request, 'user_management.html', context)
 
+@login_required
+def user_management(request):
+    """Admin page to manage pending user registrations"""
+    if not request.user.is_superuser:
+        messages.error(request, "You don't have permission to access this page.")
+        return redirect('home')
+    
+    # Get all inactive users (pending approval) - exclude rejected/deleted users
+    from django.db.models import Q
+    pending_users = User.objects.filter(
+        is_active=False
+    ).exclude(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_') | Q(username__startswith='inactive_user_')
+    ).order_by('-date_joined')
+    
+    # Get all active users - exclude deleted/inactive users
+    active_users = User.objects.filter(
+        is_active=True
+    ).exclude(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_') | Q(username__startswith='inactive_user_')
+    ).order_by('-date_joined')
+    
+    # Get inactive users (deactivated by admin)
+    inactive_users = User.objects.filter(
+        username__startswith='inactive_user_'
+    ).order_by('-date_joined')
+    
+    # Get deleted users (soft deleted)
+    deleted_users = User.objects.filter(
+        Q(username__startswith='rejected_user_') | Q(username__startswith='deleted_user_')
+    ).order_by('-date_joined')
+    
+    context = {
+        'pending_users': pending_users,
+        'active_users': active_users,
+        'inactive_users': inactive_users,
+        'deleted_users': deleted_users,
+    }
+    return render(request, 'user_management.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def approve_user(request, user_id):
+    """Approve a pending user registration"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        user = User.objects.get(id=user_id, is_active=False)
+        user.is_active = True
+        user.save()
+        
+        messages.success(request, f'User {user.username} has been approved and can now log in.')
+        return JsonResponse({'success': True, 'message': f'User {user.username} approved successfully'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found or already active'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def reject_user(request, user_id):
+    """Reject and soft-delete a pending user registration"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        from datetime import datetime
+        user = User.objects.get(id=user_id, is_active=False)
+        username = user.username
+        
+        # Soft delete: anonymize user data instead of hard delete to preserve foreign key integrity
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        user.email = f"rejected_{user.id}_{timestamp}@deleted.local"
+        user.username = f"rejected_user_{user.id}_{timestamp}"
+        user.first_name = "Rejected"
+        user.last_name = "User"
+        user.set_unusable_password()
+        user.is_active = False
+        user.save()
+        
+        messages.success(request, f'User {username} has been rejected and removed.')
+        return JsonResponse({'success': True, 'message': f'User {username} rejected successfully'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_user_role(request, user_id):
+    """Toggle user between staff and administrator"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Prevent modifying own account
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'message': 'Cannot modify your own role'})
+        
+        # Toggle superuser status
+        if user.is_superuser:
+            user.is_superuser = False
+            new_role = 'Staff'
+        else:
+            user.is_superuser = True
+            new_role = 'Administrator'
+        
+        user.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'User {user.username} is now a {new_role}',
+            'new_role': new_role
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def create_admin_user(request):
+    """Admin-only: Create a new user account (Staff or Administrator) without approval"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        username = request.POST.get('username', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+        user_type = request.POST.get('user_type', 'staff')
+        
+        # Validation
+        if not all([username, first_name, last_name, email, password1, password2]):
+            return JsonResponse({'success': False, 'message': 'All fields are required'})
+        
+        if password1 != password2:
+            return JsonResponse({'success': False, 'message': 'Passwords do not match'})
+        
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({'success': False, 'message': f'Username "{username}" already exists'})
+        
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({'success': False, 'message': f'Email "{email}" is already in use'})
+        
+        # Create user
+        user = User.objects.create(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            is_active=True,  # Immediately active
+            is_staff=True
+        )
+        user.set_password(password1)
+        
+        # Set role
+        if user_type == 'superuser':
+            user.is_superuser = True
+            role_name = 'Administrator'
+        else:
+            user.is_superuser = False
+            role_name = 'Staff'
+        
+        user.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{role_name} account "{username}" created successfully and is immediately active'
+        })
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def deactivate_user(request, user_id):
+    """Deactivate an active user (soft deactivation)"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        from datetime import datetime
+        user = User.objects.get(id=user_id, is_active=True)
+        
+        # Prevent deactivating own account
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'message': 'Cannot deactivate your own account'})
+        
+        username = user.username
+        original_email = user.email
+        
+        # Soft deactivate: mark as inactive and prefix username
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        user.username = f"inactive_user_{user.id}_{timestamp}"
+        user.email = f"inactive_{user.id}_{timestamp}@deactivated.local"
+        user.is_active = False
+        user.save()
+        
+        messages.success(request, f'User {username} has been deactivated.')
+        return JsonResponse({'success': True, 'message': f'User {username} deactivated successfully'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found or already inactive'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def reactivate_user(request, user_id):
+    """Reactivate an inactive user"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        user = User.objects.get(id=user_id)
+        
+        if not user.username.startswith('inactive_user_'):
+            return JsonResponse({'success': False, 'message': 'User is not in inactive state'})
+        
+        # Extract original username from the inactive username pattern
+        # Pattern: inactive_user_{id}_{timestamp}
+        # We'll need to ask admin to provide new username or restore from a stored field
+        # For now, we'll just activate and let them change username manually
+        user.is_active = True
+        # Remove the inactive prefix - restore to a basic username
+        user.username = f"user_{user.id}"
+        user.email = f"user_{user.id}@reactivated.local"
+        user.save()
+        
+        messages.success(request, f'User has been reactivated. Please update their username and email.')
+        return JsonResponse({'success': True, 'message': 'User reactivated successfully'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@login_required
+@require_http_methods(["POST"])
+def delete_user(request, user_id):
+    """Permanently delete a user (soft delete)"""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'Permission denied'})
+    
+    try:
+        from datetime import datetime
+        user = User.objects.get(id=user_id)
+        
+        # Prevent deleting own account
+        if user.id == request.user.id:
+            return JsonResponse({'success': False, 'message': 'Cannot delete your own account'})
+        
+        username = user.username
+        
+        # Soft delete: anonymize user data
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        user.email = f"deleted_{user.id}_{timestamp}@deleted.local"
+        user.username = f"deleted_user_{user.id}_{timestamp}"
+        user.first_name = "Deleted"
+        user.last_name = "User"
+        user.set_unusable_password()
+        user.is_active = False
+        user.is_staff = False
+        user.is_superuser = False
+        user.save()
+        
+        messages.success(request, f'User {username} has been deleted.')
+        return JsonResponse({'success': True, 'message': f'User {username} deleted successfully'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+    
 @login_required
 def edit_profile(request):
     user = request.user
@@ -4826,12 +5091,16 @@ class BestSellerProductsView(LoginRequiredMixin, TemplateView):
 def database_backup(request):
     """
     Generate and download a Django JSON fixture backup
+    Only administrator can access this feature
     """
-    from django.http import HttpResponse
+    from django.http import HttpResponse, HttpResponseForbidden
     from django.core import serializers
     from django.apps import apps
     from datetime import datetime
     import json
+
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Access denied. Only administrators can backup the database.")
     
     if request.method == 'POST':
         try:
@@ -4853,7 +5122,7 @@ def database_backup(request):
                         all_data.extend(json.loads(model_data))
                 except Exception as e:
                     # Skip models that can't be serialized
-                    print(f"Skipping {model.__name__}: {str(e)}")
+                    print(f"Skipping {model.__name__}: {e}")
                     continue
             
             # Convert to JSON string with pretty formatting
@@ -4865,6 +5134,8 @@ def database_backup(request):
                 content_type='application/json'
             )
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            response.write(u'\ufeff'.encode('utf8'))
             
             # Log the backup action
             auth_user = AuthUser.objects.get(id=request.user.id)
@@ -4887,9 +5158,15 @@ def database_backup(request):
             return response
             
         except Exception as e:
-            messages.error(request, f'❌ Backup error: {str(e)}')
+            messages.error(request, f'❌ Backup error: {e}')
 @login_required
 def financial_loss(request):
+
+    # Restrict to superusers only
+    if not request.user.is_superuser:
+        messages.error(request, "❌ You don't have permission to access financial loss reports.")
+        return redirect('home')
+    
     """View for displaying financial losses from expired and damaged items"""
     from django.core.paginator import Paginator
 

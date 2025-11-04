@@ -52,9 +52,11 @@
             
             <!-- Bulk Action Buttons -->
             <div class="mb-3">
+              {% if user.is_superuser %}
                 <button type="button" class="btn btn-danger btn-rounded" id="bulkDeleteBtn" style="display:none;" onclick="bulkDeleteRawBatch()">
                     <i class="la la-trash"></i> Delete Selected
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-warning btn-rounded" id="bulkArchiveBtn" style="display:none;" onclick="bulkArchiveRawBatch()">
                     <i class="la la-archive"></i> Archive Selected
                 </button>
@@ -95,10 +97,12 @@
                       <a href="#" data-toggle="modal" data-target="#archiveRawBatchModal{{ object.id }}" style="color: orange;" title="Archive">
                         <i class="la la-archive la-lg"></i>
                       </a>
+                      {% if user.is_superuser %}
                       &nbsp;&nbsp;
                       <a href="#" data-toggle="modal" data-target="#deleteRawBatchModal{{ object.id }}" style="color: red;" title="Delete">
                         <i class="la la-trash la-lg"></i>
                       </a>
+                      {% endif %}
                     </td>
                   </tr>
                   {% empty %}
