@@ -658,6 +658,12 @@ class ProductsUpdateView(UpdateView):
     form_class = ProductsForm
     template_name = "prod_edit.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add all required context data
@@ -707,29 +713,8 @@ class ProductsUpdateView(UpdateView):
             except SizeUnits.DoesNotExist:
                 pass
         
-        # Handle unit_price
-        unit_price_val = request.POST.get('unit_price')
-        if unit_price_val:
-            try:
-                price_obj, created = UnitPrices.objects.get_or_create(
-                    unit_price=unit_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['unit_price'] = price_obj.id
-            except Exception:
-                pass
-        
-        # Handle srp_price
-        srp_price_val = request.POST.get('srp_price')
-        if srp_price_val:
-            try:
-                price_obj, created = SrpPrices.objects.get_or_create(
-                    srp_price=srp_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['srp_price'] = price_obj.id
-            except Exception:
-                pass
+        # Note: unit_price and srp_price are handled by forms.py clean methods
+        # No need to process them here to avoid double conversion
         
         # Store the current page in session
         referer = request.META.get('HTTP_REFERER', '')
