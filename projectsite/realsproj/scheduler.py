@@ -9,7 +9,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Global scheduler instance
 scheduler = None
 
 
@@ -33,7 +32,6 @@ def start_scheduler():
     """
     global scheduler
     
-    # Prevent multiple scheduler instances
     if scheduler is not None and scheduler.running:
         logger.info("Scheduler already running, skipping initialization")
         return
@@ -41,10 +39,9 @@ def start_scheduler():
     try:
         scheduler = BackgroundScheduler()
         
-        # Schedule the job to run daily at midnight
         scheduler.add_job(
             check_expirations_job,
-            trigger=CronTrigger(hour=0, minute=0),  # Run at 00:00 daily
+            trigger=CronTrigger(hour=0, minute=0),
             id='check_expirations',
             name='Check Expiring Items',
             replace_existing=True
@@ -54,10 +51,7 @@ def start_scheduler():
         logger.info("✅ Expiration scheduler started successfully")
         logger.info("📅 Scheduled to run daily at 00:00 (midnight)")
         logger.info("🌐 Works with both Supabase and localhost databases")
-        
-        # Run once immediately on startup (optional - comment out if not needed)
-        # check_expirations_job()
-        
+       
     except Exception as e:
         logger.error(f"❌ Failed to start scheduler: {str(e)}")
 
