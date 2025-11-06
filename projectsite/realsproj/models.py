@@ -394,7 +394,14 @@ class HistoryLog(models.Model):
                         continue
                     b, a = humanize_field(key, before.get(key)), humanize_field(key, after.get(key))
                     if b != a:
-                        diffs.append(f"{format_key(key)}: {b} → {a}")
+                        # Special handling for is_archived field
+                        if key == "is_archived":
+                            if a == True or a == "True":
+                                diffs.append("Archived")
+                            elif a == False or a == "False":
+                                diffs.append("Restored")
+                        else:
+                            diffs.append(f"{format_key(key)}: {b} → {a}")
 
                 return " | ".join(diffs) if diffs else "None"
 
