@@ -50,6 +50,7 @@ urlpatterns = [
     path('rawmaterials/<int:pk>/unarchive/', a.RawMaterialUnarchiveView.as_view(), name='rawmaterials-unarchive'),
     path('rawmaterials/bulk-delete/', a.rawmaterial_bulk_delete, name='rawmaterial-bulk-delete'),
     path('rawmaterials/bulk-archive/', a.rawmaterial_bulk_archive, name='rawmaterial-bulk-archive'),
+    path('rawmaterials/bulk-restore/', a.rawmaterial_bulk_restore, name='rawmaterials-bulk-restore'),
 
     path('historylog/', a.HistoryLogList.as_view(), name='historylog'),
     path('history/', a.HistoryLogList.as_view(), name='history_log'),  
@@ -89,6 +90,7 @@ urlpatterns = [
     path('prodbatch/archive-old/', a.ProductBatchArchiveOldView.as_view(), name='product-batch-archive-old'),
     path('prodbatch/bulk-delete/', a.product_batch_bulk_delete, name='product-batch-bulk-delete'),
     path('prodbatch/bulk-archive/', a.product_batch_bulk_archive, name='product-batch-bulk-archive'),
+    path('prodbatch/bulk-restore/', a.product_batch_bulk_restore, name='product-batch-bulk-restore'),
     path('prodbatch/', a.ProductBatchList.as_view(), name='product-batch-list'),
 
     path('product-inventory/', a.ProductInventoryList.as_view(), name='product-inventory'),
@@ -224,6 +226,7 @@ urlpatterns = [
     path('products/archive-old/', a.ProductArchiveOldView.as_view(), name='products-archive-old'),
     path('products/bulk-delete/', a.product_bulk_delete, name='product-bulk-delete'),
     path('products/bulk-archive/', a.product_bulk_archive, name='product-bulk-archive'),
+    path('products/bulk-restore/', a.product_bulk_restore, name='products-bulk-restore'),
     path("products/<int:product_id>/recipes/", a.ProductRecipeListView.as_view(), name="recipe-list"),
     path("products/<int:product_id>/recipes/add/", a.ProductRecipeBulkCreateView.as_view(), name="recipe-add"),
     path("recipes/<int:pk>/edit/", a.ProductRecipeUpdateView.as_view(), name="recipe-edit"),
