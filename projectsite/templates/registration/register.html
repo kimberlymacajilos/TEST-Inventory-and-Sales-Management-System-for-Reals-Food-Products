@@ -122,8 +122,9 @@
       const numberValid = /\d/.test(password);
       const uppercaseValid = /[A-Z]/.test(password);
       const lowercaseValid = /[a-z]/.test(password);
+      const specialValid = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
-      return lengthValid && numberValid && uppercaseValid && lowercaseValid;
+      return lengthValid && numberValid && uppercaseValid && lowercaseValid && specialValid;
     }
 
     // Show error message under specific field
@@ -202,7 +203,7 @@
       // Check password requirements
       if (!checkPasswordRequirements(password1Input.value)) {
         e.preventDefault();
-        showPassword1Error("Password must contain at least 8 characters, one number, one uppercase letter, and one lowercase letter.");
+        showPassword1Error("Password must contain at least 8 characters, one number, one uppercase letter, one lowercase letter, and one special character.");
         hasError = true;
       }
 

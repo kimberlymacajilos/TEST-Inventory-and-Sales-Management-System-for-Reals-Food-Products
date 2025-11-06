@@ -12,32 +12,115 @@
         <a href="{% url 'edit_profile' %}" class="btn btn-primary btn-rounded">Edit Profile</a>
     </div>
 
-    <div class="card overflow-hidden">
-        <div class="row no-gutters row-bordered row-border-light">
-            <div class="col-md-12">
-                <div class="card-body">
-                    <!-- Full Profile Form -->
-                    <form>
-                        <div class="form-group">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
-                        </div>
+    <div class="card overflow-hidden profile-card">
+        <!-- Profile Header with Avatar -->
+        <div class="profile-header">
+            <div class="profile-avatar-wrapper">
+                <div class="profile-avatar">
+                    {% if user.first_name and user.last_name %}
+                        {{ user.first_name.0 }}{{ user.last_name.0 }}
+                    {% elif user.first_name %}
+                        {{ user.first_name.0 }}
+                    {% else %}
+                        {{ user.username.0|upper }}
+                    {% endif %}
+                </div>
+                <div class="profile-avatar-info">
+                    <h3 class="profile-name">
+                        {% if user.first_name or user.last_name %}
+                            {{ user.first_name }} {{ user.last_name }}
+                        {% else %}
+                            {{ user.username }}
+                        {% endif %}
+                    </h3>
+                    <p class="profile-role">@{{ user.username }}</p>
+                </div>
+            </div>
+        </div>
 
-                        <div class="form-group">
-                            <label class="form-label">First Name</label>
-                            <input type="text" class="form-control" value="{{ user.first_name }}" readonly>
-                        </div>
+        <!-- Profile Details -->
+        <div class="card-body profile-details">
+            <h5 class="section-title">
+                <i class="bi bi-person-badge"></i> Account Information
+            </h5>
+            <div class="profile-info-grid">
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-person-circle"></i>
+                        <span>Username</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.username }}</span>
+                        <span class="badge badge-secondary">Read-only</span>
+                    </div>
+                </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Last Name</label>
-                            <input type="text" class="form-control" value="{{ user.last_name }}" readonly>
-                        </div>
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-person"></i>
+                        <span>First Name</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.first_name|default:"Not set" }}</span>
+                    </div>
+                </div>
 
-                        <div class="form-group">
-                            <label class="form-label">E-mail</label>
-                            <input type="text" class="form-control" value="{{ user.email }}" readonly>
-                        </div>
-                    </form>
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-person-fill"></i>
+                        <span>Last Name</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.last_name|default:"Not set" }}</span>
+                    </div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-envelope"></i>
+                        <span>Email Address</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.email }}</span>
+                    </div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Role</span>
+                    </div>
+                    <div class="info-value">
+                        {% if user.is_superuser %}
+                            <span class="badge badge-danger">
+                                <i class="bi bi-star-fill"></i> Administrator
+                            </span>
+                        {% else %}
+                            <span class="badge badge-primary">
+                                <i class="bi bi-person-badge"></i> Staff
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-calendar-check"></i>
+                        <span>Member Since</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.date_joined|date:"F d, Y" }}</span>
+                    </div>
+                </div>
+
+                <div class="profile-info-item">
+                    <div class="info-label">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Last Login</span>
+                    </div>
+                    <div class="info-value">
+                        <span class="value-text">{{ user.last_login|date:"F d, Y - g:i A"|default:"Never" }}</span>
+                    </div>
                 </div>
             </div>
         </div>

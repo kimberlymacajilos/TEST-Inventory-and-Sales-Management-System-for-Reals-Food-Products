@@ -572,12 +572,15 @@ function deactivateUser() {
     .then(response => response.json())
     .then(data => {
         $('#deactivateModal').modal('hide');
-        location.reload();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
     })
     .catch(error => {
         $('#deactivateModal').modal('hide');
-        location.reload();
-        
+        alert('Error deactivating user');
     });
 }
 
@@ -593,11 +596,15 @@ function reactivateUser() {
     .then(response => response.json())
     .then(data => {
         $('#reactivateModal').modal('hide');
-        location.reload();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
     })
     .catch(error => {
         $('#reactivateModal').modal('hide');
-        location.reload();
+        alert('Error reactivating user');
     });
 }
 
@@ -612,14 +619,16 @@ function deleteUser() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Delete response:', data);
         $('#deleteModal').modal('hide');
-        location.reload();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
     })
     .catch(error => {
-        console.log('Delete error:', error);
         $('#deleteModal').modal('hide');
-        location.reload();
+        alert('Error deleting user');
     });
 }
 
@@ -697,12 +706,7 @@ document.getElementById('createAdminForm').addEventListener('submit', function(e
             document.getElementById('createAdminForm').reset();
             errorDiv.style.display = 'none';
             
-            if (typeof showToast === 'function') {
-                showToast(data.message, 'success');
-            } else {
-                alert(data.message);
-            }
-            setTimeout(() => location.reload(), 1000);
+            location.reload();
         } else {
             // Show error in modal
             errorMessage.textContent = data.message;
