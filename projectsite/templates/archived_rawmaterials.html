@@ -3,15 +3,17 @@
 {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Archived Raw Materials</h4>
+        <h4 class="page-title">
+            <a href="{% url 'rawmaterials-list' %}" class="btn btn-link p-0 mr-2" title="Back to Active Raw Materials">
+                <i class="la la-arrow-left" style="font-size: 24px;"></i>
+            </a>
+            Archived Raw Materials
+        </h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="card-title">List of Archived Raw Materials</div>
-                        </div>
-                        <a href="{% url 'rawmaterials-list' %}" class="btn btn-primary btn-rounded">Back to Active Raw Materials</a>
+                    <div class="card-header">
+                        <div class="card-title">List of Archived Raw Materials</div>
                     </div>
                     <div class="card-body">
                         <!-- Bulk Action Buttons -->

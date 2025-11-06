@@ -3,15 +3,17 @@
 {% block content %}
 <div class="content">
     <div class="container-fluid">
-        <h4 class="page-title">Archived Product Batches</h4>
+        <h4 class="page-title">
+            <a href="{% url 'product-batch' %}" class="btn btn-link p-0 mr-2" title="Back to Active Batches">
+                <i class="la la-arrow-left" style="font-size: 24px;"></i>
+            </a>
+            Archived Product Batches
+        </h4>
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="card-title">List of Archived Product Batches</div>
-                        </div>
-                        <a href="{% url 'product-batch' %}" class="btn btn-primary btn-rounded">Back to Active Batches</a>
+                    <div class="card-header">
+                        <div class="card-title">List of Archived Product Batches</div>
                     </div>
                     <div class="card-body">
                         <!-- Bulk Action Buttons -->
@@ -85,7 +87,7 @@
                 <strong>Batch Date:</strong> {{ object.batch_date|date:"Y-m-d" }}
             </div>
             <div class="modal-footer">
-                <form method="post" action="{% url 'product-batch-unarchive' object.id %}" onsubmit="handleUnarchiveSubmit(event, '{{ object.product }} ({{ object.batch_date|date:"Y-m-d" }})')">
+                <form method="post" action="{% url 'product-batch-unarchive' object.id %}" data-batch-name="{{ object.product|escapejs }} ({{ object.batch_date|date:'Y-m-d' }})" onsubmit="handleUnarchiveSubmit(event, this.getAttribute('data-batch-name'))">
                     {% csrf_token %}
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-success">Yes, Restore</button>

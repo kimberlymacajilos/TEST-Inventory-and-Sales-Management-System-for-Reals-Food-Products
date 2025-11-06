@@ -98,6 +98,30 @@ from urllib.parse import urlparse, parse_qs
 from django.db.models import Count
 
 
+def get_or_create_auth_user(user):
+    """
+    Get or create AuthUser record from Django User.
+    This handles database sync issues when switching between databases.
+    """
+    try:
+        return AuthUser.objects.get(id=user.id)
+    except AuthUser.DoesNotExist:
+
+        return AuthUser.objects.create(
+            id=user.id,
+            password=user.password,
+            last_login=user.last_login,
+            is_superuser=user.is_superuser,
+            username=user.username,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            is_staff=user.is_staff,
+            is_active=user.is_active,
+            date_joined=user.date_joined
+        )
+
+
 # Helper function for creating history logs
 def create_history_log(admin, log_category, entity_type, entity_id, before=None, after=None):
     """
@@ -4090,7 +4114,7 @@ class NotificationsList(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Notifications.objects.filter(is_archived=False).order_by('-created_at')
+        qs = Notifications.objects.filter(is_archived=False).order_by('-notification_timestamp')
         
         # Date filter
         date_filter = self.request.GET.get('date_filter', '').strip()
@@ -4154,7 +4178,7 @@ class BulkProductBatchCreateView(View):
         batch_date = timezone.localdate()
         manufactured_date = form.cleaned_data['manufactured_date']
         deduct_raw_material = form.cleaned_data['deduct_raw_material']
-        auth_user = AuthUser.objects.get(id=request.user.id)
+        auth_user = get_or_create_auth_user(request.user)
 
         try:
             with transaction.atomic():
@@ -4215,7 +4239,7 @@ class BulkRawMaterialBatchCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             batch_date = timezone.localdate()
             received_date = form.cleaned_data['received_date']
-            auth_user = AuthUser.objects.get(id=request.user.id)
+            auth_user = get_or_create_auth_user(request.user)
 
             for rawmaterial_info in form.rawmaterials:
                 rawmaterial = rawmaterial_info['rawmaterial']
@@ -5211,41 +5235,6 @@ def set_user_inactive(sender, user, request, **kwargs):
     except UserActivity.DoesNotExist:
         pass
 
-
-def check_expirations(request):
-    """
-    Trigger the expiration check management command.
-    This will create notifications, deduct expired items from inventory,
-    and log them to financial loss.
-    """
-    from django.core.management import call_command
-    from io import StringIO
-    
-    # Capture command output
-    out = StringIO()
-    
-    try:
-        # Call the management command that handles everything properly
-        call_command('check_expirations', stdout=out)
-        output = out.getvalue()
-        
-        # Count notifications created
-        notification_count = Notifications.objects.filter(
-            notification_type="EXPIRATION_ALERT",
-            is_read=False
-        ).count()
-        
-        return JsonResponse({
-            "status": "ok",
-            "message": "Expiration check completed successfully",
-            "notifications_created": notification_count,
-            "details": output
-        })
-    except Exception as e:
-        return JsonResponse({
-            "status": "error",
-            "message": str(e)
-        }, status=500)
 
 class BestSellerProductsView(LoginRequiredMixin, TemplateView):
     template_name = "bestseller_products.html"
