@@ -476,49 +476,63 @@ class Notifications(models.Model):
     @property
     def formatted_message(self):
         notif_type = self.notification_type.upper()
-        from realsproj.models import ProductBatches, RawMaterialBatches
+        from realsproj.models import ProductBatches, RawMaterialBatches, Products, RawMaterials
         item_name = "Unknown Item"
 
         try:
             if self.item_type.upper() == "PRODUCT":
-                batch = (
-                    ProductBatches.objects.filter(id=self.item_id)
-                    .select_related(
-                        "product__product_type",
-                        "product__variant",
-                        "product__size_unit",
-                        "product__size"
-                    ).first()
-                )
-                if batch and batch.product:
-                    p = batch.product
-                    product_type = getattr(p.product_type, "name", "")
-                    variant = getattr(p.variant, "name", "")
-                    size_label = getattr(p.size, "size_label", None)
-                    size_unit = getattr(p.size_unit, "unit_name", None)
-                    size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
-
-                    if notif_type == "EXPIRATION_ALERT":
-                        qty = int(batch.quantity or 0)
-                        item_name = f"{qty} {product_type} - {variant}{size_text}"
-                    else:
+        
+                if notif_type == "EXPIRATION_ALERT":
+                    batch = (
+                        ProductBatches.objects.filter(id=self.item_id)
+                        .select_related(
+                            "product__product_type",
+                            "product__variant",
+                            "product__size_unit",
+                            "product__size"
+                        ).first()
+                    )
+                    if batch and batch.product:
+                        p = batch.product
+                        product_type = getattr(p.product_type, "name", "")
+                        variant = getattr(p.variant, "name", "")
+                        size_label = getattr(p.size, "size_label", None)
+                        size_unit = getattr(p.size_unit, "unit_name", None)
+                        size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
+                        batch_date = batch.batch_date.strftime("%m/%d/%Y") if batch.batch_date else "Unknown"
+                        item_name = f"{product_type} - {variant}{size_text} Batch {batch_date}"
+                else:
+                    product = (
+                        Products.objects.filter(id=self.item_id)
+                        .select_related(
+                            "product_type",
+                            "variant",
+                            "size_unit",
+                            "size"
+                        ).first()
+                    )
+                    if product:
+                        product_type = getattr(product.product_type, "name", "")
+                        variant = getattr(product.variant, "name", "")
+                        size_label = getattr(product.size, "size_label", None)
+                        size_unit = getattr(product.size_unit, "unit_name", None)
+                        size_text = f" ({size_label} {size_unit})" if size_label and size_unit else f" ({size_unit})" if size_unit else ""
                         item_name = f"{product_type} - {variant}{size_text}"
 
             elif self.item_type.upper() == "RAW_MATERIAL":
-                batch = (
-                    RawMaterialBatches.objects.filter(id=self.item_id)
-                    .select_related("material__unit")
-                    .first()
-                )
-                if batch and batch.material:
-                    material_name = getattr(batch.material, "name", "")
-                    unit_name = getattr(batch.material.unit, "unit_name", "")
-                    if notif_type == "EXPIRATION_ALERT":
-                        qty = int(batch.quantity or 0)
-                        item_name = f"{qty} {material_name} ({unit_name})"
-                    else:
-                        item_name = f"{material_name} ({unit_name})"
+                if notif_type == "EXPIRATION_ALERT":
+                    batch = (
+                        RawMaterialBatches.objects.filter(id=self.item_id)
+                        .select_related("material__unit")
+                        .first()
+                    )
+                    if batch and batch.material:
+                        material_name = getattr(batch.material, "name", "")
+                        unit_name = getattr(batch.material.unit, "unit_name", "")
+                        batch_date = batch.batch_date.strftime("%m/%d/%Y") if batch.batch_date else "Unknown"
+                        item_name = f"{material_name} ({unit_name}) Batch {batch_date}"
                 else:
+
                     material = (
                         RawMaterials.objects.filter(id=self.item_id)
                         .select_related("unit")

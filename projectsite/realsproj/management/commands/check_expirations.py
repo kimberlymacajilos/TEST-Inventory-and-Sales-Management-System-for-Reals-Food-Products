@@ -1,20 +1,22 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.db.models import F, Sum, Q
 from django.db import transaction
-from django.contrib.auth.models import User
-from collections import defaultdict
+from django.db.models import Q
 from realsproj.models import (
-    ProductBatches, Products, ProductInventory,
-    RawMaterialBatches, RawMaterials, RawMaterialInventory,
-    Notifications, Withdrawals
+    ProductBatches, RawMaterialBatches, 
+    ProductInventory, RawMaterialInventory,
+    Notifications, Withdrawals, User
 )
+from datetime import timedelta
+
 
 class Command(BaseCommand):
-    help = "Check expired and about-to-expire products/raw materials, create notifications, and deduct expired quantities. Matches Supabase cron job logic."
+    help = "Check for expiring and expired items, create notifications, and auto-withdraw expired items using FEFO"
 
     def handle(self, *args, **options):
         today = timezone.localdate()
+        one_week = today + timedelta(days=7)
+        one_month = today + timedelta(days=30)
         
         try:
             system_user = User.objects.filter(is_superuser=True).first()
@@ -27,134 +29,194 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("No user found to create withdrawals"))
             return
 
-        expired_products_count = 0
-        expired_materials_count = 0
+        self.stdout.write(self.style.WARNING("Checking expiration dates..."))
 
-        self.stdout.write(self.style.WARNING("Checking product batches..."))
+        expire_today_count = 0
+        expire_week_count = 0
+        expire_month_count = 0
+
+        self.stdout.write(self.style.WARNING("\nChecking Product Batches..."))
         
         product_batches = ProductBatches.objects.select_related(
-            "product__product_type",
-            "product__variant",
-            "product__size_unit",
-            "product__size"
+            "product__product_type", "product__variant", "product__size_unit", "product__size"
         ).filter(
-            Q(is_expired=False) | Q(is_expired__isnull=True),  
-            expiration_date__lte=today  
-        )
+            Q(is_expired=False) | Q(is_expired__isnull=True),
+            is_archived=False,
+            quantity__gt=0
+        ).order_by('expiration_date')
         
-        with transaction.atomic():
-            for batch in product_batches:
-                product = batch.product
-                qty = int(batch.quantity or 0)
+        for batch in product_batches:
+            if not batch.expiration_date:
+                continue
                 
-                if qty <= 0:
-                    continue
-                
-                notification_exists = Notifications.objects.filter(
-                    item_type="PRODUCT",
-                    item_id=batch.id,
-                    notification_type="EXPIRATION_ALERT"
-                ).exists()
-                
-                if notification_exists:
+            product_name = str(batch.product)
+            qty = int(batch.quantity)
+            exp_date = batch.expiration_date
+            
+            notification_exists = Notifications.objects.filter(
+                item_type="PRODUCT",
+                item_id=batch.id,
+                notification_type="EXPIRATION_ALERT"
+            ).exists()
+            
+        
+            if exp_date <= today:
+                if not notification_exists:
+                    if qty <= 0 or batch.is_expired == True:
+                        continue
+                    
+                    with transaction.atomic():
+                        batch.refresh_from_db()
+            
+                        if batch.is_expired == True or batch.quantity <= 0:
+                            continue
 
-                    continue
+                        expired_qty = int(batch.quantity)
+ 
+                        batch.is_expired = True
+                        batch.quantity = 0
+                        batch.save(update_fields=['is_expired', 'quantity'])
 
-                batch.is_expired = True
-                batch.save(update_fields=['is_expired'])
-             
-                inventory = ProductInventory.objects.filter(product=product).first()
-                if inventory:
-                    new_stock = max(float(inventory.total_stock) - qty, 0)
-                    inventory.total_stock = new_stock
-                    inventory.save(update_fields=['total_stock'])
-                    self.stdout.write(f"  [OK] Deducted {qty} from {product} (new stock: {new_stock})")
+                        Notifications.objects.create(
+                            item_type="PRODUCT",
+                            item_id=batch.id,
+                            notification_type="EXPIRATION_ALERT",
+                            notification_timestamp=timezone.now(),
+                            is_read=False
+                        )
+                        
+                        expire_today_count += 1
+                        self.stdout.write(self.style.ERROR(
+                            f"  EXPIRED TODAY: {expired_qty} {product_name} (Batch #{batch.id}, Exp: {exp_date})"
+                        ))
 
-                Withdrawals.objects.create(
-                    item_type="PRODUCT",
-                    item_id=product.id,
-                    quantity=qty,
-                    reason="EXPIRED",
-                    date=timezone.now(),
-                    created_by_admin=system_user
-                )
+            elif exp_date <= one_week:
+                if not notification_exists:
+                    Notifications.objects.create(
+                        item_type="PRODUCT",
+                        item_id=batch.id,
+                        notification_type="EXPIRATION_ALERT",
+                        notification_timestamp=timezone.now(),
+                        is_read=False
+                    )
+                    expire_week_count += 1
+                    days_left = (exp_date - today).days
+                    self.stdout.write(self.style.WARNING(
+                        f"  EXPIRES IN {days_left} DAY(S): {qty} {product_name} (Batch #{batch.id}, Exp: {exp_date})"
+                    ))
 
-                Notifications.objects.create(
-                    item_type="PRODUCT",
-                    item_id=batch.id,
-                    notification_type="EXPIRATION_ALERT",
-                    notification_timestamp=timezone.now(),
-                    is_read=False
-                )
-                
-                expired_products_count += 1
-                self.stdout.write(self.style.SUCCESS(
-                    f"  [EXPIRED] {qty} {product} (Exp: {batch.expiration_date})"
-                ))
-
-        self.stdout.write(self.style.WARNING("\nChecking raw material batches..."))
+            elif exp_date <= one_month:
+                if not notification_exists:
+                    Notifications.objects.create(
+                        item_type="PRODUCT",
+                        item_id=batch.id,
+                        notification_type="EXPIRATION_ALERT",
+                        notification_timestamp=timezone.now(),
+                        is_read=False
+                    )
+                    expire_month_count += 1
+                    days_left = (exp_date - today).days
+                    self.stdout.write(self.style.WARNING(
+                        f"  EXPIRES IN {days_left} DAYS: {qty} {product_name} (Batch #{batch.id}, Exp: {exp_date})"
+                    ))
+        
+        self.stdout.write(self.style.WARNING("\nChecking Raw Material Batches..."))
         
         material_batches = RawMaterialBatches.objects.select_related(
             "material__unit"
         ).filter(
             Q(is_expired=False) | Q(is_expired__isnull=True),
-            expiration_date__lte=today 
-        )
+            is_archived=False,
+            quantity__gt=0,
+            expiration_date__isnull=False
+        ).order_by('expiration_date')
         
-        with transaction.atomic():
-            for batch in material_batches:
-                material = batch.material
-                qty = float(batch.quantity or 0)
-                
-                if qty <= 0:
-                    continue
-                
-                notification_exists = Notifications.objects.filter(
-                    item_type="RAW_MATERIAL",
-                    item_id=batch.id,
-                    notification_type="EXPIRATION_ALERT"
-                ).exists()
-                
-                if notification_exists:
+        for batch in material_batches:
+            material_name = batch.material.name
+            qty = float(batch.quantity)
+            exp_date = batch.expiration_date
 
-                    continue
-                
-                batch.is_expired = True
-                batch.save(update_fields=['is_expired'])
-                
-                inventory = RawMaterialInventory.objects.filter(material=material).first()
-                if inventory:
-                    new_stock = max(float(inventory.total_stock) - qty, 0)
-                    inventory.total_stock = new_stock
-                    inventory.save(update_fields=['total_stock'])
-                    self.stdout.write(f"  [OK] Deducted {qty} from {material.name} (new stock: {new_stock})")
+            notification_exists = Notifications.objects.filter(
+                item_type="RAW_MATERIAL",
+                item_id=batch.id,
+                notification_type="EXPIRATION_ALERT"
+            ).exists()
 
-                Withdrawals.objects.create(
-                    item_type="RAW_MATERIAL",
-                    item_id=material.id,
-                    quantity=qty,
-                    reason="EXPIRED",
-                    date=timezone.now(),
-                    created_by_admin=system_user
-                )
-                
-                Notifications.objects.create(
-                    item_type="RAW_MATERIAL",
-                    item_id=batch.id,
-                    notification_type="EXPIRATION_ALERT",
-                    notification_timestamp=timezone.now(),
-                    is_read=False
-                )
-                
-                expired_materials_count += 1
-                self.stdout.write(self.style.SUCCESS(
-                    f"  [EXPIRED] {qty} {material.name} (Exp: {batch.expiration_date})"
-                ))
+            if exp_date <= today:
+                if not notification_exists:
+                    if qty <= 0 or batch.is_expired == True:
+                        continue
+                    
+                    with transaction.atomic():
+                        batch.refresh_from_db()
+                        
+                        if batch.is_expired == True or batch.quantity <= 0:
+                            continue
+
+                        expired_qty = float(batch.quantity)
+
+                        batch.is_expired = True
+                        batch.quantity = 0
+                        batch.save(update_fields=['is_expired', 'quantity'])
+
+                        Notifications.objects.create(
+                            item_type="RAW_MATERIAL",
+                            item_id=batch.id,
+                            notification_type="EXPIRATION_ALERT",
+                            notification_timestamp=timezone.now(),
+                            is_read=False
+                        )
+                        
+                        expire_today_count += 1
+                        self.stdout.write(self.style.ERROR(
+                            f"  EXPIRED TODAY: {expired_qty} {material_name} (Batch #{batch.id}, Exp: {exp_date})"
+                        ))
+
+            elif exp_date <= one_week:
+                if not notification_exists:
+                    Notifications.objects.create(
+                        item_type="RAW_MATERIAL",
+                        item_id=batch.id,
+                        notification_type="EXPIRATION_ALERT",
+                        notification_timestamp=timezone.now(),
+                        is_read=False
+                    )
+                    expire_week_count += 1
+                    days_left = (exp_date - today).days
+                    self.stdout.write(self.style.WARNING(
+                        f"  EXPIRES IN {days_left} DAY(S): {qty} {material_name} (Batch #{batch.id}, Exp: {exp_date})"
+                    ))
+            
+            elif exp_date <= one_month:
+                if not notification_exists:
+                    Notifications.objects.create(
+                        item_type="RAW_MATERIAL",
+                        item_id=batch.id,
+                        notification_type="EXPIRATION_ALERT",
+                        notification_timestamp=timezone.now(),
+                        is_read=False
+                    )
+                    expire_month_count += 1
+                    days_left = (exp_date - today).days
+                    self.stdout.write(self.style.WARNING(
+                        f"  EXPIRES IN {days_left} DAYS: {qty} {material_name} (Batch #{batch.id}, Exp: {exp_date})"
+                    ))
         
-        self.stdout.write("\n" + "="*70)
+     
+        self.stdout.write(self.style.SUCCESS("\n" + "="*60))
         self.stdout.write(self.style.SUCCESS("EXPIRATION CHECK COMPLETE"))
-        self.stdout.write("="*70)
-        self.stdout.write(f"  Products expired: {expired_products_count}")
-        self.stdout.write(f"  Raw materials expired: {expired_materials_count}")
-        self.stdout.write(f"  Total expired items: {expired_products_count + expired_materials_count}")
-        self.stdout.write("="*70)
+        self.stdout.write(self.style.SUCCESS("="*60))
+        
+        if expire_today_count > 0:
+            self.stdout.write(self.style.ERROR(f"{expire_today_count} item(s) expired today (auto-removed from inventory)"))
+        
+        if expire_week_count > 0:
+            self.stdout.write(self.style.WARNING(f"{expire_week_count} item(s) will expire within a week"))
+        
+        if expire_month_count > 0:
+            self.stdout.write(self.style.WARNING(f"{expire_month_count} item(s) will expire within a month"))
+        
+        if expire_today_count == 0 and expire_week_count == 0 and expire_month_count == 0:
+            self.stdout.write(self.style.SUCCESS("No expiring items found"))
+        
+        self.stdout.write(self.style.SUCCESS("="*60 + "\n"))

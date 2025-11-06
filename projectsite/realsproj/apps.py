@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+import os
 
 
 class RealsprojConfig(AppConfig):
@@ -6,5 +7,10 @@ class RealsprojConfig(AppConfig):
     name = 'realsproj'
     
     def ready(self):
-        import realsproj.signals  #  this makes sure signals.py is loaded
+        import realsproj.signals
         
+        # Auto-start the expiration check scheduler
+        # This will run automatically when Django starts
+        if os.environ.get('RUN_MAIN') == 'true':  # Prevent duplicate scheduler in dev mode
+            from realsproj.scheduler import start_scheduler
+            start_scheduler() 
