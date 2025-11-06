@@ -1170,13 +1170,13 @@ class SaleArchiveView(View):
         sale = get_object_or_404(Sales, pk=pk)
         sale.is_archived = True
         sale.save()
-        return redirect('sales')
+        return redirect('salesexpenses')
 
 class SaleArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Sales.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
-        return redirect('sales')
+        return redirect('salesexpenses')
     
 class ArchivedSalesListView(ListView):
     model = Sales
@@ -1609,7 +1609,7 @@ class SalesDeleteView(DeleteView):
         # Restrict to superusers only
         if not request.user.is_superuser:
             messages.error(request, "❌ You don't have permission to delete sales records.")
-            return redirect('sales')
+            return redirect('withdrawalSales')
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -1630,7 +1630,7 @@ class WithdrawalOrderDetailView(View):
         
         if not withdrawals.exists():
             messages.error(request, "Order not found.")
-            return redirect('sales')
+            return redirect('withdrawalSales')
         
         first_withdrawal = withdrawals.first()
         
@@ -1808,7 +1808,7 @@ class WithdrawalOrderUpdatePaymentView(View):
         
         if not withdrawals.exists():
             messages.error(request, "Order not found.")
-            return redirect('sales')
+            return redirect('salesexpenses')
         
         # Determine the amount for sales entry
         sales_amount = Decimal(0)
@@ -1895,7 +1895,7 @@ class WithdrawalOrderUpdatePaymentView(View):
         else:  # UNPAID
             messages.success(request, "✅ Order marked as UNPAID. No sales recorded.")
         
-        return redirect('sales')
+        return redirect('withdrawalSales')
 
 
 class WithdrawalSalesList(ListView):
@@ -1992,14 +1992,14 @@ class ExpenseArchiveView(View):
         expense = get_object_or_404(Expenses, pk=pk)
         expense.is_archived = True
         expense.save()
-        return redirect('sales')
+        return redirect('salesexpenses')
 
 class ExpenseArchiveOldView(View):
     def post(self, request):
         one_year_ago = timezone.now() - timedelta(days=365)
         Expenses.objects.filter(is_archived=False, date__lt=one_year_ago).update(is_archived=True)
         messages.success(request, " Old expenses archived successfully.")
-        return redirect('sales')
+        return redirect('salesexpenses')
 
 @require_http_methods(["POST"])
 def expenses_bulk_delete(request):
