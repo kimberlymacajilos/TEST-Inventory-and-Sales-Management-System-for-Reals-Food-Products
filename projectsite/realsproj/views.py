@@ -1216,6 +1216,7 @@ class SaleUnarchiveView(View):
         sale = get_object_or_404(Sales, pk=pk)
         sale.is_archived = False
         sale.save()
+        messages.success(request, "✅ Sale restored successfully.")
         return redirect('salesexpense-archive')
 
 @require_http_methods(["POST"])
@@ -1992,6 +1993,7 @@ class ExpenseArchiveView(View):
         expense = get_object_or_404(Expenses, pk=pk)
         expense.is_archived = True
         expense.save()
+        messages.success(request, "✅ Expense archived successfully.")
         return redirect('salesexpenses')
 
 class ExpenseArchiveOldView(View):
@@ -2049,6 +2051,7 @@ class ExpenseUnarchiveView(View):
         expense = get_object_or_404(Expenses, pk=pk)
         expense.is_archived = False
         expense.save()
+        messages.success(request, "✅ Expense restored successfully.")
         return redirect('salesexpense-archive')
 
 class ExpensesCreateView(CreateView):
