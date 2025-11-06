@@ -50,6 +50,11 @@
                                         placeholder="Search Product Type, Variant, or Size..." value="{{ request.GET.search }}">
                                 </div>
                                 <div class="col-auto">
+                                    <input type="month" name="date_created" class="form-control"
+                                           placeholder="Filter by Month"
+                                           value="{{ request.GET.date_created }}">
+                                </div>
+                                <div class="col-md-3">
                                     <div class="input-group">
                                         <input type="text" name="barcode" id="barcode-search" class="form-control"
                                             placeholder="🔍 Scan or enter barcode..." value="{{ request.GET.barcode }}">

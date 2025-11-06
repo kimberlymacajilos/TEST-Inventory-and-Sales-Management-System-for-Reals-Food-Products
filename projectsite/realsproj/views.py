@@ -658,6 +658,12 @@ class ProductsUpdateView(UpdateView):
     form_class = ProductsForm
     template_name = "prod_edit.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        auth_user = AuthUser.objects.get(id=self.request.user.id)
+        kwargs['created_by_admin'] = auth_user
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Add all required context data
@@ -707,29 +713,8 @@ class ProductsUpdateView(UpdateView):
             except SizeUnits.DoesNotExist:
                 pass
         
-        # Handle unit_price
-        unit_price_val = request.POST.get('unit_price')
-        if unit_price_val:
-            try:
-                price_obj, created = UnitPrices.objects.get_or_create(
-                    unit_price=unit_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['unit_price'] = price_obj.id
-            except Exception:
-                pass
-        
-        # Handle srp_price
-        srp_price_val = request.POST.get('srp_price')
-        if srp_price_val:
-            try:
-                price_obj, created = SrpPrices.objects.get_or_create(
-                    srp_price=srp_price_val,
-                    defaults={'created_by_admin': AuthUser.objects.get(id=request.user.id)}
-                )
-                request.POST['srp_price'] = price_obj.id
-            except Exception:
-                pass
+        # Note: unit_price and srp_price are handled by forms.py clean methods
+        # No need to process them here to avoid double conversion
         
         # Store the current page in session
         referer = request.META.get('HTTP_REFERER', '')
@@ -1476,7 +1461,24 @@ class SalesExpensesList(ListView):
         ).exclude(
             Q(description__icontains="Order #") | Q(description__icontains="order #")
         ).values_list('category', flat=True).distinct()
-        categories = [(cat, cat.replace('_', ' ').title()) for cat in raw_categories]
+        
+        # Create clean list of unique categories with proper formatting
+        # Convert UPPERCASE_WITH_UNDERSCORE to Title Case
+        # Use a dict to ensure uniqueness by normalized display name
+        categories_dict = {}
+        for cat in raw_categories:
+            if cat:  # Skip empty/None values
+                # Replace underscores with spaces and convert to title case for display
+                formatted = cat.replace('_', ' ').title()
+                
+                # Use the formatted display name as the key to prevent duplicates
+                # This ensures "Physical Store" and "PHYSICAL_STORE" are treated as the same
+                if formatted not in categories_dict:
+                    # Prefer uppercase version for the value (for consistency with DB)
+                    categories_dict[formatted] = {'value': cat.upper().replace(' ', '_'), 'display': formatted}
+        
+        # Sort by display name
+        categories = sorted(categories_dict.values(), key=lambda x: x['display'])
         context['categories'] = categories
 
         # Add withdrawal-based sales grouped by order_group_id
@@ -1533,6 +1535,10 @@ class SalesExpensesList(ListView):
             })
         
         context['withdrawal_orders'] = sorted(withdrawal_orders, key=lambda x: x['date'], reverse=True)
+        
+        # Add current month value for default display
+        today = timezone.now()
+        context['current_month_value'] = today.strftime("%Y-%m")
 
         return context
 

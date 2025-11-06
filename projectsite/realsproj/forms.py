@@ -125,6 +125,10 @@ class ProductsForm(forms.ModelForm):
             unit_price=price,
             defaults={'created_by_admin': self.created_by_admin}
         )
+        # If existing record has no created_by_admin, update it
+        if not created and not obj.created_by_admin and self.created_by_admin:
+            obj.created_by_admin = self.created_by_admin
+            obj.save()
         return obj
 
     def clean_srp_price(self):
@@ -133,6 +137,10 @@ class ProductsForm(forms.ModelForm):
             srp_price=price,
             defaults={'created_by_admin': self.created_by_admin}
         )
+        # If existing record has no created_by_admin, update it
+        if not created and not obj.created_by_admin and self.created_by_admin:
+            obj.created_by_admin = self.created_by_admin
+            obj.save()
         return obj
 
 class ProductRecipeForm(forms.ModelForm):
