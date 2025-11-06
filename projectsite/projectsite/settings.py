@@ -83,7 +83,6 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-<<<<<<< HEAD
 #DATABASES = {
 #   'default': {
 #       'ENGINE': 'django.db.backends.postgresql',
@@ -97,38 +96,9 @@ WSGI_APPLICATION = 'projectsite.wsgi.application'
 #}
 
 # DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'postgres',
-#        'USER': 'postgres',
-#        'PASSWORD': 'Reals_db_123',
-#        'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
-#        'PORT': '5432',
-#        'CONN_MAX_AGE': 600, 
-#    }
-# }
-=======
-DATABASES = {
-  'default': {
-      'ENGINE': 'django.db.backends.postgresql',
-      'NAME': 'postgres',
-      'USER': 'postgres',
-      'PASSWORD': 'Reals_db_123',
-      'HOST': 'db.rczsumkmhoxjaycvggzt.supabase.co',
-      'PORT': '5432',
-      'CONN_MAX_AGE': 600, 
-  }
-}
->>>>>>> 57b28a9cf1996d6852b62f56714db91668a174de
-
-# DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-<<<<<<< HEAD
 #         'NAME': 'reals_local',
-=======
-#         'NAME': 'postgres',
->>>>>>> 57b28a9cf1996d6852b62f56714db91668a174de
 #         'USER': 'postgres',
 #         'PASSWORD': 'root',
 #         'HOST': 'localhost',
@@ -136,7 +106,6 @@ DATABASES = {
 #     }
 # }
 
-<<<<<<< HEAD
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -147,19 +116,6 @@ DATABASES = {
         'PORT': '5432',
     }
 }
-
-=======
->>>>>>> 57b28a9cf1996d6852b62f56714db91668a174de
-#DATABASES = {
-#    'default': {s
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'postgres',
-#        'USER': 'postgres',
-#        'PASSWORD': 'Inventcaps_2025',
-#        'HOST': 'db.bmpwrztfukjnzdubtjox.supabase.co',
-#        'PORT': '5432',
-#    }
-#}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
