@@ -1571,7 +1571,7 @@ class SalesCreateView(CreateView):
     model = Sales
     form_class = SalesForm
     template_name = 'sales_add.html'
-    success_url = reverse_lazy('sales')
+    success_url = reverse_lazy('salesexpenses')
 
     @transaction.atomic
     def form_valid(self, form):
@@ -1594,7 +1594,7 @@ class SalesUpdateView(UpdateView):
     model = Sales
     form_class = SalesForm
     template_name = 'sales_edit.html'
-    success_url = reverse_lazy('sales')
+    success_url = reverse_lazy('salesexpenses')
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -1603,7 +1603,7 @@ class SalesUpdateView(UpdateView):
 
 class SalesDeleteView(DeleteView):
     model = Sales
-    success_url = reverse_lazy('sales')
+    success_url = reverse_lazy('salesexpenses')
 
     def dispatch(self, request, *args, **kwargs):
         # Restrict to superusers only
@@ -2055,7 +2055,7 @@ class ExpensesCreateView(CreateView):
     model = Expenses
     form_class = ExpensesForm
     template_name = 'expenses_add.html'
-    success_url = reverse_lazy('expenses')
+    success_url = reverse_lazy('salesexpenses')
 
     @transaction.atomic
     def form_valid(self, form):
@@ -2079,7 +2079,7 @@ class ExpensesUpdateView(UpdateView):
     model = Expenses
     form_class = ExpensesForm
     template_name = 'expenses_edit.html'
-    success_url = reverse_lazy('expenses')
+    success_url = reverse_lazy('salesexpenses')
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -2088,7 +2088,7 @@ class ExpensesUpdateView(UpdateView):
 
 class ExpensesDeleteView(LoginRequiredMixin, DeleteView):
     model = Expenses
-    success_url = reverse_lazy('expenses')
+    success_url = reverse_lazy('salesexpenses')
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_superuser:
