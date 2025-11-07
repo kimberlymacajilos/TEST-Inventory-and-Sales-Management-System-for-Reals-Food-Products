@@ -464,6 +464,9 @@ class Notifications(models.Model):
     def css_class(self):
         mapping = {
             "EXPIRATION_ALERT": "notif-warning",
+            "EXPIRED_TODAY": "notif-danger",
+            "EXPIRES_IN_WEEK": "notif-warning",
+            "EXPIRES_IN_MONTH": "notif-info",
             "LOW_STOCK": "notif-info",
             "OUT_OF_STOCK": "notif-danger",
             "STOCK_HEALTHY": "notif-info",
@@ -474,6 +477,9 @@ class Notifications(models.Model):
     def icon_class(self):
         mapping = {
             "EXPIRATION_ALERT": "la la-hourglass-half",
+            "EXPIRED_TODAY": "la la-times-circle",
+            "EXPIRES_IN_WEEK": "la la-exclamation-triangle",
+            "EXPIRES_IN_MONTH": "la la-hourglass-half",
             "LOW_STOCK": "la la-arrow-down",
             "OUT_OF_STOCK": "la la-exclamation-circle",
             "STOCK_HEALTHY": "la la-check-circle",
@@ -489,7 +495,7 @@ class Notifications(models.Model):
         try:
             if self.item_type.upper() == "PRODUCT":
         
-                if notif_type == "EXPIRATION_ALERT":
+                if notif_type in ["EXPIRATION_ALERT", "EXPIRED_TODAY", "EXPIRES_IN_WEEK", "EXPIRES_IN_MONTH"]:
                     batch = (
                         ProductBatches.objects.filter(id=self.item_id)
                         .select_related(
@@ -527,7 +533,7 @@ class Notifications(models.Model):
                         item_name = f"{product_type} - {variant}{size_text}"
 
             elif self.item_type.upper() == "RAW_MATERIAL":
-                if notif_type == "EXPIRATION_ALERT":
+                if notif_type in ["EXPIRATION_ALERT", "EXPIRED_TODAY", "EXPIRES_IN_WEEK", "EXPIRES_IN_MONTH"]:
                     batch = (
                         RawMaterialBatches.objects.filter(id=self.item_id)
                         .select_related("material__unit")
@@ -554,7 +560,7 @@ class Notifications(models.Model):
             print(f"[Notification Error] Failed to format {self.item_type} #{self.item_id}: {e}")
             item_name = f"Unknown ({self.item_type} #{self.item_id})"
 
-        if notif_type == "EXPIRATION_ALERT":
+        if notif_type in ["EXPIRATION_ALERT", "EXPIRED_TODAY", "EXPIRES_IN_WEEK", "EXPIRES_IN_MONTH"]:
             return f"{item_name} {self._expiration_message()}"
         elif notif_type == "LOW_STOCK":
             return f"LOW STOCK: {item_name}"

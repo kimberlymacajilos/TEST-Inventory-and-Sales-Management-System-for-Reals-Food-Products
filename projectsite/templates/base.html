@@ -262,7 +262,7 @@
                 <li class="nav-item"><a href="{% url 'user-activity' %}"><i class="la la-user"></i><p>User Activity</p></a></li>
 
                 {%if user.is_superuser %}
-                <li class="nav-item"><a href="{% url 'user-management' %}"><i class="la la-users"><p>User Management</p></i></a></li>
+                <li class="nav-item"><a href="{% url 'user-management' %}"><i class="la la-users"></i><p>User Management</p></a></li>
                 <li class="nav-item"><a href="#" id="backupBtn"><i class="la la-download"></i><p>Backup Database</p></a></li>
                 {% endif %}
             </ul>

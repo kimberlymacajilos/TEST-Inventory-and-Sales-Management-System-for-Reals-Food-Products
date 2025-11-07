@@ -2435,20 +2435,12 @@ class RawMaterialBatchList(ListView):
             try:
                 # Parse only year and month (from YYYY-MM)
                 parsed_date = datetime.strptime(date_filter, "%Y-%m")
-                queryset = queryset.filter(
-                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
-                    Q(received_date__year=parsed_date.year, received_date__month=parsed_date.month) |
-                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
-                )
+                queryset = queryset.filter(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month)
             except ValueError:
                 pass
         elif not show_all:
             today = timezone.now()
-            queryset = queryset.filter(
-                Q(batch_date__year=today.year, batch_date__month=today.month) |
-                Q(received_date__year=today.year, received_date__month=today.month) |
-                Q(expiration_date__year=today.year, expiration_date__month=today.month)
-            )
+            queryset = queryset.filter(batch_date__year=today.year, batch_date__month=today.month)
 
         return queryset
     
@@ -3058,62 +3050,41 @@ class WithdrawSuccessView(ListView):
     template_name = "withdrawn.html"
     paginate_by = 10
 
+    def paginate_queryset(self, queryset, page_size):
+        # Disable automatic pagination since we do manual pagination in get_context_data
+        return (None, None, queryset, False)
+
     def get_queryset(self):
         # Use select_related to reduce database queries
-        queryset = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
-        request = self.request
 
-        # Admin filter
-        admin = request.GET.get("admin")
-        if admin:
-            queryset = queryset.filter(created_by_admin__username=admin)
-
-        # General search
-        q = request.GET.get("q")
-        if q:
-            filters = (
-                Q(created_by_admin__username__icontains=q) |
-                Q(reason__icontains=q) |
-                Q(item_type__icontains=q)
-            )
-            if q.isdigit():
-                filters |= Q(item_id=q)
-            queryset = queryset.filter(filters)
-
-        # Item type filter
-        item_type = request.GET.get("item_type")
-        if item_type:
-            # Match against the display label
-            for value, label in Withdrawals.ITEM_TYPE_CHOICES:
-                if label == item_type:
-                    queryset = queryset.filter(item_type=value)
-                    break
-
-        # Reason filter
-        reason = request.GET.get("reason")
-        if reason:
-            # Match against the display label
-            for value, label in Withdrawals.REASON_CHOICES:
-                if label == reason:
-                    queryset = queryset.filter(reason=value)
-                    break
-
-        date_filter = request.GET.get("date_filter", "").strip()
-        show_all = request.GET.get("show_all", "").strip()
+        show_all = self.request.GET.get('show_all', '').strip()
         
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                queryset = queryset.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
-            today = timezone.now()
-            queryset = queryset.filter(date__year=today.year, date__month=today.month)
+        if not show_all:
 
-        return queryset
+            date_filter = self.request.GET.get('date_filter', '').strip()
+            
+            if date_filter:
+                try:
+                    parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                    qs = qs.filter(date__year=parsed_date.year, date__month=parsed_date.month)
+                except ValueError:
+
+                    today = timezone.now()
+                    qs = qs.filter(date__year=today.year, date__month=today.month)
+            else:
+
+                today = timezone.now()
+                qs = qs.filter(date__year=today.year, date__month=today.month)
+        
+        item_type = self.request.GET.get('item_type', '').strip()
+        if item_type:
+            qs = qs.filter(item_type=item_type)
+
+        reason = self.request.GET.get('reason', '').strip()
+        if reason:
+            qs = qs.filter(reason=reason)
+        
+        return qs
 
     def get_context_data(self, **kwargs):
         from django.core.cache import cache
@@ -3124,19 +3095,6 @@ class WithdrawSuccessView(ListView):
         
         today = timezone.now()
         context['current_month_value'] = today.strftime("%Y-%m")
-        
-        # Cache admin list for 5 minutes to reduce queries
-        admins = cache.get('withdrawal_admins_list')
-        if admins is None:
-            admins = list(
-                Withdrawals.objects
-                .values_list("created_by_admin__username", flat=True)
-                .distinct()
-                .order_by("created_by_admin__username")
-            )
-            cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
-        
-        context["admins"] = admins
         
         # Group withdrawals by order_group_id or by timestamp for non-grouped items
         # Get all withdrawals (not paginated yet)
@@ -4320,22 +4278,26 @@ class StockChangesList(ListView):
 
     def get_queryset(self):
         qs = StockChanges.objects.filter(is_archived=False).order_by('-date')
-
-        date_filter = self.request.GET.get("date_filter", "").strip()
-        show_all = self.request.GET.get("show_all", "").strip()
         
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                qs = qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
+        # Check for show_all parameter
+        show_all = self.request.GET.get('show_all', '').strip()
+        
+        if not show_all:
+            # Check for date filter
+            date_filter = self.request.GET.get('date_filter', '').strip()
+            
+            if date_filter:
+                try:
+                    parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                    qs = qs.filter(date__year=parsed_date.year, date__month=parsed_date.month)
+                except ValueError:
 
-            today = timezone.now()
-            qs = qs.filter(date__year=today.year, date__month=today.month)
+                    today = timezone.now()
+                    qs = qs.filter(date__year=today.year, date__month=today.month)
+            else:
+
+                today = timezone.now()
+                qs = qs.filter(date__year=today.year, date__month=today.month)
         
         return qs
     
