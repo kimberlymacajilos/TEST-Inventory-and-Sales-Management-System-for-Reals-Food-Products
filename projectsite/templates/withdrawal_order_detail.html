@@ -130,7 +130,7 @@
 
 <!-- Update Payment Modal -->
 <div class="modal fade" id="updatePaymentModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
+  <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <form method="post" action="{% url 'withdrawal-order-update-payment' order_group_id %}">
         {% csrf_token %}
