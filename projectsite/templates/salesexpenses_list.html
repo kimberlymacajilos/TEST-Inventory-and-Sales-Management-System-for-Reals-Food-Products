@@ -64,26 +64,6 @@
 
           <div class="card-body">
 
-            <!-- Filters moved here -->
-            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
-              <!-- Category Filter -->
-              <select id="categoryFilter" class="form-control" style="width:180px;">
-                <option value="">All Categories</option>
-                  {% for cat in categories %}
-                    <option value="{{ cat.value }}" {% if request.GET.category == cat.value %}selected{% endif %}>
-                      {{ cat.display }}
-                    </option>
-                  {% endfor %}
-              </select>
-              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
-              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
-                Show All Data
-              </button>
-              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
-                <i class="la la-times"></i>
-              </button>
-            </div>
-
             <!-- Sales & Expenses Summary -->
             <div class="row mb-3 text-center" id="salesSummary">
               <!-- Manual Sales Card -->
@@ -129,6 +109,26 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Filters moved here -->
+            <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
+              <!-- Category Filter -->
+              <select id="categoryFilter" class="form-control" style="width:180px;">
+                <option value="">All Categories</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.value }}" {% if request.GET.category == cat.value %}selected{% endif %}>
+                      {{ cat.display }}
+                    </option>
+                  {% endfor %}
+              </select>
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
+                Show All Data
+              </button>
+              <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
             </div>
 
             <!-- Bulk Action Buttons -->
