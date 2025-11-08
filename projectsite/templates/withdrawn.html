@@ -31,37 +31,30 @@
             </div>
           </div>
           <div class="card-body">
-            <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
-              <!-- Admin Filter -->
-              <select id="adminFilter" class="form-control" style="width:180px;">
-                <option value="">All Admins</option>
-                {% for admin in admins %}
-                  <option value="{{ admin }}">{{ admin }}</option>
-                {% endfor %}
-              </select>
-              <!-- Item Type Filter -->
+            <!-- Filters -->
+            <div class="d-flex align-items-center mb-3" style="gap:0.5rem; flex-wrap: wrap;">
               <select id="itemTypeFilter" class="form-control" style="width:180px;">
-                <option value="">All Types</option>
-                {% for value, label in withdrawals.model.ITEM_TYPE_CHOICES %}
-                  <option value="{{ label }}">{{ label }}</option>
-                {% endfor %}
+                <option value="">All Item Types</option>
+                <option value="PRODUCT" {% if request.GET.item_type == 'PRODUCT' %}selected{% endif %}>Product</option>
+                <option value="RAW_MATERIAL" {% if request.GET.item_type == 'RAW_MATERIAL' %}selected{% endif %}>Raw Material</option>
               </select>
-              <!-- Reason Filter -->
+              
               <select id="reasonFilter" class="form-control" style="width:180px;">
                 <option value="">All Reasons</option>
                 {% for value, label in withdrawals.model.REASON_CHOICES %}
-                  <option value="{{ label }}">{{ label }}</option>
+                  <option value="{{ value }}" {% if request.GET.reason == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
-              <!-- Month-Year Filter -->
-              <input id="dateFilter" type="month" class="form-control" style="width:180px;" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              
+              <input type="month" id="dateFilter" class="form-control" style="width:180px;" placeholder="Select month" value="{% if request.GET.date_filter %}{{ request.GET.date_filter }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}" />
+              
               <button type="button" class="btn btn-info" onclick="toggleShowAll()">
                 Show All Data
               </button>
               <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
                 <i class="la la-times"></i>
               </button>
-            </form>
+            </div>
             
             <!-- Bulk Action Buttons -->
             <div class="mb-3">
@@ -422,130 +415,6 @@ document.addEventListener('DOMContentLoaded', function() {
     showToast(withdrawalSuccess, 'success');
     sessionStorage.removeItem('withdrawalSuccess');
   }
-  
-  const adminFilter = document.getElementById('adminFilter');
-  const itemTypeFilter = document.getElementById('itemTypeFilter');
-  const reasonFilter = document.getElementById('reasonFilter');
-  const dateFilter = document.getElementById('dateFilter');
-  const tableBody = document.getElementById('withdrawalTableBody');
-  const pagination = document.querySelector('.pagination-container');
-  
-  let timeout;
-  
-  function fetchWithdrawals(resetPage = true) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
-      
-      // Update or remove filters
-      if (adminFilter.value) {
-        params.set("admin", adminFilter.value);
-      } else {
-        params.delete("admin");
-      }
-      
-      if (itemTypeFilter.value) {
-        params.set("item_type", itemTypeFilter.value);
-      } else {
-        params.delete("item_type");
-      }
-      
-      if (reasonFilter.value) {
-        params.set("reason", reasonFilter.value);
-      } else {
-        params.delete("reason");
-      }
-      
-      if (dateFilter.value) {
-        params.set("date", dateFilter.value);
-      } else {
-        params.delete("date");
-      }
-      
-      // Reset to page 1 when filters change
-      if (resetPage) {
-        params.delete("page");
-      }
-      
-      const url = "/withdrawals/?" + params.toString();
-      
-      fetch(url)
-        .then(response => response.text())
-        .then(html => {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, "text/html");
-          
-          // Replace table body
-          const newRows = doc.querySelector("#withdrawalTableBody");
-          if (newRows) tableBody.innerHTML = newRows.innerHTML;
-          
-          // Replace pagination
-          const newPagination = doc.querySelector(".pagination-container");
-          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
-          
-          // Replace modals
-          const newModals = doc.querySelector('#withdrawalModalsContainer');
-          const currentModals = document.querySelector('#withdrawalModalsContainer');
-          if (newModals && currentModals) currentModals.innerHTML = newModals.innerHTML;
-          
-          // Clean up any lingering modal backdrops
-          $('.modal-backdrop').remove();
-          $('body').removeClass('modal-open');
-          $('body').css('padding-right', '');
-          
-          // Update URL without page reload
-          window.history.pushState({}, '', url);
-        })
-        .catch(err => console.error("Error fetching withdrawals:", err));
-    }, 300);
-  }
-  
-  // Event listeners for filters
-  adminFilter.addEventListener('change', () => fetchWithdrawals(true));
-  itemTypeFilter.addEventListener('change', () => fetchWithdrawals(true));
-  reasonFilter.addEventListener('change', () => fetchWithdrawals(true));
-  dateFilter.addEventListener('change', () => fetchWithdrawals(true));
-  
-  // Handle pagination clicks
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.pagination a')) {
-      e.preventDefault();
-      const link = e.target.closest('a');
-      const url = link.getAttribute('href');
-      
-      fetch(url)
-        .then(response => response.text())
-        .then(html => {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, "text/html");
-          
-          // Replace table body
-          const newRows = doc.querySelector("#withdrawalTableBody");
-          if (newRows) tableBody.innerHTML = newRows.innerHTML;
-          
-          // Replace pagination
-          const newPagination = doc.querySelector(".pagination-container");
-          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
-          
-          // Replace modals
-          const newModals = doc.querySelector('#withdrawalModalsContainer');
-          const currentModals = document.querySelector('#withdrawalModalsContainer');
-          if (newModals && currentModals) currentModals.innerHTML = newModals.innerHTML;
-          
-          // Clean up any lingering modal backdrops
-          $('.modal-backdrop').remove();
-          $('body').removeClass('modal-open');
-          $('body').css('padding-right', '');
-          
-          // Update URL without page reload
-          window.history.pushState({}, '', url);
-          
-          // Scroll to top of table
-          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
-        })
-        .catch(err => console.error("Error fetching withdrawals:", err));
-    }
-  });
 });
 
 // Handle archive form submission with toast
@@ -716,6 +585,37 @@ function bulkArchiveWithdrawal() {
     });
 }
 
+document.getElementById('dateFilter').addEventListener('change', function() {
+  const params = new URLSearchParams(window.location.search);
+  if (this.value) {
+    params.set('date_filter', this.value);
+    params.delete('show_all');
+  } else {
+    params.delete('date_filter');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
+});
+
+document.getElementById('itemTypeFilter').addEventListener('change', function() {
+  const params = new URLSearchParams(window.location.search);
+  if (this.value) {
+    params.set('item_type', this.value);
+  } else {
+    params.delete('item_type');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
+});
+
+document.getElementById('reasonFilter').addEventListener('change', function() {
+  const params = new URLSearchParams(window.location.search);
+  if (this.value) {
+    params.set('reason', this.value);
+  } else {
+    params.delete('reason');
+  }
+  window.location.href = window.location.pathname + '?' + params.toString();
+});
+
 function toggleShowAll() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('show_all')) {
@@ -726,5 +626,6 @@ function toggleShowAll() {
   }
   window.location.href = window.location.pathname + '?' + params.toString();
 }
+
 </script>
 {% endblock %}

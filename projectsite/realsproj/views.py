@@ -74,7 +74,8 @@ from realsproj.models import (
     ExpensesSummary,
     Discounts,
     ProductRecipes,
-    UserActivity
+    UserActivity,
+    PriceHistory
 )
 
 from django.db.models import Q, CharField
@@ -1716,16 +1717,10 @@ class WithdrawalOrderDetailView(View):
                     Q(description__icontains=f"order #{order_group_id}")
                 )
                 
-                print(f"🔍 Fetching sales for order #{order_group_id}")
-                print(f"   Found {sales_entries_list.count()} sales entries:")
-                for sale in sales_entries_list:
-                    print(f"   - ID: {sale.id}, Amount: ₱{sale.amount}, Description: {sale.description}")
-                
                 total_sum = sales_entries_list.aggregate(total=Sum('amount'))['total']
                 if total_sum:
                     total_amount = total_sum
                     partial_amount_added = True
-                    print(f"   Total: ₱{total_amount}")
         
         for withdrawal in withdrawals:
             subtotal = None
@@ -1742,15 +1737,20 @@ class WithdrawalOrderDetailView(View):
                         unit_price = None
                         price_type_display = "Custom Price"
                     elif withdrawal.price_type:
-                        product = Products.objects.get(id=withdrawal.item_id)
-                        if withdrawal.price_type == 'UNIT':
-                            unit_price = product.unit_price.unit_price
-                            subtotal = Decimal(withdrawal.quantity) * unit_price
-                            price_type_display = "Unit Price"
-                        elif withdrawal.price_type == 'SRP':
-                            unit_price = product.srp_price.srp_price
-                            subtotal = Decimal(withdrawal.quantity) * unit_price
-                            price_type_display = "SRP Price"
+                        if withdrawal.total_amount is not None and withdrawal.final_price_per_unit is not None:
+                            unit_price = withdrawal.final_price_per_unit
+                            subtotal = withdrawal.total_amount
+                            price_type_display = "Unit Price" if withdrawal.price_type == 'UNIT' else "SRP Price"
+                        else:
+                            product = Products.objects.get(id=withdrawal.item_id)
+                            if withdrawal.price_type == 'UNIT':
+                                unit_price = product.unit_price.unit_price
+                                subtotal = Decimal(withdrawal.quantity) * unit_price
+                                price_type_display = "Unit Price"
+                            elif withdrawal.price_type == 'SRP':
+                                unit_price = product.srp_price.srp_price
+                                subtotal = Decimal(withdrawal.quantity) * unit_price
+                                price_type_display = "SRP Price"
                     if subtotal:
                         total_amount += subtotal
                 else:
@@ -1798,7 +1798,6 @@ class WithdrawalOrderDetailView(View):
             
             payment_count = 0
             for payment in sales_payments:
-                print(f"   Processing payment: {payment.description}")
                 
                 if 'Status: PARTIAL' in payment.description or 'Partial payment' in payment.description:
                     payment_count += 1
@@ -1806,30 +1805,24 @@ class WithdrawalOrderDetailView(View):
                         'label': f'1st Payment (Partial)',
                         'amount': payment.amount
                     })
-                    print(f"   -> Added as 1st Payment (Partial): ₱{payment.amount}")
                 elif 'Final payment' in payment.description:
                     payment_count += 1
                     payment_history.append({
                         'label': f'2nd Payment (Final)',
                         'amount': payment.amount
                     })
-                    print(f"   -> Added as 2nd Payment (Final): ₱{payment.amount}")
                 elif 'Status: PAID' in payment.description or 'Payment received' in payment.description:
                     payment_count += 1
                     payment_history.append({
                         'label': f'Payment',
                         'amount': payment.amount
                     })
-                    print(f"   -> Added as Payment: ₱{payment.amount}")
                 else:
                     payment_count += 1
                     payment_history.append({
                         'label': f'Payment #{payment_count}',
                         'amount': payment.amount
                     })
-                    print(f"   -> Added as Payment #{payment_count}: ₱{payment.amount}")
-            
-            print(f"   Total payment history entries: {len(payment_history)}")
         
         context = {
             'order_group_id': order_group_id,
@@ -1936,7 +1929,7 @@ class WithdrawalOrderUpdatePaymentView(View):
                 description=description,
                 created_by_admin=auth_user
             )
-            print(f"✅ PAID Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            # print(f"PAID Sales entry created: Amount=P{sales_amount}, Date={timezone.now().date()}")
             messages.success(request, success_msg)
         elif new_payment_status == 'PARTIAL':
             # Add partial amount to sales
@@ -1947,7 +1940,7 @@ class WithdrawalOrderUpdatePaymentView(View):
                 description=f"Partial payment for order #{order_group_id}",
                 created_by_admin=auth_user
             )
-            print(f"✅ PARTIAL Sales entry created: Amount=₱{sales_amount}, Date={timezone.now().date()}")
+            # print(f"PARTIAL Sales entry created: Amount=P{sales_amount}, Date={timezone.now().date()}")
             messages.success(request, f"✅ Partial payment recorded. ₱{sales_amount:,.2f} added to sales.")
         else:  # UNPAID
             messages.success(request, "✅ Order marked as UNPAID. No sales recorded.")
@@ -2491,20 +2484,12 @@ class RawMaterialBatchList(ListView):
             try:
                 # Parse only year and month (from YYYY-MM)
                 parsed_date = datetime.strptime(date_filter, "%Y-%m")
-                queryset = queryset.filter(
-                    Q(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month) |
-                    Q(received_date__year=parsed_date.year, received_date__month=parsed_date.month) |
-                    Q(expiration_date__year=parsed_date.year, expiration_date__month=parsed_date.month)
-                )
+                queryset = queryset.filter(batch_date__year=parsed_date.year, batch_date__month=parsed_date.month)
             except ValueError:
                 pass
         elif not show_all:
             today = timezone.now()
-            queryset = queryset.filter(
-                Q(batch_date__year=today.year, batch_date__month=today.month) |
-                Q(received_date__year=today.year, received_date__month=today.month) |
-                Q(expiration_date__year=today.year, expiration_date__month=today.month)
-            )
+            queryset = queryset.filter(batch_date__year=today.year, batch_date__month=today.month)
 
         return queryset
     
@@ -3114,62 +3099,42 @@ class WithdrawSuccessView(ListView):
     template_name = "withdrawn.html"
     paginate_by = 10
 
+    def paginate_queryset(self, queryset, page_size):
+        # Disable automatic pagination since we do manual pagination in get_context_data
+        return (None, None, queryset, False)
+
     def get_queryset(self):
         # Use select_related to reduce database queries
-        queryset = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
-        request = self.request
-
-        # Admin filter
-        admin = request.GET.get("admin")
-        if admin:
-            queryset = queryset.filter(created_by_admin__username=admin)
-
-        # General search
-        q = request.GET.get("q")
-        if q:
-            filters = (
-                Q(created_by_admin__username__icontains=q) |
-                Q(reason__icontains=q) |
-                Q(item_type__icontains=q)
-            )
-            if q.isdigit():
-                filters |= Q(item_id=q)
-            queryset = queryset.filter(filters)
-
-        # Item type filter
-        item_type = request.GET.get("item_type")
-        if item_type:
-            # Match against the display label
-            for value, label in Withdrawals.ITEM_TYPE_CHOICES:
-                if label == item_type:
-                    queryset = queryset.filter(item_type=value)
-                    break
-
-        # Reason filter
-        reason = request.GET.get("reason")
-        if reason:
-            # Match against the display label
-            for value, label in Withdrawals.REASON_CHOICES:
-                if label == reason:
-                    queryset = queryset.filter(reason=value)
-                    break
-
-        date_filter = request.GET.get("date_filter", "").strip()
-        show_all = request.GET.get("show_all", "").strip()
+        qs = Withdrawals.objects.filter(is_archived=False).select_related('created_by_admin').order_by('-date')
         
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                queryset = queryset.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
-            today = timezone.now()
-            queryset = queryset.filter(date__year=today.year, date__month=today.month)
+        show_all = self.request.GET.get('show_all', '').strip()
+        
+        if not show_all:
 
-        return queryset
+            date_filter = self.request.GET.get('date_filter', '').strip()
+            
+            if date_filter:
+                try:
+                    parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                    qs = qs.filter(date__year=parsed_date.year, date__month=parsed_date.month)
+                except ValueError:
+
+                    today = timezone.now()
+                    qs = qs.filter(date__year=today.year, date__month=today.month)
+            else:
+
+                today = timezone.now()
+                qs = qs.filter(date__year=today.year, date__month=today.month)
+        
+        item_type = self.request.GET.get('item_type', '').strip()
+        if item_type:
+            qs = qs.filter(item_type=item_type)
+
+        reason = self.request.GET.get('reason', '').strip()
+        if reason:
+            qs = qs.filter(reason=reason)
+        
+        return qs
 
     def get_context_data(self, **kwargs):
         from django.core.cache import cache
@@ -3180,19 +3145,6 @@ class WithdrawSuccessView(ListView):
         
         today = timezone.now()
         context['current_month_value'] = today.strftime("%Y-%m")
-        
-        # Cache admin list for 5 minutes to reduce queries
-        admins = cache.get('withdrawal_admins_list')
-        if admins is None:
-            admins = list(
-                Withdrawals.objects
-                .values_list("created_by_admin__username", flat=True)
-                .distinct()
-                .order_by("created_by_admin__username")
-            )
-            cache.set('withdrawal_admins_list', admins, 300)  # 5 minutes
-        
-        context["admins"] = admins
         
         # Group withdrawals by order_group_id or by timestamp for non-grouped items
         # Get all withdrawals (not paginated yet)
@@ -3270,11 +3222,6 @@ class WithdrawItemView(View):
         })
 
     def post(self, request):
-        # Debug logging
-        print("=" * 50)
-        print("WITHDRAWAL POST DATA:")
-        print(f"POST data: {dict(request.POST)}")
-        print("=" * 50)
         
         item_type = request.POST.get("item_type")
         reason = request.POST.get("reason")
@@ -3283,14 +3230,6 @@ class WithdrawItemView(View):
         customer_name = request.POST.get("customer_name")
         payment_status = request.POST.get("payment_status", "PAID")
         paid_amount_input = request.POST.get("paid_amount")
-        
-        print(f"Parsed values:")
-        print(f"  item_type: {item_type}")
-        print(f"  reason: {reason}")
-        print(f"  sales_channel: {sales_channel}")
-        print(f"  customer_name: {customer_name}")
-        print(f"  payment_status: {payment_status}")
-        print(f"  price_input: {price_input}")
 
         # Parse price input
         if price_input in ['UNIT', 'SRP']:
@@ -3346,6 +3285,38 @@ class WithdrawItemView(View):
                             except Discounts.DoesNotExist:
                                 custom_value = discount_val
 
+                        actual_discount_percent = None
+                        actual_discount_amount = None
+                        final_price_per_unit = None
+                        total_amount = None
+                        
+                        if reason == "SOLD" and price_type:
+                            # Get base price at time of sale
+                            base_price = Decimal(0)
+                            if price_type == 'UNIT':
+                                base_price = product.unit_price.unit_price
+                            elif price_type == 'SRP':
+                                base_price = product.srp_price.srp_price
+                            
+                            # Calculate discount
+                            discount_percent = Decimal(0)
+                            if discount_obj:
+                                discount_percent = Decimal(discount_obj.value)
+                            elif custom_value:
+                                discount_percent = Decimal(custom_value)
+                            
+                            # Calculate final prices
+                            discount_amount = base_price * (discount_percent / 100)
+                            final_price = base_price - discount_amount
+                            total = quantity * final_price
+                            
+                            # Store calculated values
+                            actual_unit_price = base_price
+                            actual_discount_percent = discount_percent
+                            actual_discount_amount = discount_amount
+                            final_price_per_unit = final_price
+                            total_amount = total
+
                         Withdrawals.objects.create(
                             item_id=product.id,
                             item_type="PRODUCT",
@@ -3362,6 +3333,12 @@ class WithdrawItemView(View):
                             payment_status=payment_status if sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] else 'PAID',
                             paid_amount=paid_amount if payment_status == 'PARTIAL' else None,
                             order_group_id=order_group_id,
+ 
+                            actual_unit_price=actual_unit_price,
+                            actual_discount_percent=actual_discount_percent,
+                            actual_discount_amount=actual_discount_amount,
+                            final_price_per_unit=final_price_per_unit,
+                            total_amount=total_amount,
                         )
 
                         inv.total_stock -= quantity
@@ -3370,7 +3347,7 @@ class WithdrawItemView(View):
                     except Exception as e:
                         import traceback
                         error_details = traceback.format_exc()
-                        print(f"Withdrawal error: {error_details}")  # Log to console
+                    
                         messages.error(request, f"❌ Error withdrawing product: {str(e)}")
 
         elif item_type == "RAW_MATERIAL":
@@ -3404,10 +3381,6 @@ class WithdrawItemView(View):
                         messages.error(request, f"❌ Error withdrawing raw material: {e}")
 
         if count > 0:
-            # For ORDER/CONSIGNMENT/RESELLER with PAID or PARTIAL status, create sales entry
-            print(f"🔍 Checking sales entry creation:")
-            print(f"  reason={reason}, sales_channel={sales_channel}, order_group_id={order_group_id}")
-            print(f"  payment_status={payment_status}")
             
             if reason == "SOLD" and sales_channel in ['ORDER', 'CONSIGNMENT', 'RESELLER'] and order_group_id:
                 if payment_status in ['PAID', 'PARTIAL']:
@@ -3427,9 +3400,12 @@ class WithdrawItemView(View):
                             # Just use the custom_price from the first withdrawal
                             total_sales_amount = Decimal(withdrawals.first().custom_price)
                         else:
-                            # Unit/SRP price: calculate sum of all items with discounts
+                            # PRICE FIX: Use stored total_amount if available, otherwise calculate
                             for w in withdrawals:
-                                if w.price_type:
+                                if w.total_amount is not None:
+                                    # Use stored price (after fix implementation)
+                                    total_sales_amount += w.total_amount
+                                elif w.price_type:
                                     product = Products.objects.get(id=w.item_id)
                                     base_price = Decimal(0)
                                     
@@ -3451,10 +3427,10 @@ class WithdrawItemView(View):
                                     item_total = Decimal(w.quantity) * discounted_price
                                     total_sales_amount += item_total
                                     
-                                    print(f"  Item: {product}, Qty: {w.quantity}, Base: ₱{base_price}, Discount: {discount_percent}%, Final: ₱{item_total}")
+                                    # print(f"  Item: {product}, Qty: {w.quantity}, Base: P{base_price}, Discount: {discount_percent}%, Final: P{item_total} (calculated)")
                     
                     # Create ONE sales entry for the entire order
-                    print(f"💰 Total sales amount calculated: ₱{total_sales_amount}")
+                    # print(f"Total sales amount calculated: P{total_sales_amount}")
                     
                     if total_sales_amount > 0:
                         from .models import AuthUser
@@ -3467,14 +3443,6 @@ class WithdrawItemView(View):
                             description=f"Order #{order_group_id}, Status: {payment_status}",
                             created_by_admin=auth_user
                         )
-                        print(f"✅ Sales entry created successfully!")
-                        print(f"   ID: {sales_entry.id}")
-                        print(f"   Order: #{order_group_id}")
-                        print(f"   Amount: ₱{total_sales_amount}")
-                        print(f"   Status: {payment_status}")
-                        print(f"   Description: {sales_entry.description}")
-                    else:
-                        print(f"⚠️ Sales entry NOT created - total_sales_amount is 0")
             
             messages.success(request, f"✅ Success! {count} item(s) withdrawn. Inventory updated!")
         else:
@@ -3704,10 +3672,9 @@ class WithdrawUpdateView(UpdateView):
                     old_amount = sales_entry.amount
                     sales_entry.amount = new_total
                     sales_entry.save()
-                    print(f"   ✅ Sales updated: ₱{old_amount} → ₱{new_total}")
+                  
                     messages.success(self.request, f"✅ Withdrawal and sales entry updated. New total: ₱{new_total:,.2f}")
                 else:
-                    print(f"   ⚠️ No sales entry found for order #{withdrawal.order_group_id}")
                     messages.success(self.request, "✅ Withdrawal successfully updated.")
             else:
                 messages.success(self.request, "✅ Withdrawal successfully updated.")
@@ -4040,6 +4007,34 @@ class WithdrawalGroupEditView(View):
                         withdrawal.discount_id = discount_obj.id if discount_obj else None
                         withdrawal.custom_discount_value = custom_discount
                     
+                    if withdrawal.price_type:
+                        product = Products.objects.get(id=withdrawal.item_id)
+                        base_price = Decimal(0)
+                        
+                        if withdrawal.price_type == 'UNIT':
+                            base_price = product.unit_price.unit_price
+                        elif withdrawal.price_type == 'SRP':
+                            base_price = product.srp_price.srp_price
+                        
+                        # Calculate discount
+                        discount_percent = Decimal(0)
+                        if withdrawal.discount_id:
+                            discount = Discounts.objects.get(id=withdrawal.discount_id)
+                            discount_percent = Decimal(discount.value)
+                        elif withdrawal.custom_discount_value:
+                            discount_percent = Decimal(withdrawal.custom_discount_value)
+                        
+                        # Calculate and store actual prices
+                        discount_amount = base_price * (discount_percent / 100)
+                        final_price = base_price - discount_amount
+                        total = withdrawal.quantity * final_price
+                        
+                        withdrawal.actual_unit_price = base_price
+                        withdrawal.actual_discount_percent = discount_percent
+                        withdrawal.actual_discount_amount = discount_amount
+                        withdrawal.final_price_per_unit = final_price
+                        withdrawal.total_amount = total
+                    
                     withdrawal.save()
                     updated_count += 1
             
@@ -4178,19 +4173,34 @@ class NotificationsList(ListView):
         # Date filter
         date_filter = self.request.GET.get('date_filter', '').strip()
         show_all = self.request.GET.get('show_all', '').strip()
+        category = self.request.GET.get('category', '').strip()
         
+        # Apply category filter
+        if category:
+            if category == 'low_stock':
+                qs = qs.filter(notification_type='LOW_STOCK')
+            elif category == 'out_of_stock':
+                qs = qs.filter(notification_type='OUT_OF_STOCK')
+            elif category == 'expired':
+                qs = qs.filter(notification_type='EXPIRED_TODAY')
+            elif category == 'expire_week':
+                qs = qs.filter(notification_type='EXPIRES_IN_WEEK')
+            elif category == 'expire_month':
+                qs = qs.filter(notification_type='EXPIRES_IN_MONTH')
+        
+        # Apply date filter
         if date_filter:
             try:
                 year_str, month_str = date_filter.split('-')
                 year = int(year_str)
                 month_num = int(month_str.lstrip('0'))
-                qs = qs.filter(created_at__year=year, created_at__month=month_num)
+                qs = qs.filter(notification_timestamp__year=year, notification_timestamp__month=month_num)
             except ValueError:
                 pass
         elif not show_all:
             # Default to current month
             today = timezone.now()
-            qs = qs.filter(created_at__year=today.year, created_at__month=today.month)
+            qs = qs.filter(notification_timestamp__year=today.year, notification_timestamp__month=today.month)
         
         return qs
     
@@ -4202,8 +4212,20 @@ class NotificationsList(ListView):
         return context
 
     def get(self, request, *args, **kwargs):
+        # Mark all as read
         Notifications.objects.filter(is_read=False).update(is_read=True)
-        return super().get(request, *args, **kwargs)
+        
+        # Handle pagination - if page doesn't exist, redirect to page 1 with same filters
+        try:
+            return super().get(request, *args, **kwargs)
+        except Exception as e:
+            if 'Invalid page' in str(e) or 'That page contains no results' in str(e):
+                # Preserve all query parameters except page
+                from django.shortcuts import redirect
+                params = request.GET.copy()
+                params['page'] = '1'
+                return redirect(f"{request.path}?{params.urlencode()}")
+            raise
 
 class NotificationsDeleteView(DeleteView):
     model = Notifications
@@ -4376,22 +4398,26 @@ class StockChangesList(ListView):
 
     def get_queryset(self):
         qs = StockChanges.objects.filter(is_archived=False).order_by('-date')
-
-        date_filter = self.request.GET.get("date_filter", "").strip()
-        show_all = self.request.GET.get("show_all", "").strip()
         
-        if date_filter:
-            try:
-                year_str, month_str = date_filter.split("-")
-                year = int(year_str)
-                month_num = int(month_str.lstrip("0"))
-                qs = qs.filter(date__year=year, date__month=month_num)
-            except ValueError:
-                pass
-        elif not show_all:
+        # Check for show_all parameter
+        show_all = self.request.GET.get('show_all', '').strip()
+        
+        if not show_all:
+            # Check for date filter
+            date_filter = self.request.GET.get('date_filter', '').strip()
+            
+            if date_filter:
+                try:
+                    parsed_date = datetime.strptime(date_filter, "%Y-%m")
+                    qs = qs.filter(date__year=parsed_date.year, date__month=parsed_date.month)
+                except ValueError:
 
-            today = timezone.now()
-            qs = qs.filter(date__year=today.year, date__month=today.month)
+                    today = timezone.now()
+                    qs = qs.filter(date__year=today.year, date__month=today.month)
+            else:
+
+                today = timezone.now()
+                qs = qs.filter(date__year=today.year, date__month=today.month)
         
         return qs
     
@@ -5977,4 +6003,45 @@ def delete_account(request):
             return redirect('delete_account')
     
     # GET request - show confirmation page
-    return render(request, 'delete_account_confirm.html')
+    return render(request, 'delete_account.html')
+
+
+class PriceHistoryList(ListView):
+    """View for displaying price change history"""
+    model = PriceHistory
+    context_object_name = 'price_changes'
+    template_name = "price_history.html"
+    paginate_by = 20
+    
+    def get_queryset(self):
+        qs = PriceHistory.objects.all().select_related('product', 'changed_by_admin')
+        
+        product_id = self.request.GET.get('product_id')
+        if product_id:
+            qs = qs.filter(product_id=product_id)
+    
+        price_type = self.request.GET.get('price_type')
+        if price_type:
+            qs = qs.filter(price_type=price_type)
+        
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+        if date_from:
+            qs = qs.filter(changed_at__gte=date_from)
+        if date_to:
+            qs = qs.filter(changed_at__lte=date_to)
+        
+        search = self.request.GET.get('search')
+        if search:
+            qs = qs.filter(
+                Q(product__product_type__name__icontains=search) |
+                Q(product__variant__name__icontains=search)
+            )
+        
+        return qs.order_by('-changed_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['products'] = Products.objects.all().order_by('product_type__name', 'variant__name')
+        context['price_types'] = PriceHistory.PRICE_TYPE_CHOICES
+        return context
