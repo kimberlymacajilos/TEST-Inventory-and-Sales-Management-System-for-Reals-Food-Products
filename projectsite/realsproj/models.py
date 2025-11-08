@@ -1002,6 +1002,42 @@ class Withdrawals(models.Model):
     )
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     order_group_id = models.BigIntegerField(null=True, blank=True)
+    
+    actual_unit_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Base price (unit or SRP) at time of sale"
+    )
+    actual_discount_percent = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Discount percentage applied"
+    )
+    actual_discount_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Discount amount applied"
+    )
+    final_price_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Final price per unit after discount"
+    )
+    total_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Total amount (quantity × final_price_per_unit)"
+    )
 
     class Meta:
         managed = False  # existing table
@@ -1028,7 +1064,15 @@ class Withdrawals(models.Model):
         return f"Unknown Item (ID {self.item_id})"
 
     def compute_revenue(self):
+        """
+        Compute revenue using stored actual prices.
+        Falls back to current prices for old records (before fix).
+        """
         if self.item_type == "PRODUCT" and self.reason == "SOLD":
+        
+            if self.total_amount is not None:
+                return self.total_amount
+
             from .models import Products
             try:
                 product = Products.objects.get(id=self.item_id)
@@ -1120,3 +1164,42 @@ class LoginAttempt(models.Model):
     class Meta:
         managed = False 
         db_table = 'login_attempts'
+
+
+class PriceHistory(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    product = models.ForeignKey(Products, on_delete=models.CASCADE, related_name='price_changes')
+    
+    PRICE_TYPE_CHOICES = [
+        ('UNIT', 'Unit Price'),
+        ('SRP', 'SRP'),
+    ]
+    price_type = models.CharField(max_length=10, choices=PRICE_TYPE_CHOICES)
+    old_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    new_price = models.DecimalField(max_digits=10, decimal_places=2)
+    changed_by_admin = models.ForeignKey(AuthUser, on_delete=models.SET_NULL, null=True, db_column='changed_by_admin_id')
+    changed_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        managed = False
+        db_table = 'price_history'
+        ordering = ['-changed_at']
+    
+    def __str__(self):
+        return f"{self.product} - {self.price_type}: ₱{self.old_price} → ₱{self.new_price}"
+    
+    @property
+    def price_change_percent(self):
+        """Calculate percentage change in price"""
+        if self.old_price and self.old_price > 0:
+            change = ((self.new_price - self.old_price) / self.old_price) * 100
+            return round(change, 2)
+        return None
+    
+    @property
+    def price_change_amount(self):
+        """Calculate absolute change in price"""
+        if self.old_price:
+            return self.new_price - self.old_price
+        return None
