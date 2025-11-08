@@ -13,7 +13,7 @@ SECRET_KEY = 'django-insecure-hf7!w=oxut=ipo$@r0r&8^h1j^lg4-j2++qmgx)!ulm=!-$afb
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['your-service-name.onrender.com', 'localhost', '127.0.0.1', '.ngrok-free.app']
+ALLOWED_HOSTS = ['reals-food-products.onrender.com', 'localhost', '127.0.0.1', '.ngrok-free.app']
 CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok-free.app',
 ]
