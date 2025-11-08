@@ -1,0 +1,502 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>{% block title %}Real's Food Product{% endblock %}</title>
+  <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
+
+  <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ready.css' %}">
+  <link rel="stylesheet" href="{% static 'css/demo.css' %}">  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.css">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+
+  <style>
+    html body a,
+    html body a:hover,
+    html body a:focus,
+    html body a:active,
+    html body a:visited {
+    text-decoration: none !important;
+    }
+
+    /* Dark mode logo fix */
+    html[data-theme="dark"] .logo-header .logo {
+      color: #f1f8f4 !important;
+    }
+    html[data-theme="dark"] .logo-header .logo:hover,
+    html[data-theme="dark"] .logo-header .logo:visited,
+    html[data-theme="dark"] .logo-header .logo:active {
+      color: #f1f8f4 !important;
+    }
+  </style>
+
+  <!-- Theme Detection Script - MUST run BEFORE page renders to prevent flash -->
+  <script>
+    (function(){
+      var html = document.documentElement;
+      var key = 'rfp-theme';
+      var saved = localStorage.getItem(key);
+      // Apply theme IMMEDIATELY before page renders
+      if(saved === 'dark'){ 
+        html.setAttribute('data-theme','dark');
+      }
+    })();
+  </script>
+
+    
+    {% block page_css %}{% endblock page_css %}
+
+  {% block vendor_css %}{% endblock vendor_css %}
+</head>
+<body>
+<!-- Main Header - OUTSIDE wrapper for true sticky behavior -->
+<div class="main-header">
+        <div class="logo-header">
+            <a href="{% url 'home' %}" class="logo">Real's Food Products</a>
+            <button class="navbar-toggler sidenav-toggler ml-auto" type="button" data-toggle="collapse" data-target="collapse" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <button class="topbar-toggler more"><i class="la la-ellipsis-v"></i></button>
+        </div>
+               <nav class="navbar navbar-header navbar-expand-lg">
+            <div class="container-fluid">
+                <ul class="navbar-nav topbar-nav ml-md-auto align-items-center">
+                    <li class="nav-item">
+                    <button id="themeToggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Toggle color mode">
+                        <span class="track"></span>
+                        <span class="knob">
+                        <span class="icon sun" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zm10.48 14.32l1.8 1.79 1.41-1.41-1.79-1.8-1.42 1.42zM12 5V2h-0v3h0zm0 17v-3h0v3h0zM4.84 17.24l-1.8 1.79 1.41 1.41 1.79-1.8-1.4-1.4zM19.16 6.76l1.8-1.79-1.41-1.41-1.79 1.8 1.4 1.4zM22 12h-3v0h3v0zM5 12H2v0h3v0zm7 5a5 5 0 110-10 5 5 0 010 10z"/></svg>
+                        </span>
+                        <span class="icon moon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                        </span>
+                        </span>
+                    </button>
+                    </li>
+
+                    <!-- Notifications Dropdown -->
+                    <li class="nav-item dropdown hidden-caret">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="la la-bell"></i>
+                        {% if unread_count > 0 %}
+                        <span class="notification">{{ unread_count }}</span>
+                        {% endif %}
+                    </a>
+
+                    <ul class="dropdown-menu notif-box animated fadeIn" aria-labelledby="navbarDropdown">
+                        <li>
+                        <div class="dropdown-header">
+                            <h6>You have {{ unread_count }} new notification{{ unread_count|pluralize }}</h6>
+                        </div>
+                        </li>
+                        <li>
+                        <div class="notif-center">
+                        {% for notif in notifications|slice:":5" %}
+                            <a href="{% url 'notifications' %}" 
+                            class="notif-item {% if not notif.is_read %}unread{% else %}read{% endif %}">
+                            <div class="notif-icon {{ notif.css_class }}">
+                                <i class="{{ notif.icon_class }}"></i>
+                            </div>
+                            <div class="notif-content">
+                                <span class="notif-title">{{ notif.formatted_message }}</span>
+                                <span class="notif-time">{{ notif.notification_timestamp|date:"M d, Y, h:i a" }}</span>
+                            </div>
+                            </a>
+                        {% empty %}
+                            <div class="text-center p-2">No new notifications</div>
+                        {% endfor %}
+                        </div>
+                        </li>
+                        <li class="dropdown-footer text-center">
+                        <a href="{% url 'notifications' %}">View All Notifications</a>
+                        </li>
+                    </ul>
+                    </li>
+
+                    <!-- User Profile Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="dropdown-toggle profile-pic" data-toggle="dropdown" href="#" aria-expanded="false">
+                            <img src="{% static 'img/reals.jpg' %}" alt="user-img" width="36" class="img-circle">
+                            <span>{{ request.user.username }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-user">
+                            <li>
+                                <div class="user-box">
+                                    <div class="u-img"><img src="{% static 'img/reals.jpg' %}" alt="user"></div>
+                                    <div class="u-text">
+                                        <h4>{{ request.user.username }}</h4>
+                                        <p class="text-muted">{{ request.user.email }}</p>
+                                        <a href="{% url 'profile' %}" class="btn btn-rounded btn-danger btn-sm">View Profile</a>
+                                    </div>
+                                </div>
+                            </li>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item" type="button" data-toggle="modal" data-target="#logoutModal">
+                                <i class="fa fa-power-off"></i> Logout
+                            </button>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+</div>
+
+<!-- Wrapper starts here -->
+<div class="wrapper">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="scrollbar-inner sidebar-wrapper">
+            <div class="user">
+                <div class="photo">
+                    <img src="{% static 'img/reals.jpg' %}">
+                </div>
+                <div class="info">
+                    <a data-toggle="collapse" href="#collapseExample" aria-expanded="true">
+                        <span>
+                            {{ request.user.username }}
+                            <span class="user-level">Administrator</span>
+                            <span class="caret"></span>
+                        </span>
+                    </a>
+                    <div class="collapse in" id="collapseExample" aria-expanded="true">
+                        <ul class="nav">
+                            <li><a href="{% url 'profile' %}"><span class="link-collapse">My Profile</span></a></li> 
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <ul class="nav">
+                <li class="nav-item"><a href="{% url 'home' %}"><i class="la la-dashboard"></i><p>Dashboard</p></a></li>
+
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#productsMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products price-history' %}true{% else %}false{% endif %}">
+                        <i class="la la-archive"></i><p>Products</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'products product-list product-batch product-inventory best-seller-products price-history' %}show{% endif %}" id="productsMenu">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name in 'products product-list' %}active{% endif %}">
+                                <a href="{% url 'products' %}"><span class="sub-item">Product List</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'product-batch' %}active{% endif %}">
+                                <a href="{% url 'product-batch' %}"><span class="sub-item">Product Batch</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'product-inventory' %}active{% endif %}">
+                                <a href="{% url 'product-inventory' %}"><span class="sub-item">Product Inventory</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'best-seller-products' %}active{% endif %}">
+                                <a href="{% url 'best-seller-products' %}"><span class="sub-item">Best Seller Products</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'price-history' %}active{% endif %}">
+                                <a href="{% url 'price-history' %}"><span class="sub-item">Price Change Log</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#rawmatMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list rawmaterial-batch rawmaterial-inventory' %}true{% else %}false{% endif %}">
+                        <i class="la la-cubes"></i><p>Raw Materials</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list rawmaterial-batch rawmaterial-inventory' %}show{% endif %}" id="rawmatMenu" data-parent="">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name in 'rawmaterials rawmaterials-list' %}active{% endif %}">
+                                <a href="{% url 'rawmaterials' %}"><span class="sub-item">Raw Materials List</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'rawmaterial-batch' %}active{% endif %}">
+                                <a href="{% url 'rawmaterial-batch' %}"><span class="sub-item">Raw Material Batch</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'rawmaterial-inventory' %}active{% endif %}">
+                                <a href="{% url 'rawmaterial-inventory' %}"><span class="sub-item">Raw Material Inventory</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                {% if user.is_superuser %}
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#financialMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}true{% else %}false{% endif %}">
+                        <i class="la la-dollar"></i><p>Financial Report</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'monthly-report sales expenses financial-loss' %}show{% endif %}" id="financialMenu">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name == 'monthly-report' %}active{% endif %}">
+                               <a href="{% url 'monthly-report' %}"><span class="sub-item">Report</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'salesexpenses' %}active{% endif %}">
+                                <a href="{% url 'salesexpenses' %}"><span class="sub-item">Sales & Expenses</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'withdrawalSales' %}active{% endif %}">
+                                <a href="{% url 'withdrawalSales' %}"><span class="sub-item">Withdrawal Sales</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'financial-loss' %}active{% endif %}">
+                                <a href="{% url 'financial-loss' %}"><span class="sub-item">Financial Loss</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                {% endif %}
+
+                <li class="nav-item">
+                    <a data-toggle="collapse" href="#withdrawalsMenu" 
+                       aria-expanded="{% if request.resolver_match.url_name in 'withdrawals stock-changes' %}true{% else %}false{% endif %}">
+                        <i class="la la-trash"></i><p>Withdrawals</p><span class="caret"></span>
+                    </a>
+                    <div class="collapse {% if request.resolver_match.url_name in 'withdrawals stock-changes' %}show{% endif %}" id="withdrawalsMenu">
+                        <ul class="nav nav-collapse">
+                            <li class="{% if request.resolver_match.url_name == 'withdrawals' %}active{% endif %}">
+                                <a href="{% url 'withdrawals' %}"><span class="sub-item">Withdrawn Items</span></a>
+                            </li>
+                            <li class="{% if request.resolver_match.url_name == 'stock-changes' %}active{% endif %}">
+                                <a href="{% url 'stock-changes' %}"><span class="sub-item">Stock Changes</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                <li class="nav-item"><a href="{% url 'historylog' %}"><i class="la la-history"></i><p>History Log</p></a></li>
+                <li class="nav-item"><a href="{% url 'user-activity' %}"><i class="la la-user"></i><p>User Activity</p></a></li>
+
+                {%if user.is_superuser %}
+                <li class="nav-item"><a href="{% url 'user-management' %}"><i class="la la-users"></i><p>User Management</p></a></li>
+                <li class="nav-item"><a href="#" id="backupBtn"><i class="la la-download"></i><p>Backup Database</p></a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Main Panel -->
+    <div class="main-panel">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" aria-live="polite" aria-atomic="true" 
+    style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"> 
+</div>
+
+
+<!-- Scripts -->
+<script src="{% static 'js/core/jquery.3.2.1.min.js' %}"></script>
+<script src="{% static 'js/plugin/jquery-ui-1.12.1.custom/jquery-ui.min.js' %}"></script>
+<script src="{% static 'js/core/popper.min.js' %}"></script>
+<script src="{% static 'js/core/bootstrap.min.js' %}"></script>
+<script src="{% static 'js/plugin/chartist/chartist.min.js' %}"></script>
+<script src="{% static 'js/plugin/chartist/plugin/chartist-plugin-tooltip.min.js'%}"></script>
+<script src="{% static 'js/plugin/bootstrap-notify/bootstrap-notify.min.js' %}"></script>
+<script src="{% static 'js/plugin/bootstrap-toggle/bootstrap-toggle.min.js' %}"></script>
+<script src="{% static 'js/plugin/jquery-mapael/jquery.mapael.min.js' %}"></script>
+<script src="{% static 'js/plugin/jquery-mapael/maps/world_countries.min.js' %}"></script>
+<script src="{% static 'js/plugin/chart-circle/circles.min.js' %}"></script>
+<script src="{% static 'js/plugin/jquery-scrollbar/jquery.scrollbar.min.js' %}"></script>
+<script src="{% static 'js/ready.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+(function(){
+  var html = document.documentElement;
+  var key = 'rfp-theme';
+  var toggle = document.getElementById('themeToggle');
+
+  // Set toggle button state based on current theme
+  var saved = localStorage.getItem(key);
+  if(saved === 'dark' && toggle){ 
+    toggle.setAttribute('aria-checked','true'); 
+  }
+
+  // Handle theme toggle clicks
+  if(toggle){
+    toggle.addEventListener('click', function(e){
+      e.preventDefault();
+      var dark = html.getAttribute('data-theme') === 'dark';
+      if(dark){
+        html.removeAttribute('data-theme');
+        localStorage.setItem(key,'light');
+        toggle.setAttribute('aria-checked','false');
+      }else{
+        html.setAttribute('data-theme','dark');
+        localStorage.setItem(key,'dark');
+        toggle.setAttribute('aria-checked','true');
+      }
+
+      // keep Apex tooltip theme in sync (if using ApexCharts)
+      if(window.Apex){
+        window.Apex.tooltip = { theme: (html.getAttribute('data-theme') === 'dark') ? 'dark' : 'light' };
+      }
+    });
+  }
+})();
+</script>
+
+<!-- Sidebar Toggle Handler - Backup for mobile -->
+<script>
+$(document).ready(function() {
+  // Ensure sidebar toggle works on mobile
+  $('.sidenav-toggler, .navbar-toggler').on('click', function(e) {
+    e.preventDefault();
+    console.log('Sidebar toggle clicked!'); // Debug log
+    
+    if ($('html').hasClass('nav_open')) {
+      $('html').removeClass('nav_open');
+      $(this).removeClass('toggled');
+    } else {
+      $('html').addClass('nav_open');
+      $(this).addClass('toggled');
+    }
+  });
+  
+  // Close sidebar when clicking outside on mobile
+  $(document).on('click', function(e) {
+    if ($('html').hasClass('nav_open')) {
+      if (!$(e.target).closest('.sidebar, .sidenav-toggler, .navbar-toggler').length) {
+        $('html').removeClass('nav_open');
+        $('.sidenav-toggler, .navbar-toggler').removeClass('toggled');
+      }
+    }
+  });
+});
+</script>
+
+<!-- Global Toast Function -->
+<script>
+  function showToast(message, type = 'info') {
+    const icon = {
+      success: 'la la-check-circle text-success',
+      error:   'la la-times-circle text-danger',
+      warning: 'la la-exclamation-circle text-warning',
+      info:    'la la-info-circle text-info'
+    }[type] || 'la la-info-circle text-info';
+
+    const toastHTML = `
+      <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body d-flex align-items-center">
+          <i class="me-2 ${icon}"></i>
+          <span class="flex-grow-1">${message}</span>
+          <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>`;
+
+    const container = document.getElementById("toast-container");
+    container.insertAdjacentHTML("beforeend", toastHTML);
+
+    const toastEl = container.querySelector(".toast:last-child");
+    const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+    bsToast.show();
+
+    // Remove toast element after it's hidden
+    toastEl.addEventListener('hidden.bs.toast', function() {
+      toastEl.remove();
+    });
+  }
+</script>
+
+<!-- Database Backup Handler -->
+<script>
+  document.getElementById('backupBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    if (confirm('Are you sure you want to backup the database? This will download a SQL file of the current database.')) {
+      showToast('Preparing database backup...', 'info');
+      
+      // Create a hidden form to trigger download
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "database-backup" %}';
+      
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
+      
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      
+      setTimeout(() => {
+        showToast('Database backup downloaded successfully!', 'success');
+      }, 1000);
+    }
+  });
+</script>
+
+{% block vendor_js %}{% endblock vendor_js %}
+{% block page_js %}{% endblock page_js %}           
+{% if messages %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    {% for message in messages %}
+      const type = "{{ message.tags }}";
+      const text = "{{ message|escapejs }}";
+
+      const icon = {
+        success: 'la la-check-circle text-success',
+        error:   'la la-times-circle text-danger',
+        warning: 'la la-exclamation-circle text-warning',
+        info:    'la la-info-circle text-info'
+      }[type] || 'la la-info-circle text-info';
+
+      const toastHTML = `
+        <div class="toast toast-${type}" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="toast-header">
+            <i class="me-2 ${icon}"></i>
+            <strong class="me-auto text-capitalize">${type}</strong>
+            <small>Just now</small>
+            <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+          <div class="toast-body">${text}</div>
+        </div>`;
+
+      const container = document.getElementById("toast-container");
+      container.insertAdjacentHTML("beforeend", toastHTML);
+
+      const toastEl = container.querySelector(".toast:last-child");
+      const bsToast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+      bsToast.show();
+    {% endfor %}
+  });
+</script>
+{% endif %}
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to logout?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-rounded" data-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-rounded">
+                        <i class="fa fa-power-off"></i> Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% block extra_scripts %}
+{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,390 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">
+      <a href="{% url 'products' %}" class="btn btn-link p-0 mr-2" title="Back to Products">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Products
+    </h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Add New Product</div>
+            <div class="card-category">
+              <span id="scanner-status" class="badge badge-secondary ml-3">Scanner: Connecting...</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+              <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                  <div class="alert alert-danger">
+                    {{ form.errors }}
+                  </div>
+                {% endif %}
+
+                <!-- Barcode Field (NEW) -->
+                <div class="form-container">
+                  <div class="form-item" style="width:100%;">
+                    <label>Barcode <small class="text-muted">(Auto-filled by scanner)</small></label>
+                    <input type="text" id="barcode-input" name="barcode" 
+                          class="form-control" 
+                          value="{{ form.barcode.value|default:'' }}"
+                          placeholder="Scan or enter barcode manually">
+                    <small id="barcode-status" class="form-text text-muted">Ready to scan...</small>
+                    <small id="barcode-validation" class="form-text" style="display:none;"></small>
+                  </div>
+                </div>
+
+                <div class="form-container">
+                  <!-- Product Type -->
+                  <div class="form-item">
+                    <label>Product Type</label>
+                    <input type="text" name="product_type" list="product_type-options" class="form-control" value="{{ form.product_type.value|default:'' }}" placeholder="Select or enter to Product Type">
+                    <datalist id="product_type-options">
+                      {% for pt in product_types %}
+                        <option value="{{ pt.name }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Variant -->
+                  <div class="form-item">
+                    <label>Variant</label>
+                    <input type="text" name="variant" list="variant-options" class="form-control" value="{{ form.variant.value|default:'' }}" placeholder="Select or enter to Variant">
+                    <datalist id="variant-options">
+                      {% for v in variants %}
+                        <option value="{{ v.name }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Size -->
+                  <div class="form-item">
+                    <label>Size</label>
+                    <input type="text" name="size" list="size-options" class="form-control" value="{{ form.size.value|default:'' }}" placeholder="Select or enter to Size">
+                    <datalist id="size-options">
+                      {% for s in sizes %}
+                        <option value="{{ s.size_label }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Size Unit -->
+                  <div class="form-item">
+                    <label>Size Unit</label>
+                    <input type="text" name="size_unit" list="size_unit-options" class="form-control" value="{{ form.size_unit.value|default:'' }}" placeholder="Select or enter to Size Unit">
+                    <datalist id="size_unit-options">
+                      {% for su in size_units %}
+                        <option value="{{ su.unit_name }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Unit Price -->
+                  <div class="form-item">
+                    <label>Unit Price</label>
+                    <input type="text" name="unit_price" list="unit_price-options" class="form-control" value="{{ form.unit_price.value|default:'' }}" step="0.01" placeholder="Select or enter to Unit Price">
+                    <datalist id="unit_price-options">
+                      {% for up in unit_prices %}
+                        <option value="{{ up.unit_price }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- SRP Price -->
+                  <div class="form-item">
+                    <label>SRP Price</label>
+                    <input type="text" name="srp_price" list="srp_price-options" class="form-control" value="{{ form.srp_price.value|default:'' }}" step="0.01" placeholder="Select or enter to SRP Price">
+                    <datalist id="srp_price-options">
+                      {% for sp in srp_prices %}
+                        <option value="{{ sp.srp_price }}">
+                      {% endfor %}
+                    </datalist>
+                  </div>
+
+                  <!-- Description -->
+                  <div class="form-item">
+                    <label>Description</label>
+                    <textarea name="description" rows="3" class="form-control" placeholder="Enter Description">{{ form.description.value|default:'' }}</textarea>
+                  </div>
+
+                  <!-- Photo Upload -->
+                  <div class="form-item">
+                    <label>Product Photo</label>
+                    <div class="custom-file">
+                      <input type="file" name="photo" class="custom-file-input" id="customFile" accept="image/*">
+                      <label class="custom-file-label" for="customFile">Choose file</label>
+                    </div>
+                    {% render_field form.photo class="form-control-file d-none" %}
+                  </div>
+                </div>
+
+              <!-- Buttons -->
+              <div class="form-actions btn-row mt-3">
+                {% if object and object.id %}
+                  <a href="{% url 'recipe-list' object.id %}" class="btn btn-secondary">Manage Recipes</a>
+                {% else %}
+                  <button type="submit" class="btn btn-primary btn-rounded">Save Product</button>
+                {% endif %}
+              </div>
+
+              </form>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Beep Sound -->
+<audio id="beep-sound" preload="auto">
+  <source src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" type="audio/ogg">
+</audio>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const barcodeInput = document.getElementById("barcode-input");
+  const barcodeStatus = document.getElementById("barcode-status");
+  const scannerStatus = document.getElementById("scanner-status");
+  const beepSound = document.getElementById("beep-sound");
+  
+  let socket = null;
+  let reconnectTimer = null;
+  let lastScannedBarcode = "";
+
+  function updateScannerStatus(text, className) {
+    scannerStatus.textContent = `Scanner: ${text}`;
+    scannerStatus.className = `badge ${className} ml-3`;
+  }
+
+  function updateBarcodeStatus(text, color = "text-muted") {
+    barcodeStatus.textContent = text;
+    barcodeStatus.className = `form-text ${color}`;
+  }
+
+  function playBeep() {
+    if (beepSound) {
+      beepSound.currentTime = 0;
+      beepSound.play().catch(err => console.log("Audio blocked:", err));
+    }
+  }
+
+  function flashInput(input, success = true) {
+    const originalBorder = input.style.border;
+    input.style.border = success ? "2px solid #28a745" : "2px solid #ffc107";
+    input.style.transition = "border 0.3s ease";
+    
+    setTimeout(() => {
+      input.style.border = originalBorder;
+    }, 800);
+  }
+
+  function connectWebSocket() {
+    if (socket) {
+      socket.close();
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    const wsUrl = `${protocol}${window.location.host}/ws/scan/`;
+
+    console.log("🔌 Connecting to:", wsUrl);
+    updateScannerStatus("Connecting...", "badge-warning");
+
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = function() {
+      console.log("✅ Scanner connected");
+      updateScannerStatus("Connected", "badge-success");
+      updateBarcodeStatus("✓ Scanner ready. Scan a barcode...", "text-success");
+      
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    socket.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        const barcode = data.barcode;
+
+        if (!barcode) return;
+
+        console.log("📦 Scanned barcode:", barcode);
+
+        // Prevent duplicate scans within 1 second
+        if (barcode === lastScannedBarcode) {
+          console.log("⚠️ Duplicate scan ignored");
+          flashInput(barcodeInput, false);
+          return;
+        }
+
+        lastScannedBarcode = barcode;
+        setTimeout(() => { lastScannedBarcode = ""; }, 1000);
+
+        // Update barcode input
+        barcodeInput.value = barcode;
+        
+        // Visual feedback
+        flashInput(barcodeInput, true);
+        playBeep();
+        
+        // Update status
+        const now = new Date().toLocaleTimeString();
+        updateBarcodeStatus(`✓ Scanned: ${barcode} at ${now}`, "text-success");
+        
+        // Check barcode availability
+        checkBarcodeAvailability(barcode);
+        
+        // Focus next field (Product Type) after validation
+        const productTypeInput = document.querySelector('input[name="product_type"]');
+        if (productTypeInput) {
+          setTimeout(() => productTypeInput.focus(), 800);
+        }
+
+      } catch (err) {
+        console.error("❌ Error processing scan:", err);
+        updateBarcodeStatus("✗ Error processing barcode", "text-danger");
+      }
+    };
+
+    socket.onclose = function(e) {
+      console.log("🔌 Disconnected:", e.code);
+      updateScannerStatus("Disconnected", "badge-danger");
+      updateBarcodeStatus("✗ Scanner disconnected. Reconnecting...", "text-warning");
+
+      // Auto-reconnect after 3 seconds
+      if (!reconnectTimer) {
+        reconnectTimer = setTimeout(() => {
+          console.log("🔄 Reconnecting...");
+          connectWebSocket();
+        }, 3000);
+      }
+    };
+
+    socket.onerror = function(err) {
+      console.error("⚠️ WebSocket error:", err);
+      updateScannerStatus("Error", "badge-danger");
+      updateBarcodeStatus("✗ Connection error", "text-danger");
+    };
+  }
+
+  // Start connection
+  connectWebSocket();
+
+  // Barcode validation
+  let validationTimer = null;
+  const barcodeValidation = document.getElementById("barcode-validation");
+  const submitButton = document.querySelector('button[type="submit"]');
+  let isBarcodeValid = true;
+
+  function checkBarcodeAvailability(barcode) {
+    if (!barcode || barcode.trim() === '') {
+      barcodeValidation.style.display = 'none';
+      isBarcodeValid = true;
+      if (submitButton) submitButton.disabled = false;
+      return;
+    }
+
+    // Show checking status
+    barcodeValidation.textContent = '🔍 Checking barcode...';
+    barcodeValidation.className = 'form-text text-info';
+    barcodeValidation.style.display = 'block';
+
+    fetch(`/api/check-barcode/?barcode=${encodeURIComponent(barcode)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.available) {
+          barcodeValidation.textContent = '✓ Barcode is available';
+          barcodeValidation.className = 'form-text text-success';
+          barcodeInput.style.borderColor = '#28a745';
+          isBarcodeValid = true;
+          if (submitButton) submitButton.disabled = false;
+        } else {
+          barcodeValidation.textContent = `✗ ${data.message}`;
+          barcodeValidation.className = 'form-text text-danger';
+          barcodeInput.style.borderColor = '#dc3545';
+          isBarcodeValid = false;
+          if (submitButton) submitButton.disabled = true;
+        }
+        barcodeValidation.style.display = 'block';
+      })
+      .catch(error => {
+        console.error('Barcode check error:', error);
+        barcodeValidation.textContent = '⚠️ Could not verify barcode';
+        barcodeValidation.className = 'form-text text-warning';
+        barcodeValidation.style.display = 'block';
+        isBarcodeValid = true; // Allow submission on error
+        if (submitButton) submitButton.disabled = false;
+      });
+  }
+
+  // Manual barcode input (keyboard) with validation
+  barcodeInput.addEventListener('input', function() {
+    const barcode = this.value.trim();
+    
+    if (barcode.length > 0) {
+      updateBarcodeStatus(`Manual entry: ${barcode}`, "text-info");
+      
+      // Debounce validation check
+      clearTimeout(validationTimer);
+      validationTimer = setTimeout(() => {
+        checkBarcodeAvailability(barcode);
+      }, 500);
+    } else {
+      barcodeValidation.style.display = 'none';
+      this.style.borderColor = '';
+      isBarcodeValid = true;
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+
+  // Validate on blur
+  barcodeInput.addEventListener('blur', function() {
+    const barcode = this.value.trim();
+    if (barcode) {
+      checkBarcodeAvailability(barcode);
+    }
+  });
+
+  // Prevent form submission if barcode is invalid
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (!isBarcodeValid) {
+        e.preventDefault();
+        barcodeValidation.textContent = '✗ Please use a different barcode';
+        barcodeValidation.className = 'form-text text-danger';
+        barcodeValidation.style.display = 'block';
+        barcodeInput.focus();
+        return false;
+      }
+    });
+  }
+
+  // Cleanup
+  window.addEventListener("beforeunload", function() {
+    if (socket) socket.close();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (validationTimer) clearTimeout(validationTimer);
+  });
+});
+</script>
+
+<script>
+  document.querySelector('#customFile').addEventListener('change', function(e) {
+    var fileName = e.target.files[0].name;
+    e.target.nextElementSibling.textContent = fileName;
+  });
+</script>
+{% endblock %}

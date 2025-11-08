@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">Raw Material Inventory</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <!-- Card Header -->
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <div class="card-title">List of Raw Material Inventory</div>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body">
+            <!-- Search bar -->
+            <form method="get" action="" id="filterForm">
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <div class="input-group">
+                    <input type="text" id="searchInput" name="q" value="{{ request.GET.q }}" 
+                      class="form-control" placeholder="Search raw material inventory...">
+                  </div>
+                </div>
+                <div class="col-md-1">
+                  <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                    <i class="la la-times"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Table -->
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Material</th>
+                      <th>Current Stock</th>
+                      <th>Restock Threshold</th>
+                      <th>
+                        <span class="fw-bold me-2">Status</span>
+                        <select id="statusFilter" name="status"
+                          style="border:none; background:transparent; font-weight:500; cursor:pointer;">
+                          <option value="" {% if not request.GET.status %}selected{% endif %}>All</option>
+                          <option value="on_stock" {% if request.GET.status == 'on_stock' %}selected{% endif %}>On Stock</option>
+                          <option value="low_stock" {% if request.GET.status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                          <option value="warning" {% if request.GET.status == 'warning' %}selected{% endif %}>Warning</option>
+                          <option value="out_of_stock" {% if request.GET.status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                        </select>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="inventoryTableBody">
+                    {% for item in rawmatinvent %}
+                    <tr>
+                      <td>{{ item.material.name }}</td>
+                      <td>{{ item.total_stock|floatformat:0 }}</td>
+                      <td>{{ item.reorder_threshold|floatformat:0 }}</td>
+                      <td>
+                        {% if item.total_stock == 0 %}
+                          <span class="badge bg-danger">Out of Stock</span>
+                        {% elif item.total_stock < item.reorder_threshold %}
+                          <span class="badge bg-warning text-dark">Low Stock</span>
+                        {% elif item.total_stock == item.reorder_threshold %}
+                          <span class="badge bg-info text-dark">Warning</span>
+                        {% else %}
+                          <span class="badge bg-success">On Stock</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                      <td colspan="4" class="text-center">No inventory found.</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </form>
+
+            <!-- Pagination -->
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const statusFilter = document.getElementById('statusFilter');
+  const tableBody = document.getElementById('inventoryTableBody');
+  const pagination = document.querySelector('.pagination-container');
+  
+  let timeout;
+  
+  function fetchInventory(resetPage = true) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      
+      // Update or remove search query
+      if (searchInput.value) {
+        params.set("q", searchInput.value);
+      } else {
+        params.delete("q");
+      }
+      
+      // Update or remove status filter
+      if (statusFilter.value) {
+        params.set("status", statusFilter.value);
+      } else {
+        params.delete("status");
+      }
+      
+      // Reset to page 1 when filters change
+      if (resetPage) {
+        params.delete("page");
+      }
+      
+      const url = "/rawmaterial-inventory/?" + params.toString();
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#inventoryTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+        })
+        .catch(err => console.error("Error fetching inventory:", err));
+    }, 300);
+  }
+  
+  // Event listeners
+  searchInput.addEventListener('keyup', () => fetchInventory(true));
+  statusFilter.addEventListener('change', () => fetchInventory(true));
+  
+  // Handle pagination clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.pagination a')) {
+      e.preventDefault();
+      const link = e.target.closest('a');
+      const url = link.getAttribute('href');
+      
+      fetch(url)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          
+          // Replace table body
+          const newRows = doc.querySelector("#inventoryTableBody");
+          if (newRows) tableBody.innerHTML = newRows.innerHTML;
+          
+          // Replace pagination
+          const newPagination = doc.querySelector(".pagination-container");
+          if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+          
+          // Update URL without page reload
+          window.history.pushState({}, '', url);
+          
+          // Scroll to top of table
+          document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(err => console.error("Error fetching inventory:", err));
+    }
+  });
+});
+</script>
+{% endblock %}

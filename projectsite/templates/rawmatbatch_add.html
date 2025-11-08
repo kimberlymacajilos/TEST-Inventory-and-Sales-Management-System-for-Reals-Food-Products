@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">
+      <a href="{% url 'rawmaterial-batch' %}" class="btn btn-link p-0 mr-2" title="Back to Raw Material Batches">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Raw Material Batches
+    </h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Bulk Add Raw Material Batches</div>
+          </div>
+
+          <div class="card-body">
+              <form method="post">
+                {% csrf_token %}
+
+                <!-- Batch Details -->
+                <div class="form-group mb-4">
+                  <label for="{{ form.received_date.id_for_label }}" class="font-weight-bold">Received Date</label>
+                  <input type="date" 
+                         id="{{ form.received_date.id_for_label }}" 
+                         name="{{ form.received_date.name }}" 
+                         class="form-control" 
+                         style="max-width: 300px;"
+                         placeholder="Select Received Date"
+                         value="{{ form.received_date.value|default:'' }}">
+                </div>
+
+                <!-- Raw Materials Table -->
+                <div class="mt-3">
+                  <h5>Raw Materials</h5>
+                  <table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Raw Material</th>
+                        <th>Current Stock</th>
+                        <th>Quantity</th>
+                        <th>Expiration Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for r in raw_materials %}
+                      <tr>
+                        <td>{{ r.rawmaterial }}</td>
+                        <td>{{ r.rawmaterial.rawmaterialinventory.total_stock|floatformat:0 }}</td>
+                        <td>{{ r.qty_field }}</td>
+                        <td>{{ r.exp_field }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="form-actions btn-row mt-3">
+                  <button type="submit" class="btn btn-success btn-rounded">Save Batches</button>
+                </div>
+              </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const receivedDateInput = document.getElementById('{{ form.received_date.id_for_label }}');
+  if (receivedDateInput && !receivedDateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    receivedDateInput.value = today;
+  }
+});
+</script>
+{% endblock %}

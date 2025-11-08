@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="content">
+    <div class="container-fluid">
+        <h4 class="page-title">User Activity</h4>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <!-- Header -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="card-title">List of Users</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Search -->
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <form method="get" action="" class="mt-2" id="searchForm">
+                                    <div class="input-group">
+                                        <input type="text" id="searchInput" name="q"
+                                            class="form-control"
+                                            placeholder="Search users..."
+                                            value="{{ request.GET.q }}">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary mt-2" title="Reset filters">
+                                    <i class="la la-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table -->
+                        <table class="table table-striped mt-3">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Username</th>
+                                    <th scope="col">Email</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Last Login</th>
+                                    <th scope="col">Last Logout</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                {% for user in users %}
+                                <tr {% if user.username|slice:":12" == "deleted_user" %}class="table-secondary"{% endif %}>
+                                    <td>
+                                        {% if user.username|slice:":12" == "deleted_user" %}
+                                            <span class="text-muted">
+                                                <i class="fas fa-user-slash me-1"></i>
+                                                [Deleted User #{{ user.username|slice:"13:14" }}]
+                                            </span>
+                                        {% else %}
+                                            {{ user.username }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.email|slice:"-14:" == "@deleted.local" %}
+                                            <span class="text-muted fst-italic">Account Deleted</span>
+                                        {% else %}
+                                            {{ user.email }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.useractivity.is_truly_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% elif user.useractivity.active %}
+                                            <span class="badge bg-warning text-dark">Inactive</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Logged Out</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.last_login|default:"—" }}</td>
+                                    <td>
+                                        {% if user.useractivity.last_logout %}
+                                            {{ user.useractivity.last_logout }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No users found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- Pagination -->
+                        <div id="paginationContainer">
+                            {% include 'includes/pagination.html' %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

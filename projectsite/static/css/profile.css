@@ -1,0 +1,160 @@
+.profile-page .ui-w-80 { width: 80px !important; height: auto; }
+
+/* Buttons (scoped) */
+.profile-page .btn { cursor: pointer; }
+
+.profile-page .btn-default{
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.profile-page .btn-default:hover{
+  background: var(--primary-100);
+  border-color: var(--border);
+}
+
+.profile-page .btn-outline-primary{
+  border: 1px solid var(--primary-500);
+  background: transparent;
+  color: var(--primary-600);
+}
+.profile-page .btn-outline-primary:hover{
+  background: var(--primary-100);
+  color: #0f172a;
+  border-color: var(--primary-600);
+}
+
+.profile-page .btn-lg{
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.profile-page .text-light{ color: var(--muted) !important; }
+
+/* Cards — huwag sapawan ang global card look; subtle lang */
+.profile-page .card{
+  background-clip: padding-box;
+  /* keep base card border/radius/shadow from base.css */
+  box-shadow: var(--shadow-xs);
+}
+
+/* Utility */
+.profile-page .row-bordered { overflow: hidden; }
+
+.profile-page .account-settings-fileinput{
+  position: absolute; visibility: hidden; width: 1px; height: 1px; opacity: 0;
+}
+
+/* Left nav (General / Change Password) */
+.profile-page .account-settings-links .list-group-item{
+  padding: .85rem 1.25rem;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border-color: rgba(24,28,33,.06) !important;
+  background: transparent;
+  color: var(--text);
+  transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.profile-page .account-settings-links .list-group-item:hover{
+  background: var(--primary-100);
+}
+.profile-page .account-settings-links .list-group-item.active{
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  background: linear-gradient(180deg, var(--primary-200), var(--primary-100)) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.08);
+}
+
+/* If you also use .form-group-item in the links column */
+.profile-page .account-settings-links .form-group-item{
+  padding: .85rem 1.25rem;
+  border-color: rgba(24,28,33,.06) !important;
+  background: transparent;
+}
+.profile-page .account-settings-links .form-group-item.active{
+  color: #0f172a !important;
+  background: var(--primary-100) !important;
+}
+
+/* Select2 width fix inside profile */
+.profile-page .account-settings-multiselect ~ .select2-container{ width: 100% !important; }
+
+/* -------- Forms: match the global style, ensure full-width -------- */
+.profile-page .form-group{ margin-bottom: 1rem; }
+
+.profile-page label,
+.profile-page .col-form-label{
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.profile-page .form-control,
+.profile-page input[type="text"],
+.profile-page input[type="email"],
+.profile-page input[type="password"],
+.profile-page select,
+.profile-page textarea{
+  width: 100% !important;
+  max-width: 100%;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .625rem .875rem;
+  min-height: 44px;
+  box-shadow: var(--shadow-xs) inset;
+}
+
+.profile-page .form-control:focus,
+.profile-page select:focus,
+.profile-page textarea:focus{
+  border-color: var(--primary-500) !important;
+  box-shadow: 0 0 0 4px rgba(var(--primary-500-rgb, 90,133,95), .18) !important;
+  outline: 0;
+}
+
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item{
+  border-color: rgba(255,255,255,.06) !important;
+  color: var(--text);
+}
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item:hover{
+  background: rgba(56,78,29,.18);
+}
+html[data-theme="dark"] .profile-page .account-settings-links .list-group-item.active{
+  color: #fff !important;
+  background: linear-gradient(180deg, rgba(56,78,29,.28), rgba(56,78,29,.18)) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+
+html[data-theme="dark"] .profile-page .form-control,
+html[data-theme="dark"] .profile-page input[type="text"],
+html[data-theme="dark"] .profile-page input[type="email"],
+html[data-theme="dark"] .profile-page input[type="password"],
+html[data-theme="dark"] .profile-page select,
+html[data-theme="dark"] .profile-page textarea{
+  background: #fff !important;
+  color: #0f172a !important;
+  border-color: rgba(255,255,255,.2) !important;
+}
+
+html[data-theme="dark"] .profile-page .form-control::placeholder,
+html[data-theme="dark"] .profile-page input::placeholder,
+html[data-theme="dark"] .profile-page textarea::placeholder{
+  color: #64748b !important;
+  opacity: 0.7;
+}
+
+/* Buttons in dark */
+html[data-theme="dark"] .profile-page .btn-outline-primary{
+  border-color: var(--primary-500);
+  color: var(--text);
+}
+html[data-theme="dark"] .profile-page .btn-outline-primary:hover{
+  background: rgba(56,78,29,.25);
+  color: var(--text);
+}

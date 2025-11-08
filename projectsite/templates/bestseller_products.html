@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="content">
+    <div class="container-fluid">
+        <h4 class="page-title">Best Seller Products</h4>
+        
+        <!-- Filter Section -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2" style="gap:0.5rem;">
+                    <input
+                        type="month"
+                        id="monthFilter"
+                        class="form-control"
+                        style="width:180px;"
+                        placeholder="Select month"
+                        value="{% if request.GET.month %}{{ request.GET.month }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}"
+                    />
+                    <button type="button" id="showAllBtn" class="btn btn-info" onclick="toggleShowAll()">
+                        Show All Data
+                    </button>
+                    <button type="button" onclick="window.location.href=window.location.pathname" class="btn btn-secondary" title="Reset filters">
+                        <i class="la la-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row" id="bestsellerContent">
+            <!-- Best Sellers Section -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Top Selling Products</div>
+                        <p class="text-muted mb-0">Products with highest sales quantity</p>
+                    </div>
+                    <div class="card-body">
+                        {% if best_sellers %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Product</th>
+                                            <th>Total Sold</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in best_sellers %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge badge-success">#{{ forloop.counter }}</span>
+                                            </td>
+                                            <td>
+                                                <strong>{{ product.product__product_type__name }}</strong><br>
+                                                <small class="text-muted">
+                                                    {{ product.product__variant__name }} 
+                                                    ({{ product.product__size__size_label }} {{ product.product__size_unit__unit_name }})
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-primary">{{ product.total_quantity|floatformat:0 }} units</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="la la-chart-line la-3x text-muted"></i>
+                                <p class="text-muted mt-3">No sales data available yet</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low Sellers Section -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Low Selling Products</div>
+                        <p class="text-muted mb-0">Products with lowest sales quantity</p>
+                    </div>
+                    <div class="card-body">
+                        {% if low_sellers %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Product</th>
+                                            <th>Total Sold</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in low_sellers %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge badge-warning">#{{ forloop.counter }}</span>
+                                            </td>
+                                            <td>
+                                                <strong>{{ product.product__product_type__name }}</strong><br>
+                                                <small class="text-muted">
+                                                    {{ product.product__variant__name }} 
+                                                    ({{ product.product__size__size_label }} {{ product.product__size_unit__unit_name }})
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-secondary">{{ product.total_quantity|floatformat:0 }} units</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="la la-chart-line la-3x text-muted"></i>
+                                <p class="text-muted mt-3">No sales data available yet</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/bestseller_filter.js' %}"></script>
+{% endblock %}

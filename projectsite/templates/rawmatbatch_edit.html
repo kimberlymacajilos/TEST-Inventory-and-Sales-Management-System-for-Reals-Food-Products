@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">
+      <a href="{% url 'rawmaterial-batch' %}" class="btn btn-link p-0 mr-2" title="Back to Raw Material Batches">
+        <i class="la la-arrow-left" style="font-size: 24px;"></i>
+      </a>
+      Raw Material Batches
+    </h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Edit Raw Material Batch</div>
+          </div>
+
+          <div class="card-body">
+              <form action="" method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="form-container">
+                  <!-- Material -->
+                  <div class="form-item">
+                    <label for="{{ form.material.id_for_label }}">{{ form.material.label }}</label>
+                    {% render_field form.material class="form-control" %}
+                    {% for error in form.material.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Quantity -->
+                  <div class="form-item">
+                    <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
+                    {% render_field form.quantity class="form-control" %}
+                    {% for error in form.quantity.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Batch Date -->
+                  <div class="form-item">
+                    <label for="{{ form.batch_date.id_for_label }}">{{ form.batch_date.label }}</label>
+                    {% render_field form.batch_date class="form-control" %}
+                    {% for error in form.batch_date.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Received Date -->
+                  <div class="form-item">
+                    <label for="{{ form.received_date.id_for_label }}">{{ form.received_date.label }}</label>
+                    {% render_field form.received_date class="form-control" %}
+                    {% for error in form.received_date.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                  </div>
+
+                  <!-- Expiration Date - Full Width -->
+                  <div class="form-item" style="flex: 1 1 100%;">
+                    <label for="{{ form.expiration_date.id_for_label }}">{{ form.expiration_date.label }}</label>
+                    {% render_field form.expiration_date class="form-control" %}
+                    {% for error in form.expiration_date.errors %}
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <div class="form-actions btn-row mt-3">
+                  <button type="submit" class="btn btn-primary btn-rounded">Update</button>
+              </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

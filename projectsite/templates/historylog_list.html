@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="content">
+  <div class="container-fluid">
+    <h4 class="page-title">History Log</h4>
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card">
+          <!-- Header: title + filters -->
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <div class="card-title">List of History</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form method="get" id="filterForm" class="d-flex align-items-center" style="gap:0.5rem;">
+              <!-- Admin Filter -->
+              <select name="admin" id="adminFilter" class="form-control auto-submit" style="width:180px;">
+                <option value="">All Admins</option>
+                {% for admin in admins %}
+                  <option value="{{ admin }}" {% if request.GET.admin == admin|stringformat:'s' %}selected{% endif %}>{{ admin }}</option>
+                {% endfor %}
+              </select>
+              
+              <!-- Log Filter -->
+              <select name="log" id="logFilter" class="form-control auto-submit" style="width:180px;">
+                <option value="">All Logs</option>
+                {% for log in logs %}
+                  <option value="{{ log }}" {% if request.GET.log == log|stringformat:'s' %}selected{% endif %}>{{ log }}</option>
+                {% endfor %}
+              </select>
+              
+              <!-- Date Filter -->
+              <input type="month" id="dateFilter" name="date" class="form-control auto-submit" style="width:180px;" value="{% if request.GET.date %}{{ request.GET.date }}{% elif not request.GET.show_all %}{{ current_month_value }}{% endif %}">
+              
+              <!-- Show All Data Button -->
+              <button type="button" class="btn btn-info" onclick="toggleShowAll()">
+                Show All Data
+              </button>
+              
+              <!-- Reset Button -->
+              <button type="button" onclick="window.location.href='{% url 'history_log' %}'" class="btn btn-secondary" title="Reset filters">
+                <i class="la la-times"></i>
+              </button>
+              
+              <!-- Loading Indicator -->
+              <div class="spinner-border text-primary d-none" id="loadingSpinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </form>
+          </div>
+          <!-- Table -->
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped" id="historyTable">
+                <thead>
+                  <tr>
+                    <th scope="col">Admin</th>
+                    <th scope="col">Log</th>
+                    <th scope="col">Entity</th>
+                    <th scope="col">Details</th>
+                    <th scope="col">Date</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                  {% if object_list %}
+                    {% for object in object_list %}
+                    <tr>
+                      <td>{{ object.admin.username }}</td>
+                      <td>{{ object.log_type.category }}</td>
+                      <td>{{ object.get_entity_display }}</td>
+                      <td>{{ object.get_details_display }}</td>
+                      <td>{{ object.log_date|date:"M j, Y h:i A" }}</td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center">No history found.</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- Pagination with preserved filters -->
+            <div class="pagination-container">
+              {% include 'includes/pagination.html' %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const adminFilter = document.getElementById('adminFilter');
+    const logFilter = document.getElementById('logFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const tableBody = document.getElementById('historyTableBody');
+    const pagination = document.querySelector('.pagination-container');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    let timeout;
+    
+    function showLoading() {
+      if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+    }
+    
+    function hideLoading() {
+      if (loadingSpinner) loadingSpinner.classList.add('d-none');
+    }
+    
+    function fetchHistory(resetPage = true) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        showLoading();
+        
+        const params = new URLSearchParams(window.location.search);
+        
+        // Update or remove admin filter
+        if (adminFilter.value) {
+          params.set("admin", adminFilter.value);
+        } else {
+          params.delete("admin");
+        }
+        
+        // Update or remove log filter
+        if (logFilter.value) {
+          params.set("log", logFilter.value);
+        } else {
+          params.delete("log");
+        }
+        
+        // Update or remove date filter
+        if (dateFilter.value) {
+          params.set("date", dateFilter.value);
+        } else {
+          params.delete("date");
+        }
+        
+        // Reset to page 1 when filters change
+        if (resetPage) {
+          params.delete("page");
+        }
+        
+        const url = "/history/?" + params.toString();
+        
+        fetch(url)
+          .then(response => response.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            
+            // Replace table body
+            const newRows = doc.querySelector("#historyTableBody");
+            if (newRows) tableBody.innerHTML = newRows.innerHTML;
+            
+            // Replace pagination
+            const newPagination = doc.querySelector(".pagination-container");
+            if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+            
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+            
+            hideLoading();
+          })
+          .catch(err => {
+            console.error("Error fetching history:", err);
+            hideLoading();
+          });
+      }, 300);
+    }
+    
+    // Event listeners for filters
+    adminFilter.addEventListener('change', () => fetchHistory(true));
+    logFilter.addEventListener('change', () => fetchHistory(true));
+    dateFilter.addEventListener('change', () => fetchHistory(true));
+    
+    // Handle pagination clicks
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.pagination a')) {
+        e.preventDefault();
+        showLoading();
+        
+        const link = e.target.closest('a');
+        const url = link.getAttribute('href');
+        
+        fetch(url)
+          .then(response => response.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            
+            // Replace table body
+            const newRows = doc.querySelector("#historyTableBody");
+            if (newRows) tableBody.innerHTML = newRows.innerHTML;
+            
+            // Replace pagination
+            const newPagination = doc.querySelector(".pagination-container");
+            if (newPagination && pagination) pagination.innerHTML = newPagination.innerHTML;
+            
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+            
+            // Scroll to top of table
+            document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+            
+            hideLoading();
+          })
+          .catch(err => {
+            console.error("Error fetching history:", err);
+            hideLoading();
+          });
+      }
+    });
+  });
+  
+  function toggleShowAll() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('show_all')) {
+      params.delete('show_all');
+    } else {
+      params.set('show_all', '1');
+      params.delete('date');
+    }
+    window.location.href = window.location.pathname + '?' + params.toString();
+  }
+</script>
+
+{% endblock %}

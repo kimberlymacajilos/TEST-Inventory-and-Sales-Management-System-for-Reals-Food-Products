@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+
+<div class="container container-p-y profile-page">
+    <h2 class="font-weight-bold py-3 mb-4 text-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i> Delete Account
+    </h2>
+
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0">⚠️ Warning: This action cannot be undone</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <h5><strong>What happens when you delete your account:</strong></h5>
+                <ul>
+                    <li>Your account will be <strong>deactivated</strong> and you will no longer be able to log in</li>
+                    <li>Your username and email will be anonymized</li>
+                    <li>All records you created (products, sales, expenses, etc.) will be <strong>preserved</strong> for business record-keeping</li>
+                    <li>Your 2FA settings and security data will be removed</li>
+                    <li>This action is <strong>permanent</strong> and cannot be reversed</li>
+                </ul>
+            </div>
+
+            <div class="alert alert-info">
+                <p><strong>Note:</strong> Your account will be soft-deleted to maintain database integrity. All historical data you created will remain in the system but will be attributed to a deleted user.</p>
+            </div>
+
+            <form method="post" onsubmit="return confirmDelete();">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="password" class="form-label"><strong>Enter your password to confirm:</strong></label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           required 
+                           placeholder="Your current password"
+                           style="max-width: 400px;">
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="confirm_text" class="form-label"><strong>Type "DELETE" to confirm:</strong></label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="confirm_text" 
+                           name="confirm_text" 
+                           required 
+                           placeholder="Type DELETE in capital letters"
+                           style="max-width: 400px;">
+                    <small class="form-text text-muted">You must type the word DELETE exactly as shown.</small>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-danger btn-lg">
+                        <i class="bi bi-trash"></i> Delete My Account 
+                    </button>
+                    <a href="{% url 'profile' %}" class="btn btn-secondary btn-lg ml-2">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete() {
+    const confirmText = document.getElementById('confirm_text').value;
+    if (confirmText !== 'DELETE') {
+        alert('Please type "DELETE" exactly as shown to confirm.');
+        return false;
+    }
+    return confirm('Are you absolutely sure you want to delete your account? This action is permanent and cannot be undone.');
+}
+</script>
+
+{% endblock %}
